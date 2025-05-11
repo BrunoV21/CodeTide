@@ -107,14 +107,14 @@ class CodeTide:
                     
                     # Parse the file
                     parser = self.parsers[language]
-                    code_file = parser.parse_file(file_path, content)
+                    code_file = parser.parse_file(file_path, content, self.root_path)
                     
                     # Add the file to the codebase
                     codebase.elements.add_element(code_file)
                     codebase.files.append(code_file.id)
                     
                     # Add all elements from the file to the codebase
-                    elements = parser.extract_all_elements(file_path, content)
+                    elements = parser.extract_all_elements(file_path, content, self.root_path)
                     for element_type, element_list in elements.items():
                         for element in element_list:
                             codebase.elements.add_element(element)
@@ -139,3 +139,9 @@ class CodeTide:
             parser.resolve_dependencies(codebase)
             # except Exception as e:
             #     logger.error(f"Error resolving dependencies for language {language}: {e}")
+
+### TODO add support to retrieve context via parsing from selected entry point and comile into list of markdown files
+### TODO add support to generate mermaid representation of the graph in plaintxt + html
+### TODO add support for file structure tree and file + modules / function / variables from codebase
+### TODO add support to serialize and deserialize CodeBase for speed up
+### TODO add support to update codebase each time a new file / files are created
