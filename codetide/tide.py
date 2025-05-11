@@ -1,18 +1,15 @@
-from typing import List, Dict, Optional, Union, Any
-from pathlib import Path
-import os
-import logging
-from glob import glob
-
-from codetide.core.models import CodeBase, CodeBaseElements
-from codetide.core.defaults import DEFAULT_IGNORE_PATTERNS
-from codetide.parsers.base_parser import BaseParser
-from codetide.parsers.python_parser import PythonParser
 from codetide.core.utils import find_code_files, get_language_from_extension, read_file_content
+from codetide.core.defaults import DEFAULT_IGNORE_PATTERNS
+from codetide.parsers.python_parser import PythonParser
+from codetide.core.models import CodeBase
+
+from typing import List, Union
+from pathlib import Path
+from tqdm import tqdm
+import logging
 
 # Setup logging
 logger = logging.getLogger(__name__)
-
 
 class CodeTide:
     """
@@ -98,7 +95,7 @@ class CodeTide:
         code_files = find_code_files(self.root_path, self.languages, self.ignore_patterns)
         
         # Parse each file with the appropriate parser
-        for file_path in code_files:
+        for file_path in tqdm(code_files):
             language = get_language_from_extension(file_path)
             if language and language in self.parsers:
                 try:

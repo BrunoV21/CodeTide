@@ -1,9 +1,9 @@
-from typing import Dict, List, Set, Tuple, Optional, Union, Any
+from typing import Dict, List, Set, Optional, Any
 import networkx as nx
 from pathlib import Path
 import json
 
-from codetide.core.models import CodeBase, CodeElement, DependencyType
+from codetide.core.models import CodeBase
 
 
 class DependencyGraph:

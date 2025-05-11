@@ -4,11 +4,9 @@ Example script for analyzing a Python project using the CodeTide library.
 import sys
 import os
 from pathlib import Path
-import argparse
-import json
 import networkx as nx
 import matplotlib.pyplot as plt
-from typing import Dict, List, Optional
+from typing import Optional
 
 # Add the root directory to sys.path if needed
 # This might be needed if the codetide package isn't installed

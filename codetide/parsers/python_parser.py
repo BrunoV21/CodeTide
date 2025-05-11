@@ -1,17 +1,18 @@
-from typing import List, Dict, Any, Optional, Union, Tuple
+from typing import List, Dict, Optional, Union
 from pathlib import Path
 import re
-from pydantic import Field, model_validator
+from pydantic import model_validator
 from tqdm import tqdm
 from tree_sitter import Language, Parser, Node
 import tree_sitter_python as tspython
 
+from codetide.core.defaults import DEFAULT_ENCODING
 from codetide.parsers.base_parser import BaseParser
 from codetide.core.models import (
-    CodeBase, CodeFile, Import, Function, Class, 
-    Variable, DependencyType
+    CodeBase, CodeFile, Import, Function,
+    Class, Variable, DependencyType
 )
-from codetide.core.defaults import DEFAULT_ENCODING
+
 
 
 class PythonParser(BaseParser):

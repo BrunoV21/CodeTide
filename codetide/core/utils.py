@@ -1,10 +1,10 @@
-from typing import List, Dict, Set, Optional, Union, Any
+from codetide.core.defaults import DEFAULT_ENCODINGS, LANGUAGE_EXTENSIONS, DEFAULT_IGNORE_PATTERNS
+
+from typing import List, Dict, Optional, Union, Any
+from functools import lru_cache
 from pathlib import Path
-import os
 import fnmatch
 import logging
-from functools import lru_cache
-from codetide.core.defaults import DEFAULT_ENCODINGS, LANGUAGE_EXTENSIONS, DEFAULT_IGNORE_PATTERNS
 
 # Setup logging
 logger = logging.getLogger(__name__)
