@@ -36,12 +36,12 @@ class PythonParser(BaseParser):
         self._tree_parser = Parser(Language(tspython.language()))
         return self
     
-    def parse_file(self, file_path: Path, content: str) -> CodeFile:
+    def parse_file(self, file_path: Path, content: str, rootpath :Optional[Path]=None) -> CodeFile:
         """Parse a Python file and extract its components."""
-        elements = self.extract_all_elements(file_path, content)
+        elements = self.extract_all_elements(file_path, content, rootpath)
         
         code_file = CodeFile(
-            file_path=file_path,
+            file_path=file_path.relative_to(rootpath) if rootpath is not None else file_path,
             language=self.language,
             content=content,
             imports=[imp.id for imp in elements["imports"]],
@@ -52,7 +52,7 @@ class PythonParser(BaseParser):
         
         return code_file
     
-    def extract_imports(self, content: str, file_path: Path) -> List[Import]:
+    def extract_imports(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Import]:
         """Extract import statements from Python code."""
         if not self.tree_parser:
             self.init_tree_parser()
@@ -66,22 +66,23 @@ class PythonParser(BaseParser):
             node=root_node,
             code=content.encode(DEFAULT_ENCODING),
             imports=imports,
-            file_path=file_path
+            file_path=file_path,
+            rootpath=rootpath
         )
         
         return imports
     
-    def _traverse_for_imports(self, node: Node, code: bytes, imports: List[Import], file_path: Path) -> None:
+    def _traverse_for_imports(self, node: Node, code: bytes, imports: List[Import], file_path: Path, rootpath :Optional[Path]=None) -> None:
         """Helper method to traverse the tree for import statements."""
         if node.type in ('import_statement', 'import_from_statement'):
-            import_details = self._process_import_node(node, code, file_path)
+            import_details = self._process_import_node(node, code, file_path, rootpath)
             if import_details:
                 imports.append(import_details)
                 
         for child in node.children:
-            self._traverse_for_imports(child, code, imports, file_path)
+            self._traverse_for_imports(child, code, imports, file_path, rootpath)
     
-    def _process_import_node(self, node: Node, code: bytes, file_path: Path) -> Optional[Import]:
+    def _process_import_node(self, node: Node, code: bytes, file_path: Path, rootpath :Optional[Path]=None) -> Optional[Import]:
         """Process an import node and convert it to an Import model."""
         start_line = node.start_point[0] + 1  # 0-indexed to 1-indexed
         end_line = node.end_point[0] + 1
@@ -110,7 +111,7 @@ class PythonParser(BaseParser):
                         aliases[identifiers[0]] = identifiers[1]
             
             for module_name in modules:
-                import_id = self.generate_element_id("import", file_path, module_name, start_line)
+                import_id = self.generate_element_id("import", file_path, module_name, start_line, rootpath)
                 return Import(
                     id=import_id,
                     name=module_name,
@@ -157,7 +158,7 @@ class PythonParser(BaseParser):
                     imported_names.append('*')
             
             if from_module:
-                import_id = self.generate_element_id("import", file_path, from_module, start_line)
+                import_id = self.generate_element_id("import", file_path, from_module, start_line, rootpath)
                 return Import(
                     id=import_id,
                     name=f"from {from_module}",
@@ -177,7 +178,7 @@ class PythonParser(BaseParser):
         
         return None
     
-    def extract_classes(self, content: str, file_path: Path) -> List[Class]:
+    def extract_classes(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Class]:
         """Extract class definitions from Python code."""
         if not self.tree_parser:
             self.init_tree_parser()
@@ -191,22 +192,23 @@ class PythonParser(BaseParser):
             node=root_node,
             code=content.encode(DEFAULT_ENCODING),
             classes=classes,
-            file_path=file_path
+            file_path=file_path,
+            rootpath=rootpath
         )
         
         return classes
     
-    def _traverse_for_classes(self, node: Node, code: bytes, classes: List[Class], file_path: Path) -> None:
+    def _traverse_for_classes(self, node: Node, code: bytes, classes: List[Class], file_path: Path, rootpath :Optional[Path]=None) -> None:
         """Helper method to traverse the tree for class definitions."""
         if node.type == 'class_definition':
-            class_details = self._process_class_node(node, code, file_path)
+            class_details = self._process_class_node(node, code, file_path, rootpath)
             if class_details:
                 classes.append(class_details)
                 
         for child in node.children:
-            self._traverse_for_classes(child, code, classes, file_path)
+            self._traverse_for_classes(child, code, classes, file_path, rootpath)
     
-    def _process_class_node(self, node: Node, code: bytes, file_path: Path) -> Optional[Class]:
+    def _process_class_node(self, node: Node, code: bytes, file_path: Path, rootpath :Optional[Path]=None) -> Optional[Class]:
         """Process a class node and convert it to a Class model."""
         # Extract class name
         class_name = None
@@ -244,13 +246,13 @@ class PythonParser(BaseParser):
                             if method_child.type == 'identifier':
                                 method_name = code[method_child.start_byte:method_child.end_byte].decode(DEFAULT_ENCODING)
                                 method_id = self.generate_element_id(
-                                    "function", file_path, method_name, block_child.start_point[0] + 1
+                                    "function", file_path, method_name, block_child.start_point[0] + 1, rootpath
                                 )
                                 methods.append(method_id)
                                 break
         
         if class_name:
-            class_id = self.generate_element_id("class", file_path, class_name, start_line)
+            class_id = self.generate_element_id("class", file_path, class_name, start_line, rootpath)
             return Class(
                 id=class_id,
                 name=class_name,
@@ -270,7 +272,7 @@ class PythonParser(BaseParser):
         
         return None
     
-    def extract_functions(self, content: str, file_path: Path) -> List[Function]:
+    def extract_functions(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Function]:
         """Extract function definitions from Python code."""
         if not self.tree_parser:
             self.init_tree_parser()
@@ -285,13 +287,14 @@ class PythonParser(BaseParser):
             code=content.encode(DEFAULT_ENCODING),
             functions=functions,
             file_path=file_path,
-            parent_class=None
+            parent_class=None,
+            rootpath=rootpath
         )
         
         return functions
     
     def _traverse_for_functions(self, node: Node, code: bytes, functions: List[Function], 
-                               file_path: Path, parent_class: Optional[str]) -> None:
+                               file_path: Path, parent_class: Optional[str], rootpath :Optional[Path]=None) -> None:
         """Helper method to traverse the tree for function definitions."""
         if node.type == 'class_definition':
             # Update parent_class for methods within this class
@@ -302,24 +305,24 @@ class PythonParser(BaseParser):
                     break
             
             if class_name:
-                class_id = self.generate_element_id("class", file_path, class_name, node.start_point[0] + 1)
+                class_id = self.generate_element_id("class", file_path, class_name, node.start_point[0] + 1, rootpath)
                 
                 # Process methods within the class block
                 for child in node.children:
                     if child.type == 'block':
-                        self._traverse_for_functions(child, code, functions, file_path, class_id)
+                        self._traverse_for_functions(child, code, functions, file_path, class_id, rootpath)
                         
         elif node.type == 'function_definition':
-            func_details = self._process_function_node(node, code, file_path, parent_class)
+            func_details = self._process_function_node(node, code, file_path, parent_class, rootpath)
             if func_details:
                 functions.append(func_details)
         else:
             # Continue traversing for other nodes
             for child in node.children:
-                self._traverse_for_functions(child, code, functions, file_path, parent_class)
+                self._traverse_for_functions(child, code, functions, file_path, parent_class, rootpath)
     
     def _process_function_node(self, node: Node, code: bytes, file_path: Path, 
-                              parent_class: Optional[str]) -> Optional[Function]:
+                              parent_class: Optional[str], rootpath :Optional[Path]=None) -> Optional[Function]:
         """Process a function node and convert it to a Function model."""
         # Extract function name and parameters
         func_name = None
@@ -361,7 +364,7 @@ class PythonParser(BaseParser):
                 # It's an instance method
                 pass
             
-            func_id = self.generate_element_id("function", file_path, func_name, start_line)
+            func_id = self.generate_element_id("function", file_path, func_name, start_line, rootpath)
             return Function(
                 id=func_id,
                 name=func_name,
@@ -382,7 +385,7 @@ class PythonParser(BaseParser):
         
         return None
     
-    def extract_variables(self, content: str, file_path: Path) -> List[Variable]:
+    def extract_variables(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Variable]:
         """Extract variable declarations from Python code."""
         if not self.tree_parser:
             self.init_tree_parser()
@@ -398,13 +401,14 @@ class PythonParser(BaseParser):
             variables=variables,
             file_path=file_path,
             scope="global",
-            parent_id=None
+            parent_id=None,
+            rootpath=rootpath
         )
         
         return variables
     
     def _traverse_for_variables(self, node: Node, code: bytes, variables: List[Variable], 
-                               file_path: Path, scope: str, parent_id: Optional[str]) -> None:
+                               file_path: Path, scope: str, parent_id: Optional[str], rootpath :Optional[Path]=None) -> None:
         """Helper method to traverse the tree for variable declarations."""
         if node.type == 'class_definition':
             # Update scope and parent for class fields
@@ -420,7 +424,7 @@ class PythonParser(BaseParser):
                 # Process variable assignments within the class block
                 for child in node.children:
                     if child.type == 'block':
-                        self._traverse_for_variables(child, code, variables, file_path, "class", class_id)
+                        self._traverse_for_variables(child, code, variables, file_path, "class", class_id, rootpath)
                         
         elif node.type == 'function_definition':
             # Update scope and parent for function variables
@@ -431,24 +435,24 @@ class PythonParser(BaseParser):
                     break
             
             if func_name:
-                func_id = self.generate_element_id("function", file_path, func_name, node.start_point[0] + 1)
+                func_id = self.generate_element_id("function", file_path, func_name, node.start_point[0] + 1, rootpath)
                 
                 # Process variable assignments within the function block
                 for child in node.children:
                     if child.type == 'block':
-                        self._traverse_for_variables(child, code, variables, file_path, "function", func_id)
+                        self._traverse_for_variables(child, code, variables, file_path, "function", func_id, rootpath)
         
         elif node.type == 'assignment':
-            var_details = self._process_variable_node(node, code, file_path, scope, parent_id)
+            var_details = self._process_variable_node(node, code, file_path, scope, parent_id, rootpath)
             if var_details:
                 variables.append(var_details)
                 
         # Continue traversing
         for child in node.children:
-            self._traverse_for_variables(child, code, variables, file_path, scope, parent_id)
+            self._traverse_for_variables(child, code, variables, file_path, scope, parent_id, rootpath)
     
     def _process_variable_node(self, node: Node, code: bytes, file_path: Path, 
-                              scope: str, parent_id: Optional[str]) -> Optional[Variable]:
+                              scope: str, parent_id: Optional[str], rootpath :Optional[Path]=None) -> Optional[Variable]:
         """Process a variable assignment node and convert it to a Variable model."""
         # Only process global or class-level variable assignments
         if scope not in ["global", "class"]:
@@ -492,7 +496,7 @@ class PythonParser(BaseParser):
                 break
         
         if var_name:
-            var_id = self.generate_element_id("variable", file_path, var_name, start_line)
+            var_id = self.generate_element_id("variable", file_path, var_name, start_line, rootpath)
             return Variable(
                 id=var_id,
                 name=var_name,
