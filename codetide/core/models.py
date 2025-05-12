@@ -1,8 +1,10 @@
+from codetide.core.common import readFile, writeFile
+from codetide.core.defaults import SERIALIZED_CODEBASE
+
 from typing import List, Dict, Optional, Union
 from pydantic import BaseModel, Field
 from pathlib import Path
 from enum import Enum
-
 
 class DependencyType(str, Enum):
     """Enumeration of different types of dependencies."""
@@ -146,3 +148,17 @@ class CodeBase(BaseModel):
                 ]
         
         return graph
+    
+    def serialize(self, path :Optional[Union[Path, str]]=SERIALIZED_CODEBASE):
+        if isinstance(path, str):
+            path = Path(path)
+
+        writeFile(self.model_dump_json(indent=4), path)
+
+    @classmethod
+    def deserialize(cls, path :Optional[Union[Path, str]]=SERIALIZED_CODEBASE)->"CodeBase":
+        if isinstance(path, str):
+            path = Path(path)
+
+        kwargs = readFile(path)
+        return cls(**kwargs)

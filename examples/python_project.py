@@ -117,7 +117,8 @@ def main():
     output_path = "./output.json"
     print(f"\nExporting dependency graph to {output_path}")
     graph.to_json(output_path)
-    
+    codebase.serialize()
+
     graph.visualize()
     # visualize_graph(graph)
     
