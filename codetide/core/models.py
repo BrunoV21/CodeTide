@@ -5,6 +5,7 @@ from typing import List, Dict, Optional, Union
 from pydantic import BaseModel, Field
 from pathlib import Path
 from enum import Enum
+import json
 
 class DependencyType(str, Enum):
     """Enumeration of different types of dependencies."""
@@ -160,5 +161,5 @@ class CodeBase(BaseModel):
         if isinstance(path, str):
             path = Path(path)
 
-        kwargs = readFile(path)
+        kwargs = json.loads(readFile(path))
         return cls(**kwargs)
