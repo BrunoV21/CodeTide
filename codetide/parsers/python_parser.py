@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Tuple, Union
 from pathlib import Path
 import re
 from pydantic import model_validator
@@ -36,7 +36,8 @@ class PythonParser(BaseParser):
         self._tree_parser = Parser(Language(tspython.language()))
         return self
     
-    def parse_file(self, file_path: Path, content: str, rootpath :Optional[Path]=None) -> CodeFile:
+    def parse_file(self, file_path: Path, content: str, rootpath :Optional[Path]=None) -> Tuple[CodeFile, Dict[str, List[Union[Import, 
+    Function, Class, Variable]]]]:
         """Parse a Python file and extract its components."""
         elements = self.extract_all_elements(file_path, content, rootpath)
         
@@ -50,7 +51,7 @@ class PythonParser(BaseParser):
             variables=[var.id for var in elements["variables"]]
         )
         
-        return code_file
+        return code_file, elements
     
     def extract_imports(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Import]:
         """Extract import statements from Python code."""
@@ -384,7 +385,7 @@ class PythonParser(BaseParser):
             )
         
         return None
-    
+        
     def extract_variables(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Variable]:
         """Extract variable declarations from Python code."""
         if not self.tree_parser:
@@ -400,18 +401,27 @@ class PythonParser(BaseParser):
             code=content.encode(DEFAULT_ENCODING),
             variables=variables,
             file_path=file_path,
-            scope="global",
+            scope="global",  # Start with global scope
             parent_id=None,
             rootpath=rootpath
         )
         
         return variables
-    
+
     def _traverse_for_variables(self, node: Node, code: bytes, variables: List[Variable], 
-                               file_path: Path, scope: str, parent_id: Optional[str], rootpath :Optional[Path]=None) -> None:
+                            file_path: Path, scope: str, parent_id: Optional[str], rootpath :Optional[Path]=None) -> None:
         """Helper method to traverse the tree for variable declarations."""
+        # Process this node if it's an assignment and we're in global scope
+        if node.type == 'assignment' and scope == "global":
+            var_details = self._process_variable_node(node, code, file_path, scope, parent_id, rootpath)
+            if var_details:
+                variables.append(var_details)
+        
+        # Continue traversing, but track when we enter and exit classes/functions
+        # to maintain proper scope information
+        
         if node.type == 'class_definition':
-            # Update scope and parent for class fields
+            # When we enter a class, we're no longer in global scope
             class_name = None
             for child in node.children:
                 if child.type == 'identifier':
@@ -421,13 +431,13 @@ class PythonParser(BaseParser):
             if class_name:
                 class_id = self.generate_element_id("class", file_path, class_name, node.start_point[0] + 1)
                 
-                # Process variable assignments within the class block
+                # Process children with class scope
                 for child in node.children:
                     if child.type == 'block':
                         self._traverse_for_variables(child, code, variables, file_path, "class", class_id, rootpath)
                         
         elif node.type == 'function_definition':
-            # Update scope and parent for function variables
+            # When we enter a function, we're no longer in global scope
             func_name = None
             for child in node.children:
                 if child.type == 'identifier':
@@ -437,25 +447,20 @@ class PythonParser(BaseParser):
             if func_name:
                 func_id = self.generate_element_id("function", file_path, func_name, node.start_point[0] + 1, rootpath)
                 
-                # Process variable assignments within the function block
+                # Process children with function scope
                 for child in node.children:
                     if child.type == 'block':
                         self._traverse_for_variables(child, code, variables, file_path, "function", func_id, rootpath)
-        
-        elif node.type == 'assignment':
-            var_details = self._process_variable_node(node, code, file_path, scope, parent_id, rootpath)
-            if var_details:
-                variables.append(var_details)
-                
-        # Continue traversing
-        for child in node.children:
-            self._traverse_for_variables(child, code, variables, file_path, scope, parent_id, rootpath)
-    
+        else:
+            # For all other node types, continue traversing with the same scope
+            for child in node.children:
+                self._traverse_for_variables(child, code, variables, file_path, scope, parent_id, rootpath)
+
     def _process_variable_node(self, node: Node, code: bytes, file_path: Path, 
-                              scope: str, parent_id: Optional[str], rootpath :Optional[Path]=None) -> Optional[Variable]:
+                            scope: str, parent_id: Optional[str], rootpath :Optional[Path]=None) -> Optional[Variable]:
         """Process a variable assignment node and convert it to a Variable model."""
-        # Only process global or class-level variable assignments
-        if scope not in ["global", "class"]:
+        # Only process global variable assignments
+        if scope != "global":
             return None
             
         var_name = None
@@ -516,7 +521,7 @@ class PythonParser(BaseParser):
             )
         
         return None
-    
+
     def resolve_dependencies(self, codebase: CodeBase) -> None:
         """
         Analyze the codebase to identify and establish dependencies between elements.
