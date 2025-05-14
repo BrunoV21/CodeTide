@@ -123,14 +123,16 @@ class CodeTide:
                     
                     # Parse the file
                     parser = self.parsers[language]
-                    code_file = parser.parse_file(file_path, content, self.root_path)
+                    code_file, elements = parser.parse_file(file_path, content, self.root_path)
                     
                     # Add the file to the codebase
                     codebase.elements.add_element(code_file)
                     codebase.files.append(code_file.id)
+                    codebase.modules.extend(code_file.classes) 
+                    codebase.modules.extend(code_file.functions)
+                    codebase.modules.extend(code_file.variables)
                     
                     # Add all elements from the file to the codebase
-                    elements = parser.extract_all_elements(file_path, content, self.root_path)
                     for element_type, element_list in elements.items():
                         for element in element_list:
                             codebase.elements.add_element(element)
