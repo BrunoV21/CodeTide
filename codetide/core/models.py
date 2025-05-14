@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from pathlib import Path
 from enum import Enum
 import json
+import re
 
 class DependencyType(str, Enum):
     """Enumeration of different types of dependencies."""
@@ -163,3 +164,15 @@ class CodeBase(BaseModel):
 
         kwargs = json.loads(readFile(path))
         return cls(**kwargs)
+    
+    @staticmethod
+    def extract_key(entry: str):
+        match = re.match(r".*:(.*?):.*?:(\d+)", entry)
+        if match:
+            file_name, line_num = match.groups()
+            return (file_name, int(line_num))
+        else:
+            return ("", 0)
+    
+    def _sort_modules(self) -> None:
+        self.modules = sorted(self.modules, key=self.extract_key)
