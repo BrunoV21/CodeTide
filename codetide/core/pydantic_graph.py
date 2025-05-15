@@ -426,17 +426,34 @@ class PydanticGraph(BaseModel):
                 line=dict(width=1, color='#888'),
                 hoverinfo='none',
                 mode='lines'))
+        
         # Prepare node data
         x_list = []
         y_list = []
         text_list = []
+        hover_text_list = []
         marker_color_list = []
                 
         for node in graph.nodes():
             x, y = pos[node]
             x_list.append(x)
             y_list.append(y)
-            text_list.append(node)
+            
+            # Use the node name for display instead of ID
+            node_name = self.nodes[node].data.get("name", node) if node in self.nodes else node
+            text_list.append(node_name)
+            
+            # Create detailed hover text that includes both name and ID
+            hover_text = f"Name: {node_name}<br>ID: {node}"
+            if node in self.nodes and self.nodes[node].data:
+                node_type = self.nodes[node].data.get("type", "")
+                file_path = self.nodes[node].data.get("file_path", "")
+                if node_type:
+                    hover_text += f"<br>Type: {node_type}"
+                if file_path:
+                    hover_text += f"<br>File: {file_path}"
+            
+            hover_text_list.append(hover_text)
             marker_color_list.append(len(list(graph.neighbors(node))))
         
         # Create node trace
@@ -444,6 +461,7 @@ class PydanticGraph(BaseModel):
             x=x_list,
             y=y_list,
             text=text_list,
+            hovertext=hover_text_list,
             mode='markers+text',
             textposition='bottom center',
             hoverinfo='text',
