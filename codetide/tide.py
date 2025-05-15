@@ -127,7 +127,6 @@ class CodeTide:
                     code_file, elements = parser.parse_file(file_path, content, self.root_path)
                     
                     # Add the file to the codebase
-                    codebase.elements.add_element(code_file)
                     codebase.files.append(code_file.id)
                     codebase.modules.extend(code_file.classes) 
                     codebase.modules.extend(code_file.functions)
