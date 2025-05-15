@@ -2,7 +2,7 @@ from codetide.core.common import readFile, writeFile
 from codetide.core.defaults import SERIALIZED_CODEBASE
 
 from typing import List, Dict, Optional, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from pathlib import Path
 from enum import Enum
 import json
@@ -22,7 +22,6 @@ class CodeElement(BaseModel):
     """Base class for all code elements."""
     id: str = Field(..., description="Unique identifier for this element")
     name: str = Field(..., description="Name of the element")
-    element_type: str = Field(..., description="Type of the element")
     language: str = Field(..., description="Programming language")
     file_path: Path = Field(..., description="Path to the file containing this element")
     start_line: int = Field(..., description="Start line in the file")
@@ -33,6 +32,13 @@ class CodeElement(BaseModel):
     dependencies: Dict[str, List[str]] = Field(default_factory=dict, 
                                              description="Dictionary mapping dependency types to lists of element IDs")
     
+    @computed_field
+    def element_type(self)->str:
+        """
+        Type of the element
+        """
+        return self.id.split(":")[0]
+
     def add_dependency(self, dep_type: Union[DependencyType, str], target_id: str) -> None:
         """Add a dependency to this element."""
         if isinstance(dep_type, DependencyType):
@@ -47,7 +53,6 @@ class CodeElement(BaseModel):
 
 class Import(CodeElement):
     """Model representing an import statement."""
-    element_type: str = "import"
     is_from_import: bool = Field(False, description="Whether this is a 'from X import Y' statement")
     module_name: str = Field(..., description="Name of the imported module")
     imported_names: List[str] = Field(default_factory=list, description="Names imported from the module")
@@ -56,7 +61,6 @@ class Import(CodeElement):
 
 class Function(CodeElement):
     """Model representing a function definition."""
-    element_type: str = "function"
     is_method: bool = Field(False, description="Whether this function is a class method")
     parameters: List[str] = Field(default_factory=list, description="List of parameter names")
     return_type: Optional[str] = Field(None, description="Return type annotation if available")
@@ -66,7 +70,6 @@ class Function(CodeElement):
 
 class Class(CodeElement):
     """Model representing a class definition."""
-    element_type: str = "class"
     base_classes: List[str] = Field(default_factory=list, description="List of base class names")
     methods: List[str] = Field(default_factory=list, description="List of method IDs defined in this class")
     fields: List[str] = Field(default_factory=list, description="List of field names defined in this class")
@@ -75,7 +78,6 @@ class Class(CodeElement):
 
 class Variable(CodeElement):
     """Model representing a variable declaration."""
-    element_type: str = "variable"
     var_type: Optional[str] = Field(None, description="Type annotation if available")
     is_constant: bool = Field(False, description="Whether this is a constant")
     value: Optional[str] = Field(None, description="Initial value as string representation")
