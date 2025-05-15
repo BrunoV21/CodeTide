@@ -94,6 +94,7 @@ class PythonParser(BaseParser):
         if node.type == 'import_statement':
             # For a standard import statement like: import os, sys as s
             modules = []
+            imported_names = []
             aliases = {}
             
             for child in node.children:
@@ -102,17 +103,28 @@ class PythonParser(BaseParser):
                 elif child.type == 'dotted_name':
                     module_name = code[child.start_byte:child.end_byte].decode(DEFAULT_ENCODING)
                     modules.append(module_name)
+                    # For regular imports, the imported name is the last part of the dotted name
+                    imported_names.append(module_name.split('.')[-1])
                 elif child.type == 'alias':
                     # Process alias
-                    identifiers = [
-                        code[sub.start_byte:sub.end_byte].decode(DEFAULT_ENCODING)
-                        for sub in child.children if sub.type == 'identifier'
-                    ]
-                    if len(identifiers) > 1:
-                        aliases[identifiers[0]] = identifiers[1]
+                    name_parts = []
+                    alias_name = None
+                    for sub in child.children:
+                        if sub.type == 'dotted_name':
+                            module_name = code[sub.start_byte:sub.end_byte].decode(DEFAULT_ENCODING)
+                            name_parts.append(module_name)
+                        elif sub.type == 'identifier':
+                            alias_name = code[sub.start_byte:sub.end_byte].decode(DEFAULT_ENCODING)
+                    
+                    if name_parts and alias_name:
+                        full_name = '.'.join(name_parts)
+                        modules.append(full_name)
+                        imported_names.append(full_name.split('.')[-1])
+                        aliases[full_name.split('.')[-1]] = alias_name
             
             for module_name in modules:
                 import_id = self.generate_element_id("import", file_path, module_name, start_line, rootpath)
+                print(f"{imported_names=}")
                 return Import(
                     id=import_id,
                     name=module_name,
@@ -126,7 +138,7 @@ class PythonParser(BaseParser):
                     content=content,
                     is_from_import=False,
                     module_name=module_name,
-                    imported_names=[],
+                    imported_names=imported_names,
                     aliases=aliases
                 )
                 
@@ -135,10 +147,16 @@ class PythonParser(BaseParser):
             from_module = None
             imported_names = []
             aliases = {}
+            # print(f"\n{node.children=}")
             
             for child in node.children:
-                if child.type == 'dotted_name' and from_module is None:
-                    from_module = code[child.start_byte:child.end_byte].decode(DEFAULT_ENCODING)
+                if child.type == 'dotted_name':# and from_module is None:
+                    child_module = code[child.start_byte:child.end_byte].decode(DEFAULT_ENCODING)
+                    if from_module is None:
+                        from_module = child_module
+                    else:
+                        imported_names.append(child_module)
+                    # print(f"{from_module=}")
                 elif child.type == 'import_statement':
                     # Process imported names within the from-import
                     for sub_child in child.children:
@@ -147,19 +165,28 @@ class PythonParser(BaseParser):
                             imported_names.append(name)
                         elif sub_child.type == 'alias':
                             # Process alias for imports
-                            identifiers = [
-                                code[sub.start_byte:sub.end_byte].decode(DEFAULT_ENCODING)
-                                for sub in sub_child.children if sub.type == 'identifier'
-                            ]
-                            if len(identifiers) > 1:
-                                aliases[identifiers[0]] = identifiers[1]
-                                imported_names.append(identifiers[0])
+                            original_name = None
+                            alias_name = None
+                            for sub_sub in sub_child.children:
+                                if sub_sub.type == 'identifier':
+                                    if original_name is None:
+                                        original_name = code[sub_sub.start_byte:sub_sub.end_byte].decode(DEFAULT_ENCODING)
+                                    else:
+                                        alias_name = code[sub_sub.start_byte:sub_sub.end_byte].decode(DEFAULT_ENCODING)
+                                elif sub_sub.type == 'dotted_name':
+                                    original_name = code[sub_sub.start_byte:sub_sub.end_byte].decode(DEFAULT_ENCODING)
+                            
+                            if original_name:
+                                imported_names.append(original_name)
+                                if alias_name:
+                                    aliases[original_name] = alias_name
                 elif child.type == 'star':
                     # Handle "from module import *"
                     imported_names.append('*')
             
             if from_module:
                 import_id = self.generate_element_id("import", file_path, from_module, start_line, rootpath)
+                print(f"{imported_names=}")
                 return Import(
                     id=import_id,
                     name=f"from {from_module}",
