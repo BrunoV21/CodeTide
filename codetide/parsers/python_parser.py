@@ -244,10 +244,11 @@ class PythonParser(BaseParser):
                     if block_child.type == 'function_definition':
                         # Find method name
                         for method_child in block_child.children:
+                            #TODO check if this can be removed due to redundancy
                             if method_child.type == 'identifier':
                                 method_name = code[method_child.start_byte:method_child.end_byte].decode(DEFAULT_ENCODING)
                                 method_id = self.generate_element_id(
-                                    "function", file_path, method_name, block_child.start_point[0] + 1, rootpath
+                                    "method", file_path, method_name, block_child.start_point[0] + 1, rootpath
                                 )
                                 methods.append(method_id)
                                 break
@@ -288,6 +289,7 @@ class PythonParser(BaseParser):
             code=content.encode(DEFAULT_ENCODING),
             functions=functions,
             file_path=file_path,
+            scope="global",
             parent_class=None,
             rootpath=rootpath
         )
@@ -295,7 +297,7 @@ class PythonParser(BaseParser):
         return functions
     
     def _traverse_for_functions(self, node: Node, code: bytes, functions: List[Function], 
-                               file_path: Path, parent_class: Optional[str], rootpath :Optional[Path]=None) -> None:
+                               file_path: Path, scope :str, parent_class: Optional[str], rootpath :Optional[Path]=None) -> None:
         """Helper method to traverse the tree for function definitions."""
         if node.type == 'class_definition':
             # Update parent_class for methods within this class
@@ -311,20 +313,25 @@ class PythonParser(BaseParser):
                 # Process methods within the class block
                 for child in node.children:
                     if child.type == 'block':
-                        self._traverse_for_functions(child, code, functions, file_path, class_id, rootpath)
-                        
+                        self._traverse_for_functions(child, code, functions, file_path, "class", class_id, rootpath)
+        
+        elif scope == "class" and node.type == 'function_definition':
+            func_details = self._process_function_node(node, code, file_path, "method", parent_class, rootpath)
+            if func_details:
+                functions.append(func_details)
         elif node.type == 'function_definition':
-            func_details = self._process_function_node(node, code, file_path, parent_class, rootpath)
+            func_details = self._process_function_node(node, code, file_path, "function", parent_class, rootpath)
             if func_details:
                 functions.append(func_details)
         else:
             # Continue traversing for other nodes
             for child in node.children:
-                self._traverse_for_functions(child, code, functions, file_path, parent_class, rootpath)
+                self._traverse_for_functions(child, code, functions, file_path, scope, parent_class, rootpath)
     
     def _process_function_node(self, node: Node, code: bytes, file_path: Path, 
-                              parent_class: Optional[str], rootpath :Optional[Path]=None) -> Optional[Function]:
+                              scope :str, parent_class: Optional[str], rootpath :Optional[Path]=None) -> Optional[Function]:
         """Process a function node and convert it to a Function model."""
+        ### do not process class methods        
         # Extract function name and parameters
         func_name = None
         parameters = []
@@ -364,8 +371,8 @@ class PythonParser(BaseParser):
             if is_method and parameters and parameters[0] == 'self':
                 # It's an instance method
                 pass
-            
-            func_id = self.generate_element_id("function", file_path, func_name, start_line, rootpath)
+            scope = "function" if scope != "method" else scope
+            func_id = self.generate_element_id(scope, file_path, func_name, start_line, rootpath)
             return Function(
                 id=func_id,
                 name=func_name,
