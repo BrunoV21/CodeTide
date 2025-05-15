@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Union
+from typing import Dict, List, Optional
 from pathlib import Path
 from pydantic import BaseModel, Field
 
 from codetide.core.models import (
     CodeBase, CodeFile, CodeElement, Import, 
-    Function, Class, Variable, DependencyType
+    Function, Class, Variable
 )
 
 
