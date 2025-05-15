@@ -1,15 +1,17 @@
 from codetide.core.utils import find_code_files, get_language_from_extension, read_file_content
 from codetide.core.defaults import DEFAULT_IGNORE_PATTERNS
+
+from codetide.core.models import CodeBase, DependencyType
 from codetide.parsers.python_parser import PythonParser
-from codetide.core.models import CodeBase
 from codetide.core.pydantic_graph import PydanticGraph
 
-from typing import List, Union, Optional    
+from typing import Dict, List, Union, Optional    
 from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from tqdm import tqdm
 import logging
+import re
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -157,17 +159,102 @@ class CodeTide:
     
     def _resolve_dependencies(self, codebase: CodeBase) -> None:
         """
-        Resolve dependencies between elements in the codebase.
+        Analyze the codebase to identify and establish dependencies between elements.
+        
+        This method scans through all code elements to find references to other elements
+        and establishes dependency relationships between them.
         
         Args:
             codebase: CodeBase object containing all parsed elements
         """
-        # Resolve dependencies for each language
-        for language, parser in self.parsers.items():
-            try:
-                parser.resolve_dependencies(codebase)
-            except Exception as e:
-                logger.error(f"Error resolving dependencies for language {language}: {e}")
+        # First, build a lookup map of element names for faster dependency resolution
+        name_to_id_map = {}
+        for element_id, element in tqdm(codebase.elements.root.items()):
+            if hasattr(element, 'name'):
+                # Simple name-based lookup
+                name_to_id_map[element.name] = element_id
+                
+                # Handle special cases like from-imports
+                if getattr(element, 'element_type', None) == 'import' and getattr(element, 'is_from_import', False):
+                    module = getattr(element, 'module_name', '')
+                    for imported_name in getattr(element, 'imported_names', []):
+                        if imported_name != '*':
+                            qualified_name = f"{module}.{imported_name}"
+                            name_to_id_map[imported_name] = element_id  # Direct name
+                            name_to_id_map[qualified_name] = element_id  # Qualified name
+        
+        # Now process each element to find dependencies
+        for element_id, element in tqdm(codebase.elements.root.items()):
+            if not hasattr(element, 'element_type'):
+                continue
+                
+            # Process different types of elements
+            if element.element_type == 'class':
+                # Add inheritance dependencies
+                for base_class in getattr(element, 'base_classes', []):
+                    if base_class in name_to_id_map:
+                        element.add_dependency(DependencyType.INHERITANCE, name_to_id_map[base_class])
+                
+                # Analyze class body for references to other elements
+                class_content = getattr(element, 'content', '')
+                if class_content:
+                    self._find_references_in_code(element, class_content, name_to_id_map, codebase)
+                
+            elif element.element_type == 'function':
+                # Add class reference for methods
+                parent_class = getattr(element, 'parent_class', None)
+                if parent_class:
+                    element.add_dependency(DependencyType.CLASS_REFERENCE, parent_class)
+                
+                # Analyze function body for references to other functions, variables, etc.
+                function_content = getattr(element, 'content', '')
+                if function_content:
+                    self._find_references_in_code(element, function_content, name_to_id_map, codebase)
+                
+            elif element.element_type == 'variable':
+                # If the variable references other elements in its value
+                value = getattr(element, 'value', '')
+                if value:
+                    self._find_references_in_code(element, value, name_to_id_map, codebase)
+
+    def _find_references_in_code(self, element, code: str, name_to_id_map: Dict[str, str], codebase: CodeBase) -> None:
+        """
+        Find references to other elements in a block of code.
+        
+        Args:
+            element: The element containing the code
+            code: The code to analyze
+            name_to_id_map: Mapping of element names to their IDs
+            codebase: CodeBase object containing all parsed elements
+        """
+        # For each name in our map, check if it appears in the code
+        for name, target_id in name_to_id_map.items():
+            # Simple pattern matching - would need more sophistication in real use
+            # This checks for word boundaries to avoid partial matches
+            pattern = r'\b' + re.escape(name) + r'\b'
+            if re.search(pattern, code):
+                # Skip self-references
+                if target_id == element.id:
+                    continue
+                    
+                # Get the target element from the codebase
+                target_element = codebase.elements.root.get(target_id)
+                if target_element:
+                    # Determine the type of dependency based on the target element type
+                    if getattr(target_element, 'element_type', None) == 'class':
+                        element.add_dependency(DependencyType.CLASS_REFERENCE, target_id)
+                    elif getattr(target_element, 'element_type', None) == 'function':
+                        # Check if this looks like a function call (has parentheses after the name)
+                        call_pattern = r'\b' + re.escape(name) + r'\s*\('
+                        if re.search(call_pattern, code):
+                            element.add_dependency(DependencyType.FUNCTION_CALL, target_id)
+                        else:
+                            # Just a reference to the function, not a call
+                            element.add_dependency(DependencyType.CLASS_REFERENCE, target_id)
+                    elif getattr(target_element, 'element_type', None) == 'variable':
+                        element.add_dependency(DependencyType.VARIABLE_USE, target_id)
+                    elif getattr(target_element, 'element_type', None) == 'import':
+                        element.add_dependency(DependencyType.IMPORT, target_id)
 
     @lru_cache(maxsize=1024)
     def get_files_tree(self):
@@ -336,6 +423,7 @@ class CodeTide:
         else:
             return "\n".join(output_lines)
 
+### TODO finnish integration at imported_names level of Import Type from python parser to get propper references
 ### TODO add support to retrieve context via parsing from selected entry point and comile into list of markdown files
 ### TODO add support to generate mermaid representation of the graph in plaintxt + html
 ### TODO add support to update codebase each time a new file / files are created
