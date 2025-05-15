@@ -1,5 +1,5 @@
 from codetide.core.utils import find_code_files, get_language_from_extension, read_file_content
-from codetide.core.defaults import DEFAULT_IGNORE_PATTERNS, SERIALIZATION_DIR
+from codetide.core.defaults import DEFAULT_IGNORE_PATTERNS
 from codetide.parsers.python_parser import PythonParser
 from codetide.core.models import CodeBase
 from codetide.core.pydantic_graph import PydanticGraph
@@ -247,12 +247,82 @@ class CodeTide:
         
         return output
 
-    def get_modules_tree(self, show_type :Optional[bool]=True):
+    @classmethod
+    def _render(cls, node, show_type, modules_only, prefix=""):
+        lines = []
+        keys = sorted(node.keys())
+        for i, key in enumerate(keys):
+            is_last = (i == len(keys) - 1)
+            connector = "└──" if is_last else "├──"
+            next_prefix = prefix + ("    " if is_last else "│   ")
+
+            if isinstance(node[key], list):
+                lines.append(f"{prefix}{connector} {key}")
+                
+                # Process the entries in the list for this file
+                # Group methods with their parent classes
+                entries = node[key]
+                j = 0
+                while j < len(entries):
+                    type_, name = entries[j]
+                    
+                    # Skip method entries entirely when modules_only is True
+                    if modules_only and type_ == "method":
+                        j += 1
+                        continue
+                    
+                    if type_ == "class":
+                        # Add the class entry
+                        is_last_member = (j == len(entries) - 1)
+                        member_connector = "└──" if is_last_member else "├──"
+                        type_str = " [C]" if show_type else ""
+                        lines.append(f"{next_prefix}{member_connector}{type_str} {name}".strip())
+                        
+                        # Only process methods if modules_only is False
+                        if not modules_only:
+                            # Look ahead for methods belonging to this class
+                            k = j + 1
+                            method_prefix = next_prefix + ("    " if is_last_member else "│   ")                        
+                            
+                            while k < len(entries) and entries[k][0] == "method":
+                                method_type, method_name = entries[k]
+                                is_last_method = (k + 1 >= len(entries) or entries[k+1][0] != "method")
+                                method_connector = "└──" if is_last_method else "├──"
+                                method_type_str = " [M]" if show_type else ""
+                                new_method = f"{method_prefix}{method_connector}{method_type_str} {method_name}".strip()
+                                if new_method not in lines:
+                                    lines.append(new_method)
+                                k += 1
+                            
+                            # Update j to skip processed methods
+                            j = k
+                        else:
+                            # When modules_only is True, just move to next entry
+                            j += 1
+                    else:
+                        # Handle other entry types (function, variable, etc.)
+                        is_last_member = (j == len(entries) - 1)
+                        member_connector = "└──" if is_last_member else "├──"
+                        type_abbr = type_[0].upper() if type_ != "method" else "M"
+                        type_str = f" [{type_abbr}]" if show_type else ""
+                        lines.append(f"{next_prefix}{member_connector}{type_str} {name}".strip())
+                        j += 1
+            else:
+                lines.append(f"{prefix}{connector} {key}/")
+                lines.extend(cls._render(node[key], show_type, modules_only, next_prefix))
+        return lines
+
+    def get_modules_tree(self, show_type: Optional[bool]=False, modules_only: Optional[bool]=False):
         tree = defaultdict(list)
 
         # Build nested tree structure: dirs > file > [(type, name)]
         for entry in self.codebase.modules:
-            type_, file_path, name, _ = entry.split(":")
+            type_, file_path, name, line = entry.split(":")
+            
+            # If modules_only is True, skip method entries entirely
+            if modules_only and type_ == "method":
+                continue
+                
             parts = Path(file_path).parts
             current = tree
 
@@ -261,33 +331,12 @@ class CodeTide:
             file_node = current.setdefault(parts[-1], [])
             file_node.append((type_, name))
 
-        def render(node, prefix=""):
-            lines = []
-            keys = sorted(node.keys())
-            for i, key in enumerate(keys):
-                is_last = (i == len(keys) - 1)
-                connector = "└──" if is_last else "├──"
-                next_prefix = prefix + ("    " if is_last else "│   ")
-
-                if isinstance(node[key], list):
-                    lines.append(f"{prefix}{connector} {key}")
-                    for j, (type_, name) in enumerate(sorted(node[key], key=lambda x: x[1])):
-                        is_last_member = j == len(node[key]) - 1
-                        member_connector = "└──" if is_last_member else "├──"
-                        type_str = f"[{type_[0].upper()}]" if show_type else ""
-                        lines.append(f"{next_prefix}{member_connector} {type_str} {name}".strip())
-                else:
-                    lines.append(f"{prefix}{connector} {key}/")
-                    lines.extend(render(node[key], next_prefix))
-            return lines
-
-        output_lines = render(tree)
+        output_lines = self._render(tree, show_type, modules_only)
         if self.root_path:
             return f"{Path(self.root_path).name}/\n" + "\n".join(" " + line for line in output_lines)
         else:
             return "\n".join(output_lines)
 
-### TODO figure out how to prpeserve class dependecy
 ### TODO add support to retrieve context via parsing from selected entry point and comile into list of markdown files
 ### TODO add support to generate mermaid representation of the graph in plaintxt + html
 ### TODO add support to update codebase each time a new file / files are created
