@@ -4,7 +4,8 @@ from codetide.parsers.python_parser import PythonParser
 from codetide.core.models import CodeBase
 from codetide.core.pydantic_graph import PydanticGraph
 
-from typing import List, Union, Optional
+from typing import List, Union, Optional    
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from tqdm import tqdm
@@ -139,6 +140,7 @@ class CodeTide:
                 except Exception as e:
                     logger.error(f"Error parsing file {file_path}: {e}")
         
+        codebase._sort_modules()
         # Resolve dependencies between elements
         self._resolve_dependencies(codebase)
         
@@ -169,7 +171,7 @@ class CodeTide:
                 logger.error(f"Error resolving dependencies for language {language}: {e}")
 
     @lru_cache(maxsize=1024)
-    def get_file_tree(self):
+    def get_files_tree(self):
         """
         Build a string representation of a file tree structure from a list of file paths.
         
@@ -245,8 +247,47 @@ class CodeTide:
         
         return output
 
+    def get_modules_tree(self, show_type :Optional[bool]=True):
+        tree = defaultdict(list)
+
+        # Build nested tree structure: dirs > file > [(type, name)]
+        for entry in self.codebase.modules:
+            type_, file_path, name, _ = entry.split(":")
+            parts = Path(file_path).parts
+            current = tree
+
+            for part in parts[:-1]:  # Traverse directory components
+                current = current.setdefault(part, {})
+            file_node = current.setdefault(parts[-1], [])
+            file_node.append((type_, name))
+
+        def render(node, prefix=""):
+            lines = []
+            keys = sorted(node.keys())
+            for i, key in enumerate(keys):
+                is_last = (i == len(keys) - 1)
+                connector = "└──" if is_last else "├──"
+                next_prefix = prefix + ("    " if is_last else "│   ")
+
+                if isinstance(node[key], list):
+                    lines.append(f"{prefix}{connector} {key}")
+                    for j, (type_, name) in enumerate(sorted(node[key], key=lambda x: x[1])):
+                        is_last_member = j == len(node[key]) - 1
+                        member_connector = "└──" if is_last_member else "├──"
+                        type_str = f"[{type_[0].upper()}]" if show_type else ""
+                        lines.append(f"{next_prefix}{member_connector} {type_str} {name}".strip())
+                else:
+                    lines.append(f"{prefix}{connector} {key}/")
+                    lines.extend(render(node[key], next_prefix))
+            return lines
+
+        output_lines = render(tree)
+        if self.root_path:
+            return f"{Path(self.root_path).name}/\n" + "\n".join(" " + line for line in output_lines)
+        else:
+            return "\n".join(output_lines)
+
+### TODO figure out how to prpeserve class dependecy
 ### TODO add support to retrieve context via parsing from selected entry point and comile into list of markdown files
 ### TODO add support to generate mermaid representation of the graph in plaintxt + html
-### TODO add support for file structure tree and file + modules / function / variables from codebase
-### TODO add support to serialize and deserialize CodeBase for speed up -> DONE
 ### TODO add support to update codebase each time a new file / files are created
