@@ -127,7 +127,6 @@ class PythonParser(BaseParser):
             
             for module_name in modules:
                 import_id = self.generate_element_id("import", file_path, module_name, start_line, rootpath)
-                print(f"{imported_names=}")
                 return Import(
                     id=import_id,
                     name=module_name,
