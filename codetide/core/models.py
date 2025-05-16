@@ -10,12 +10,13 @@ import re
 
 class DependencyType(str, Enum):
     """Enumeration of different types of dependencies."""
-    IMPORT = "import"           # Module/package imports
-    FUNCTION_CALL = "function_call"  # Function calls
+    IMPORT_MODULE = "import_module"      # Modul
+    IMPORT_PACKAGE = "import_package"    # Package imports
+    FUNCTION_CALL = "function_call"      # Function calls
     CLASS_REFERENCE = "class_reference"  # Class references
-    INHERITANCE = "inheritance"  # Class inheritance
-    IMPLEMENTATION = "implementation"  # Interface implementation
-    VARIABLE_USE = "variable_use"  # Variable references
+    INHERITANCE = "inheritance"          # Class inheritance
+    IMPLEMENTATION = "implementation"    # Interface implementation
+    VARIABLE_USE = "variable_use"        # Variable references
 
 
 class CodeElement(BaseModel):
