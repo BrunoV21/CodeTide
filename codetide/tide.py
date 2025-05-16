@@ -254,7 +254,10 @@ class CodeTide:
                     elif getattr(target_element, 'element_type', None) == 'variable':
                         element.add_dependency(DependencyType.VARIABLE_USE, target_id)
                     elif getattr(target_element, 'element_type', None) == 'import':
-                        element.add_dependency(DependencyType.IMPORT, target_id)
+                        if codebase.root_path.name in target_id:
+                            element.add_dependency(DependencyType.IMPORT_MODULE, target_id)
+                        else:
+                            element.add_dependency(DependencyType.IMPORT_PACKAGE, target_id)
 
     @lru_cache(maxsize=1024)
     def get_files_tree(self):
