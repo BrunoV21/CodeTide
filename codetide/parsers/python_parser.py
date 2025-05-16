@@ -78,7 +78,10 @@ class PythonParser(BaseParser):
         if node.type in ('import_statement', 'import_from_statement'):
             import_details = self._process_import_node(node, code, file_path, rootpath)
             if import_details:
-                imports.append(import_details)
+                if isinstance(import_details, list):
+                    imports.extend(import_details)
+                else:
+                    imports.append(import_details)
                 
         for child in node.children:
             self._traverse_for_imports(child, code, imports, file_path, rootpath)
@@ -185,24 +188,26 @@ class PythonParser(BaseParser):
                     imported_names.append('*')
             
             if from_module:
-                import_id = self.generate_element_id("import", file_path, from_module, start_line, rootpath)
-                print(f"{imported_names=}")
-                return Import(
-                    id=import_id,
-                    name=f"from {from_module}",
-                    element_type="import",
-                    language=self.language,
-                    file_path=file_path,
-                    start_line=start_line,
-                    end_line=end_line,
-                    start_col=start_col,
-                    end_col=end_col,
-                    content=content,
-                    is_from_import=True,
-                    module_name=from_module,
-                    imported_names=imported_names,
-                    aliases=aliases
-                )
+                impots_list = []
+                for imported_name in imported_names:
+                    import_id = self.generate_element_id("import", file_path, from_module, start_line, rootpath)
+                    impots_list.append(Import(
+                        id=import_id,
+                        name=imported_name,
+                        element_type="import",
+                        language=self.language,
+                        file_path=file_path,
+                        start_line=start_line,
+                        end_line=end_line,
+                        start_col=start_col,
+                        end_col=end_col,
+                        content=content,
+                        is_from_import=True,
+                        module_name=from_module,
+                        imported_names=imported_names,
+                        aliases=aliases
+                    ))
+                return impots_list
         
         return None
     
@@ -601,15 +606,15 @@ class PythonParser(BaseParser):
                     element.add_dependency(DependencyType.CLASS_REFERENCE, parent_class)
                 
                 # Analyze function body for references to other functions, variables, etc.
-                self._find_references_in_code(element, element.content, name_to_id_map)
+                self._find_references_in_code(element, element.content, name_to_id_map, codebase.root_path)
                 
             elif element.element_type == 'variable':
                 # If the variable references other elements in its value
                 value = getattr(element, 'value', '')
                 if value:
-                    self._find_references_in_code(element, value, name_to_id_map)
+                    self._find_references_in_code(element, value, name_to_id_map, codebase.root_path)
     
-    def _find_references_in_code(self, element, code: str, name_to_id_map: Dict[str, str]) -> None:
+    def _find_references_in_code(self, element, code: str, name_to_id_map: Dict[str, str], rootpath :Path) -> None:
         """
         Find references to other elements in a block of code.
         
@@ -637,4 +642,7 @@ class PythonParser(BaseParser):
                     elif target_element.element_type == 'variable':
                         element.add_dependency(DependencyType.VARIABLE_USE, target_id)
                     elif target_element.element_type == 'import':
-                        element.add_dependency(DependencyType.IMPORT, target_id)
+                        if rootpath.name in target_id:
+                            element.add_dependency(DependencyType.IMPORT_MODULE, target_id)
+                        else:
+                            element.add_dependency(DependencyType.IMPORT_PACKAGE, target_id)
