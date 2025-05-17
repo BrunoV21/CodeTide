@@ -10,7 +10,8 @@ import re
 
 class DependencyType(str, Enum):
     """Enumeration of different types of dependencies."""
-    IMPORT_MODULE = "import_module"      # Modul
+    IMPORT = "import"                    # General import
+    IMPORT_MODULE = "import_module"      # Module
     IMPORT_PACKAGE = "import_package"    # Package imports
     FUNCTION_CALL = "function_call"      # Function calls
     CLASS_REFERENCE = "class_reference"  # Class references

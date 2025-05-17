@@ -127,10 +127,11 @@ class PythonParser(BaseParser):
             
             for module_name in modules:
                 import_id = self.generate_element_id("import", file_path, module_name, start_line, rootpath)
+                element_type, import_id = self._get_import_type(import_id, rootpath, module_name)
                 return Import(
                     id=import_id,
                     name=module_name,
-                    element_type="import",
+                    element_type=element_type,
                     language=self.language,
                     file_path=file_path,
                     start_line=start_line,
@@ -190,10 +191,15 @@ class PythonParser(BaseParser):
                 impots_list = []
                 for imported_name in imported_names:
                     import_id = self.generate_element_id("import", file_path, from_module, start_line, rootpath)
+                    ###
+                    # TODO handle inits jere
+                    # TODO handle is module or is pacakge heres
+                    element_type, import_id = self._get_import_type(import_id, rootpath, imported_name)
+                    ###
                     impots_list.append(Import(
                         id=import_id,
                         name=imported_name,
-                        element_type="import",
+                        element_type=element_type,
                         language=self.language,
                         file_path=file_path,
                         start_line=start_line,
@@ -209,6 +215,25 @@ class PythonParser(BaseParser):
                 return impots_list
         
         return None
+    
+    @staticmethod
+    def _get_import_type(import_id :str, rootpath :Path, module_name :Optional[str]=None)->Tuple[str, str]:
+
+        # corrected_import_id = import_id
+        if rootpath is None:
+            element_type = "import"
+        elif rootpath.name in import_id:
+            element_type = "import_module"
+        else:
+            element_type = "import_package"
+            # corrected_import_id =
+        corrected_import_id = import_id.split(":")
+        corrected_import_id = [element_type, corrected_import_id[-2]]
+        if module_name:
+            corrected_import_id.append(module_name)
+        corrected_import_id = ":".join(corrected_import_id)
+
+        return element_type, corrected_import_id
     
     def extract_classes(self, content: str, file_path: Path, rootpath :Optional[Path]=None) -> List[Class]:
         """Extract class definitions from Python code."""
@@ -640,8 +665,9 @@ class PythonParser(BaseParser):
                         element.add_dependency(DependencyType.FUNCTION_CALL, target_id)
                     elif target_element.element_type == 'variable':
                         element.add_dependency(DependencyType.VARIABLE_USE, target_id)
-                    elif target_element.element_type == 'import':
-                        if rootpath.name in target_id:
+                    elif target_element.element_type == 'import_module':
                             element.add_dependency(DependencyType.IMPORT_MODULE, target_id)
-                        else:
-                            element.add_dependency(DependencyType.IMPORT_PACKAGE, target_id)
+                    elif target_element.element_type == 'import_package':
+                        element.add_dependency(DependencyType.IMPORT_PACKAGE, target_id)
+                    elif target_element.element_type == 'import':
+                        element.add_dependency(DependencyType.IMPORT, target_id)
