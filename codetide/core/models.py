@@ -39,6 +39,10 @@ class CodeElement(BaseModel):
         Type of the element
         """
         return self.id.split(":")[0]
+    
+    @computed_field
+    def relative_name(self)->str:
+        return ":".join(self.id.split(":")[1:-1])
 
     def add_dependency(self, dep_type: Union[DependencyType, str], target_id: str) -> None:
         """Add a dependency to this element."""

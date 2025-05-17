@@ -28,7 +28,7 @@ class PydanticGraph(BaseModel):
     edges: List[Edge] = Field(default_factory=list)
 
     @classmethod
-    def from_codebase(cls, codebase: CodeBase) -> 'PydanticGraph':
+    def from_codebase(cls, codebase: CodeBase, include_pacakge_import :Optional[bool]=False) -> 'PydanticGraph':
         """
         Build the dependency graph from a codebase object.
         
@@ -45,10 +45,11 @@ class PydanticGraph(BaseModel):
             graph = cls()
             # Add all elements as nodes
             for element_id, element in codebase.elements.root.items():
-                if hasattr(element, 'element_type'):
+                if hasattr(element, 'element_type') and element.element_type not in ["method"]:
                     # Extract element attributes with sensible defaults
                     node_data = {
                         'name': getattr(element, 'name', ''),
+                        'relative_name': getattr(element, 'relative_name', ''),
                         'element_type': getattr(element, 'element_type', ''),
                         'language': getattr(element, 'language', ''),
                         'file_path': str(getattr(element, 'file_path', ''))
@@ -66,6 +67,8 @@ class PydanticGraph(BaseModel):
             for element_id, element in codebase.elements.root.items():
                 if hasattr(element, 'dependencies'):
                     for dep_type, target_ids in element.dependencies.items():
+                        if dep_type == "import_package" and not include_pacakge_import:
+                            continue
                         # Handle different dependency formats (list or dict)
                         if isinstance(target_ids, list):
                             targets = target_ids
@@ -393,7 +396,7 @@ class PydanticGraph(BaseModel):
         os.makedirs(serialization_dir, exist_ok=True)
         writeFile(self.model_dump_json(indent=4), serialization_dir / graph_filename)
 
-    def visualize(self):
+    def visualize(self, use_relative_names :Optional[bool]=False):
         """
         Visualize the graph using Plotly and NetworkX.
         
@@ -440,7 +443,10 @@ class PydanticGraph(BaseModel):
             y_list.append(y)
             
             # Use the node name for display instead of ID
-            node_name = self.nodes[node].data.get("name", node) if node in self.nodes else node
+            if use_relative_names:
+                node_name = self.nodes[node].data.get("relative_name", node) if node in self.nodes else node
+            else:
+                node_name = self.nodes[node].data.get("name", node) if node in self.nodes else node                
             text_list.append(node_name)
             
             # Create detailed hover text that includes both name and ID
