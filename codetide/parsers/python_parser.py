@@ -563,7 +563,10 @@ class PythonParser(BaseParser):
                     value = code[value_node.start_byte:value_node.end_byte].decode(DEFAULT_ENCODING)
                 break
         
-        if var_name:
+        if isinstance(var_name, str) and var_name.startswith("__") and var_name.endswith("__"):
+            return None
+        
+        elif var_name:
             var_id = self.generate_element_id("variable", file_path, var_name, start_line, rootpath)
             return Variable(
                 id=var_id,
