@@ -1,10 +1,11 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 from pathlib import Path
 from tree_sitter import Language, Parser, Node
 import tree_sitter_python as tspython
 from pydantic import model_validator
 from codetide.core.models import (
-    ImportStatement, CodeFileModel
+    ClassAttribute, ClassDefinition, FunctionDefinition, FunctionSignature,
+    ImportStatement, CodeFileModel, MethodDefinition, Parameter
 )
 from codetide.parsers.base_parser import BaseParser
 
@@ -61,10 +62,12 @@ class PythonParser(BaseParser):
         tree = self.tree_parser.parse(code)
         root_node = tree.root_node
 
-        codeFile = CodeFileModel(file_path=str(file_path))
-        self._process_node(root_node, code, codeFile)
+        codeFile = CodeFileModel(
+            file_path=str(file_path),
+            raw=self._get_content(code, root_node)
+        )
 
-        print(codeFile.imports)
+        self._process_node(root_node, code, codeFile)
 
         return codeFile
     
@@ -72,15 +75,24 @@ class PythonParser(BaseParser):
     def _process_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
     
         for child in node.children:
-            content = cls._get_content(code, child)
-            print("\n", child.type, content)
-            if child.type.startswith("import"):# == "import_from_statement":
-                cls._process_import_from_node(child, code, codeFile)
-            # elif child.type == "import":
+            # print("\n", child.type, cls._get_content(code, child))
+            if child.type.startswith("import"):
+                cls._process_import_node(child, code, codeFile)
+            elif child.type == "class_definition":
+                cls._process_class_node(child, code, codeFile)
+            elif child.type == "decorated_definition":
+                cls._process_decorated_definition(child, code, codeFile)
+            elif child.type == "function_definition":
+                cls._process_function_definition(child, code, codeFile)
+            ### TODO test the following two for variables extraction
+            # elif child.type == "expression_statement":
+            #     cls._process_expression_statement(child, code, codeFile)
+            # elif child.type == "assignment": # <- class attribute
+            #     cls._process_assignment(child, code, codeFile)
 
 
     @classmethod
-    def _process_import_from_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
+    def _process_import_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
         source = None
         next_is_from_import = False
         next_is_import = False
@@ -124,3 +136,158 @@ class PythonParser(BaseParser):
                             alias=alias
                         )
                     )
+
+    @classmethod
+    def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        """Process a class definition node and add it to the code file model."""
+        is_class = False
+        class_name = None
+        bases = []
+        raw = cls._get_content(code, node)
+        for child in node.children: 
+            if child.type == "class":
+                is_class = True
+            elif is_class and child.type == "identifier":
+                class_name = cls._get_content(code, child)
+            elif class_name and child.type == "arguments_list":
+                bases.append(cls._get_content(code, child).replace("(", "").replace(")", ""))
+            elif child.type == "block":
+                codeFile.classes.append(
+                    ClassDefinition(
+                        name=class_name,
+                        bases=bases,
+                        raw=raw
+                    )
+                )
+                cls._process_block(node, code, codeFile)
+
+    @classmethod
+    def _process_block(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        """Process a block of code and extract methods, attributes, and variables."""
+        for child in node.children:
+            for block_child in child.children:
+                if block_child.type == "identifier":
+                    base = cls._get_content(code, block_child)
+                    codeFile.classes[-1].bases.append(base)
+                elif block_child.type == "expression_statement":
+                    cls._process_expression_statement(block_child, code, codeFile)
+                elif block_child.type == "decorated_definition":
+                    """process decorated definiion"""
+                    cls._process_decorated_definition(block_child, code, codeFile, is_class_method=True)
+                elif block_child.type == "function_definition":
+                    """process_function_definition into class method"""
+                    cls._process_function_definition(block_child, code, codeFile, is_class_method=True)
+
+    @classmethod
+    def _process_expression_statement(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        """Process an expression statement and extract variables."""
+        for child in node.children:
+            if child.type == "assignment": # <- class attribute
+                cls._process_assignment(child, code, codeFile)
+            elif child.type == "string": # <- docstring
+                ...
+
+    @classmethod
+    def _process_assignment(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        """Process an assignment expression and extract variable names and values."""
+        attribute = None
+        type_int = None
+        default = None
+
+        for child in node.children:
+            if child.type == "identifier" and attribute is None:
+                attribute = cls._get_content(code, child)
+            elif child.type == "type":
+                type_int = cls._get_content(code, child)
+            elif child.type in ["identifier", "call"] and default is None:
+                default =  cls._get_content(code, child)
+        
+        codeFile.classes[-1].attributes.append(
+            ClassAttribute(
+                name=attribute,
+                type_hint=type_int,
+                default_value=default
+            )
+        )
+
+    @classmethod
+    def _process_decorated_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_method :bool=False):
+        decorators = []
+        raw = cls._get_content(code, node)
+
+        for child in node.children:
+            if child.type == "decorator":
+                decorators.append(cls._get_content(code, child))
+            elif child.type == "function_definition":
+                cls._process_function_definition(child, code, codeFile, is_class_method=is_class_method, decorators=decorators, raw=raw)
+
+    @classmethod
+    def _process_function_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_method :bool=False, decorators :Optional[List[str]]=None, raw :Optional[str]=None):
+        # print(node.type, cls._get_content(code, node))
+        definition = None
+        signature = FunctionSignature()
+        
+        if raw is None:
+            raw = cls._get_content(code, node)
+
+        if decorators is None:
+            decorators = []
+
+        ### TODO add logic to extract modifiers i.e. async
+        for child in node.children:
+            if child.type == "identifier":
+                definition = cls._get_content(code, child)
+            elif child.type == "parameters":
+                ### process parameters
+                signature.parameters = cls._process_parameters(child, code)
+            elif child.type == "type":
+                signature.return_type = cls._get_content(code, child)
+        
+        if is_class_method:
+            codeFile.classes[-1].methods.append(
+                MethodDefinition(
+                    name=definition,
+                    signature=signature,
+                    decorators=decorators,
+                    raw=raw
+                )
+            )
+        else:
+            codeFile.functions.append(
+                FunctionDefinition(
+                    name=definition,
+                    signature=signature,
+                    decorators=decorators,
+                    raw=raw
+                )
+            )
+
+    @classmethod
+    def _process_parameters(cls, node: Node, code: bytes)->List[Parameter]:
+        parameters = []
+        for child in node.children:
+            if child.type in ["typed_parameter", "typed_default_parameter"]:
+                parameters.append(cls._process_type_parameter(child, code))
+        return parameters
+
+    @classmethod
+    def _process_type_parameter(cls, node: Node, code :bytes)->Parameter:
+        next_is_default = False
+        parameter = None
+        type_hint = None
+        default = None
+        for child in node.children:
+            if child.type == "identifier" and parameter is None:
+                parameter = cls._get_content(code, child)
+            elif child.type == "type":
+                type_hint = cls._get_content(code, child) 
+            elif child.type == "=":
+                next_is_default = True
+            elif next_is_default:
+                default = cls._get_content(code, child)
+
+        return Parameter(
+            name=parameter,
+            type_hint=type_hint,
+            default_value=default
+        )
