@@ -3,8 +3,9 @@ from pydantic import BaseModel, RootModel, Field, computed_field
 
 class CodeReference(BaseModel):
     """Reference to another code element"""
-    unique_id: str
+    # unique_id: str
     name: str
+    type: Literal["import", "variable", "function", "class", "method", "inheritance"]
 class ImportStatement(BaseModel):
     """Generic representation of an import statement"""
     source: str  # The module/package being imported from
@@ -21,7 +22,7 @@ class ImportStatement(BaseModel):
 
 class VariableDeclaration(BaseModel):
     """Representation of a variable declaration"""
-    unique_id: str
+    # unique_id: str
     name: str
     type_hint: Optional[str] = None
     value: Optional[str] = None
@@ -33,34 +34,36 @@ class Parameter(BaseModel):
     name: str
     type_hint: Optional[str] = None
     default_value: Optional[str] = None
-    is_optional: bool = False
+
+    @computed_field
+    def is_optional(self)->bool:
+        return bool(self.default_value)
 
 
 class FunctionSignature(BaseModel):
     """Function signature with parameters and return type"""
     parameters: List[Parameter] = []
     return_type: Optional[str] = None
-    is_variadic: bool = False  # For *args-like constructs
-    is_kw_variadic: bool = False  # For **kwargs-like constructs
+    # is_variadic: bool = False  # For *args-like constructs
+    # is_kw_variadic: bool = False  # For **kwargs-like constructs
 
 
 class FunctionDefinition(BaseModel):
     """Representation of a function definition"""
-    unique_id: str
+    # unique_id: str
     name: str
-    signature: FunctionSignature
+    signature: Optional[FunctionSignature]=None
     modifiers: List[str] = Field(default_factory=list)  # e.g., "async", "generator", etc.
     decorators: List[str] = Field(default_factory=list)
     references: List[CodeReference] = Field(default_factory=list)
+    raw :Optional[str] = None
 
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
-    kind: Literal["instance", "static", "class"] = "instance"
-
 
 class ClassAttribute(BaseModel):
     """Class attribute representation"""
-    unique_id: str
+    # unique_id: str
     name: str
     type_hint: Optional[str] = None
     default_value: Optional[str] = None
@@ -71,13 +74,13 @@ class ClassAttribute(BaseModel):
 
 class ClassDefinition(BaseModel):
     """Representation of a class definition"""
-    unique_id: str
+    # unique_id: str
     name: str
     bases: List[str] = Field(default_factory=list)
-    decorators: List[str] = Field(default_factory=list)
     attributes: List[ClassAttribute] = Field(default_factory=list)
     methods: List[MethodDefinition] = Field(default_factory=list)
     references: List[CodeReference] = Field(default_factory=list)
+    raw :Optional[str] = None
 
 class CodeFileModel(BaseModel):
     """Representation of a single code file"""
@@ -86,7 +89,7 @@ class CodeFileModel(BaseModel):
     variables: List[VariableDeclaration] = Field(default_factory=list)
     functions: List[FunctionDefinition] = Field(default_factory=list)
     classes: List[ClassDefinition] = Field(default_factory=list)
-    raw_code: Optional[str] = None
+    raw: Optional[str] = None
 
 class CodeBase(RootModel):
     """Root model representing a complete codebase"""
