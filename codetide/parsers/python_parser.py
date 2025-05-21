@@ -113,7 +113,7 @@ class PythonParser(BaseParser):
                     name = None
 
                 if source is not None:
-                    codeFile.imports.append(
+                    codeFile.add_import(
                         ImportStatement(
                             source=source,
                             name=name
@@ -129,7 +129,7 @@ class PythonParser(BaseParser):
             elif child.type == "identifier":
                 alias = cls._get_content(code, child)
                 if source is not None:
-                    codeFile.imports.append(
+                    codeFile.add_import(
                         ImportStatement(
                             source=source,
                             name=name,
@@ -152,7 +152,7 @@ class PythonParser(BaseParser):
             elif class_name and child.type == "arguments_list":
                 bases.append(cls._get_content(code, child).replace("(", "").replace(")", ""))
             elif child.type == "block":
-                codeFile.classes.append(
+                codeFile.add_class(
                     ClassDefinition(
                         name=class_name,
                         bases=bases,
@@ -215,7 +215,7 @@ class PythonParser(BaseParser):
                 )
             )
         else:
-            codeFile.variables.append(
+            codeFile.add_variable(
                 VariableDeclaration(
                     name=attribute,
                     type_hint=type_hint,
@@ -266,7 +266,7 @@ class PythonParser(BaseParser):
                 )
             )
         else:
-            codeFile.functions.append(
+            codeFile.add_function(
                 FunctionDefinition(
                     name=definition,
                     signature=signature,
@@ -304,3 +304,12 @@ class PythonParser(BaseParser):
             type_hint=type_hint,
             default_value=default
         )
+
+if __name__ == "__main__":
+    parser = PythonParser()
+    codeFile = parser.parse_file(
+        Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore/logger.py"),
+        root_path=Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore")
+    )#llm/llm.py"))
+    with open("oi.json", "w") as _file:
+        _file.write(codeFile.model_dump_json(indent=4))
