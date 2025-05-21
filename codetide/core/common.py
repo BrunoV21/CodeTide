@@ -3,7 +3,7 @@ from typing import Union
 from pathlib import Path
 
 def readFile(path :Union[str, Path], mode :str="r")->str:
-    with open(path, mode, encoding=DEFAULT_ENCODING) as _file:
+    with open(path, mode, encoding=DEFAULT_ENCODING if mode != "rb" else None) as _file:
         contents = _file.read()
     return contents
 
