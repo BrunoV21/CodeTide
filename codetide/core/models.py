@@ -6,6 +6,7 @@ class CodeReference(BaseModel):
     # unique_id: str
     name: str
     type: Literal["import", "variable", "function", "class", "method", "inheritance"]
+
 class ImportStatement(BaseModel):
     """Generic representation of an import statement"""
     source: str  # The module/package being imported from
@@ -20,6 +21,10 @@ class ImportStatement(BaseModel):
         if self.name:
             return f"{self.file_path}:{self.source}:{self.name}"
         return f"{self.file_path}:{self.source}"
+    
+    @property
+    def as_dependency(self)->str:
+        return self.alias or self.name or self.source
 
 class VariableDeclaration(BaseModel):
     """Representation of a variable declaration"""
@@ -29,6 +34,7 @@ class VariableDeclaration(BaseModel):
     modifiers: List[str] = Field(default_factory=list)  # e.g., "final", "abstract"
     references: List[CodeReference] = []
     file_path: str = ""
+    raw :Optional[str] = ""
 
     @computed_field
     def unique_id(self) -> str:
@@ -62,7 +68,7 @@ class FunctionDefinition(BaseModel):
     decorators: List[str] = Field(default_factory=list)
     references: List[CodeReference] = Field(default_factory=list)
     file_path: str = ""
-    raw :Optional[str] = None
+    raw :Optional[str] = ""
 
     @computed_field
     def unique_id(self) -> str:
@@ -75,7 +81,9 @@ class MethodDefinition(FunctionDefinition):
 class ClassAttribute(VariableDeclaration):
     """Class attribute representation"""
     # unique_id: str
-    visibility: Literal["public", "protected", "private"] = "public"
+    visibility: Literal["public", "protected", "private"] = "public"    
+    
+    ### TODO add add_class_defintion
 
 class ClassDefinition(BaseModel):
     """Representation of a class definition"""
@@ -86,12 +94,14 @@ class ClassDefinition(BaseModel):
     methods: List[MethodDefinition] = Field(default_factory=list)
     references: List[CodeReference] = Field(default_factory=list)
     file_path: str = ""
-    raw :Optional[str] = None
+    raw :Optional[str] = ""
     
     @computed_field
     def unique_id(self) -> str:
         """Generate a unique ID for the function definition"""
         return f"{self.file_path}:{self.name}"
+    
+    ### TODO add add_class_defintion
 
 class CodeFileModel(BaseModel):
     """Representation of a single code file"""
@@ -137,8 +147,21 @@ class CodeFileModel(BaseModel):
 
     def add_class(self, class_definition :ClassDefinition):
         class_definition.file_path = self.file_path
-        self.classes.append(class_definition)        
+        self.classes.append(class_definition)
+        
+    def fill_references(self):
+        """fill all the references accounting for intra file dependencies"""
+        ### TODO complete this
+
+        ### TODO first one should extract the CodeFile for each file and then extract the correct mapping between each import and its refernce in
+        ### another file or if it is a package import at CodeBase level and only after move towards filling references per CodeFileModel
+        ### later consider update schema for reindexing
+
 
 class CodeBase(RootModel):
     """Root model representing a complete codebase"""
     root: List[CodeFileModel] = Field(default_factory=list)
+
+### TODO add lru_cahce to all_ methods
+### add support for all_code_elements_dict with unique_id: Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]
+### TODO 
