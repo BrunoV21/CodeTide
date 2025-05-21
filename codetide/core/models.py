@@ -25,8 +25,8 @@ class VariableDeclaration(BaseModel):
     # unique_id: str
     name: str
     type_hint: Optional[str] = None
-    value: Optional[str] = None
-    is_constant: bool = False
+    value: Optional[str] = None    
+    modifiers: List[str] = Field(default_factory=list)  # e.g., "final", "abstract"
     references: List[CodeReference] = []
 
 class Parameter(BaseModel):
@@ -61,16 +61,10 @@ class FunctionDefinition(BaseModel):
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
 
-class ClassAttribute(BaseModel):
+class ClassAttribute(VariableDeclaration):
     """Class attribute representation"""
     # unique_id: str
-    name: str
-    type_hint: Optional[str] = None
-    default_value: Optional[str] = None
     visibility: Literal["public", "protected", "private"] = "public"
-    modifiers: List[str] = Field(default_factory=list)  # e.g., "final", "abstract"
-    references: List[CodeReference] = Field(default_factory=list)
-
 
 class ClassDefinition(BaseModel):
     """Representation of a class definition"""
