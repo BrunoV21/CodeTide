@@ -1,21 +1,26 @@
-from typing import List, Optional, Union
-from pathlib import Path
+from codetide.parsers.base_parser import BaseParser
+from codetide.core.common import readFile
+from codetide.core.models import (
+    ClassAttribute, ClassDefinition,
+    FunctionDefinition, FunctionSignature,
+    ImportStatement, CodeFileModel,
+    MethodDefinition, Parameter,
+    VariableDeclaration
+)
+
 from tree_sitter import Language, Parser, Node
+from typing import List, Optional, Union
 import tree_sitter_python as tspython
 from pydantic import model_validator
-from codetide.core.models import (
-    ClassAttribute, ClassDefinition, FunctionDefinition, FunctionSignature,
-    ImportStatement, CodeFileModel, MethodDefinition, Parameter
-)
-from codetide.parsers.base_parser import BaseParser
+from pathlib import Path
 
 class PythonParser(BaseParser):
     """
     Python-specific implementation of the BaseParser using tree-sitter.
     """
     _tree_parser: Optional[Parser] = None
-    _filepath: Optional[Union[str, Path]] = None    
-    
+    _filepath: Optional[Union[str, Path]] = None
+
     @property
     def language(self) -> str:
         return "python"
@@ -53,8 +58,7 @@ class PythonParser(BaseParser):
         Parse a Python source file and return a CodeFileModel.
         """
         file_path = Path(file_path).absolute()
-        with open(file_path, 'rb') as _file:
-            code = _file.read()
+        code = readFile(file_path, mode="rb")
         
         if root_path is not None:
             file_path = file_path.relative_to(Path(root_path))
@@ -72,10 +76,8 @@ class PythonParser(BaseParser):
         return codeFile
     
     @classmethod
-    def _process_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
-    
+    def _process_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):    
         for child in node.children:
-            # print("\n", child.type, cls._get_content(code, child))
             if child.type.startswith("import"):
                 cls._process_import_node(child, code, codeFile)
             elif child.type == "class_definition":
@@ -84,12 +86,10 @@ class PythonParser(BaseParser):
                 cls._process_decorated_definition(child, code, codeFile)
             elif child.type == "function_definition":
                 cls._process_function_definition(child, code, codeFile)
-            ### TODO test the following two for variables extraction
-            # elif child.type == "expression_statement":
-            #     cls._process_expression_statement(child, code, codeFile)
+            elif child.type == "expression_statement":
+                cls._process_expression_statement(child, code, codeFile)
             # elif child.type == "assignment": # <- class attribute
             #     cls._process_assignment(child, code, codeFile)
-
 
     @classmethod
     def _process_import_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
@@ -170,7 +170,7 @@ class PythonParser(BaseParser):
                     base = cls._get_content(code, block_child)
                     codeFile.classes[-1].bases.append(base)
                 elif block_child.type == "expression_statement":
-                    cls._process_expression_statement(block_child, code, codeFile)
+                    cls._process_expression_statement(block_child, code, codeFile, is_class_attribute=True)
                 elif block_child.type == "decorated_definition":
                     """process decorated definiion"""
                     cls._process_decorated_definition(block_child, code, codeFile, is_class_method=True)
@@ -179,36 +179,49 @@ class PythonParser(BaseParser):
                     cls._process_function_definition(block_child, code, codeFile, is_class_method=True)
 
     @classmethod
-    def _process_expression_statement(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+    def _process_expression_statement(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_attribute :bool=False):
         """Process an expression statement and extract variables."""
         for child in node.children:
             if child.type == "assignment": # <- class attribute
-                cls._process_assignment(child, code, codeFile)
+                cls._process_assignment(child, code, codeFile, is_class_attribute)
             elif child.type == "string": # <- docstring
                 ...
 
     @classmethod
-    def _process_assignment(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+    def _process_assignment(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_attribute :bool=False):
         """Process an assignment expression and extract variable names and values."""
         attribute = None
-        type_int = None
+        type_hint = None
         default = None
+        next_is_default = None
 
         for child in node.children:
             if child.type == "identifier" and attribute is None:
                 attribute = cls._get_content(code, child)
             elif child.type == "type":
-                type_int = cls._get_content(code, child)
-            elif child.type in ["identifier", "call"] and default is None:
+                type_hint = cls._get_content(code, child)
+            elif child.type == "=" and next_is_default is None:
+                next_is_default = True
+            elif default is None and next_is_default:
                 default =  cls._get_content(code, child)
+                next_is_default = None
         
-        codeFile.classes[-1].attributes.append(
-            ClassAttribute(
-                name=attribute,
-                type_hint=type_int,
-                default_value=default
+        if is_class_attribute:
+            codeFile.classes[-1].attributes.append(
+                ClassAttribute(
+                    name=attribute,
+                    type_hint=type_hint,
+                    value=default
+                )
             )
-        )
+        else:
+            codeFile.variables.append(
+                VariableDeclaration(
+                    name=attribute,
+                    type_hint=type_hint,
+                    value=default
+                )
+            )
 
     @classmethod
     def _process_decorated_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_method :bool=False):
