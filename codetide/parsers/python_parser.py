@@ -194,7 +194,7 @@ class PythonParser(BaseParser):
         type_hint = None
         default = None
         next_is_default = None
-
+        raw = cls._get_content(code, node)
         for child in node.children:
             if child.type == "identifier" and attribute is None:
                 attribute = cls._get_content(code, child)
@@ -211,7 +211,8 @@ class PythonParser(BaseParser):
                 ClassAttribute(
                     name=attribute,
                     type_hint=type_hint,
-                    value=default
+                    value=default,
+                    raw=raw
                 )
             )
         else:
@@ -219,7 +220,8 @@ class PythonParser(BaseParser):
                 VariableDeclaration(
                     name=attribute,
                     type_hint=type_hint,
-                    value=default
+                    value=default,
+                    raw=raw
                 )
             )
 
