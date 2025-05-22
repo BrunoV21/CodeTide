@@ -1,5 +1,5 @@
+from pydantic import BaseModel, Field, computed_field
 from typing import List, Optional, Literal, Union
-from pydantic import BaseModel, RootModel, Field, computed_field
 
 class CodeReference(BaseModel):
     """Reference to another code element"""
@@ -13,6 +13,7 @@ class ImportStatement(BaseModel):
     name :Optional[str] = None  # The alias for the import
     alias: Optional[str] = None  # The alias for the import
     import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
+    definition_id :Optional[str]=None # ID to store where the Import is defined if from another file, none if is package
     file_path: str="" 
 
     @computed_field
@@ -156,12 +157,3 @@ class CodeFileModel(BaseModel):
         ### TODO first one should extract the CodeFile for each file and then extract the correct mapping between each import and its refernce in
         ### another file or if it is a package import at CodeBase level and only after move towards filling references per CodeFileModel
         ### later consider update schema for reindexing
-
-
-class CodeBase(RootModel):
-    """Root model representing a complete codebase"""
-    root: List[CodeFileModel] = Field(default_factory=list)
-
-### TODO add lru_cahce to all_ methods
-### add support for all_code_elements_dict with unique_id: Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]
-### TODO 
