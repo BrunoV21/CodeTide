@@ -24,7 +24,7 @@ class BaseParser(ABC, BaseModel):
         pass
 
     @abstractmethod
-    def parse_file(self, file_path: Union[str, Path], root_path: Optional[Union[str, Path]]=None) -> CodeFileModel:
+    async def parse_file(self, file_path: Union[str, Path], root_path: Optional[Union[str, Path]]=None) -> CodeFileModel:
         """
         Parse a source file and return a CodeFileModel.
         

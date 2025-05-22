@@ -8,11 +8,13 @@ from codetide.core.models import (
     VariableDeclaration
 )
 
+from concurrent.futures import ThreadPoolExecutor
 from tree_sitter import Language, Parser, Node
 from typing import List, Optional, Union
 import tree_sitter_python as tspython
 from pydantic import model_validator
 from pathlib import Path
+import asyncio
 
 class PythonParser(BaseParser):
     """
@@ -52,26 +54,32 @@ class PythonParser(BaseParser):
     @staticmethod
     def _get_content(code :bytes, node: Node)->str:
         return code[node.start_byte:node.end_byte].decode('utf-8')
-
-    def parse_file(self, file_path: Union[str, Path], root_path: Optional[Union[str, Path]]=None) -> CodeFileModel:
-        """
-        Parse a Python source file and return a CodeFileModel.
-        """
-        file_path = Path(file_path).absolute()
-        code = readFile(file_path, mode="rb")
-        
-        if root_path is not None:
-            file_path = file_path.relative_to(Path(root_path))
-
+    
+    def parse_code(self, code :bytes, file_path :Path):
         tree = self.tree_parser.parse(code)
         root_node = tree.root_node
-
         codeFile = CodeFileModel(
             file_path=str(file_path),
             raw=self._get_content(code, root_node)
         )
-
         self._process_node(root_node, code, codeFile)
+        return codeFile
+
+    async def parse_file(self, file_path: Union[str, Path], root_path: Optional[Union[str, Path]]=None) -> CodeFileModel:
+        """
+        Parse a Python source file and return a CodeFileModel.
+        """
+        file_path = Path(file_path).absolute()
+        
+        # Use aiofiles or run synchronous file IO in executor
+        loop = asyncio.get_running_loop()
+        with ThreadPoolExecutor() as pool:
+            code = await loop.run_in_executor(pool, readFile, file_path, "rb")
+            
+            if root_path is not None:
+                file_path = file_path.relative_to(Path(root_path))
+
+            codeFile = await loop.run_in_executor(pool, self.parse_code, code, file_path)
 
         return codeFile
     
@@ -308,10 +316,13 @@ class PythonParser(BaseParser):
         )
 
 if __name__ == "__main__":
-    parser = PythonParser()
-    codeFile = parser.parse_file(
-        Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore/logger.py"),
-        root_path=Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore")
-    )#llm/llm.py"))
-    with open("oi.json", "w") as _file:
-        _file.write(codeFile.model_dump_json(indent=4))
+    async def main():
+        parser = PythonParser()
+        codeFile = await parser.parse_file(
+            Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore/logger.py"),
+            root_path=Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore")
+        )#llm/llm.py"))
+        with open("oi.json", "w") as _file:
+            _file.write(codeFile.model_dump_json(indent=4))
+
+    asyncio.run(main())
