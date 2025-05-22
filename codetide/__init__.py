@@ -1,4 +1,4 @@
-from codetide.core.defaults import LANGUAGE_EXTENSIONS
+from codetide.core.defaults import LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
 from codetide.core.models import CodeFileModel
 from codetide.parsers import BaseParser
 from codetide import parsers
@@ -6,17 +6,21 @@ from codetide import parsers
 from pydantic import RootModel, Field, computed_field
 from typing import Optional, List, Union, Dict
 from pathlib import Path
-from tqdm import tqdm
 import fnmatch
 import logging
+import asyncio
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 class CodeBase(RootModel):
     """Root model representing a complete codebase"""
     root: List[CodeFileModel] = Field(default_factory=list)
     _ignore_patterns :Optional[str] = None
-    _instantiated_parsers :Dict[str, BaseParser]
+    _instantiated_parsers :Dict[str, BaseParser] = {}
 
     @computed_field
     def ignore_patterns(self)->str:
@@ -28,33 +32,156 @@ class CodeBase(RootModel):
 
     @staticmethod
     def parserId(language :str)->str:
-        return f"{language.upper()}Parser"
+        return f"{language.capitalize()}Parser"
 
     @classmethod
-    def from_path(cls, rootpath: Union[str, Path], languages: Optional[List[str]] = None) -> "CodeBase":
-        rootpath = Path(rootpath)
-        codeBase = cls()
-        codeBase._load_gitignore_patterns(rootpath)
-
-        fileList = codeBase._find_code_files(rootpath, languages=languages)
+    async def from_path(
+        cls,
+        rootpath: Union[str, Path],
+        languages: Optional[List[str]] = None,
+        max_concurrent_tasks: int = DEFAULT_MAX_CONCURRENT_TASKS,
+        batch_size: int = DEFAULT_BATCH_SIZE
+    ) -> "CodeBase":
+        """
+        Asynchronously create a CodeBase from a directory path.
         
-        # Wrap the loop with tqdm, displaying the file path
-        for filepath in tqdm(fileList, desc="Processing files", unit="file"):
-            tqdm.write(f"Processing: {filepath}")  # Optional: show current file outside of progress bar
+        Args:
+            rootpath: Path to the root directory
+            languages: List of languages to include (None for all)
+            max_concurrent_tasks: Maximum concurrent file processing tasks
+            batch_size: Number of files to process in each batch
             
-            language = codeBase._get_language_from_extension(filepath)
-            if language not in codeBase._instantiated_parsers:
-                parserObj = getattr(parsers, codeBase.parserId(language), None)
-                if parserObj is None:
-                    logger.error(f"Skipping {filepath} as no parser is implemented for {language}")
-                    continue
-                parserObj = parserObj()
-                codeBase._instantiated_parsers[language] = parserObj
-            else:
-                parserObj = codeBase._instantiated_parsers[language]
+        Returns:
+            Initialized CodeBase instance
+        """
+        rootpath = Path(rootpath)
+        codebase = cls()
+        logger.info(f"Initializing CodeBase from path: {rootpath}")
+        
+        await codebase._initialize_codebase(rootpath)
+        
+        file_list = codebase._find_code_files(rootpath, languages=languages)
 
-            codeFile = parserObj.parse_file(filepath, rootpath)
-            codeBase.root.append(codeFile)
+        if not file_list:
+            logger.warning("No code files found matching the criteria")
+            return codebase
+            
+        language_files = codebase._organize_files_by_language(file_list)
+        await codebase._initialize_parsers(language_files.keys())
+        
+        results = await codebase._process_files_concurrently(
+            language_files,
+            rootpath,
+            max_concurrent_tasks,
+            batch_size
+        )
+        
+        codebase._add_results_to_codebase(results)
+        logger.info(f"CodeBase initialized with {len(results)} files processed")
+        
+        return codebase
+
+    async def _initialize_codebase(
+        self,
+        rootpath: Path
+    ) -> None:
+        """Initialize the codebase with gitignore patterns and basic setup."""
+        self._load_gitignore_patterns(rootpath)
+        logger.debug("Loaded gitignore patterns")
+
+    def _organize_files_by_language(
+        self,
+        file_list: List[Path]
+    ) -> Dict[str, List[Path]]:
+        """Organize files by their programming language."""
+        language_files = {}
+        for filepath in file_list:
+            language = self._get_language_from_extension(filepath)
+            if language not in language_files:
+                language_files[language] = []
+            language_files[language].append(filepath)
+        return language_files
+
+    async def _initialize_parsers(
+        self,
+        languages: List[str]
+    ) -> None:
+        """Initialize parsers for all required languages."""
+        for language in languages:
+            if language not in self._instantiated_parsers:
+                parser_obj = getattr(parsers, self.parserId(language), None)
+                if parser_obj is None:
+                    logger.warning(f"No parser {self.parserId(language)} implemented for {language}")
+                    continue
+                self._instantiated_parsers[language] = parser_obj()
+                logger.debug(f"Initialized parser for {language}")
+
+    async def _process_files_concurrently(
+        self,
+        language_files: Dict[str, List[Path]],
+        rootpath: Path,
+        max_concurrent_tasks: int,
+        batch_size: int
+    ) -> List:
+        """
+        Process all files concurrently with progress tracking.
+        
+        Returns:
+            List of successfully processed CodeFileModel objects
+        """
+        semaphore = asyncio.Semaphore(max_concurrent_tasks)
+        
+        async def process_file_with_semaphore(filepath: Path, parser: BaseParser):
+            async with semaphore:
+                return await self._process_single_file(filepath, parser, rootpath)
+
+        tasks = []
+        for language, files in language_files.items():
+            parser = self._instantiated_parsers.get(language)
+            if parser is None:
+                continue
+            for filepath in files:
+                task = asyncio.create_task(process_file_with_semaphore(filepath, parser))
+                tasks.append(task)
+
+        # Process in batches with progress bar
+        results = []
+        for i in range(0, len(tasks), batch_size ):
+            batch = tasks[i:i + batch_size]
+            batch_results = await asyncio.gather(*batch)
+            
+            for result in batch_results:
+                if isinstance(result, Exception):
+                    logger.debug(f"File processing failed: {str(result)}")
+                    continue
+                if result is not None:
+                    results.append(result)
+        
+        return results
+
+    async def _process_single_file(
+        self,
+        filepath: Path,
+        parser: BaseParser,
+        rootpath: Path
+    ) -> Optional[CodeFileModel]:
+        """Process a single file with error handling."""
+        try:
+            logger.debug(f"Processing file: {filepath}")
+            return await parser.parse_file(filepath, rootpath)
+        except Exception as e:
+            logger.warning(f"Failed to process {filepath}: {str(e)}")
+            return None
+
+    def _add_results_to_codebase(
+        self,
+        results: List[CodeFileModel]
+    ) -> None:
+        """Add processed files to the codebase."""
+        for code_file in results:
+            if code_file is not None:
+                self.root.append(code_file)
+        logger.debug(f"Added {len(results)} files to codebase")
     
     def _load_gitignore_patterns(self, rootpath :Path):
         """
