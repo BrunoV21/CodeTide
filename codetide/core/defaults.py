@@ -28,6 +28,9 @@ LANGUAGE_EXTENSIONS = {
     'scala': ['.scala']
 }
 
+DEFAULT_MAX_CONCURRENT_TASKS = 50
+DEFAULT_BATCH_SIZE = 128
+
 # Default file patterns to ignore
 DEFAULT_IGNORE_PATTERNS = [
     '*.pyc', '*.pyo', '*.so', '*.o', '*.a', '*.lib', '*.dll', '*.exe',
