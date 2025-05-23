@@ -1,11 +1,9 @@
 from codetide.parsers.base_parser import BaseParser
 from codetide.core.common import readFile
 from codetide.core.models import (
-    ClassAttribute, ClassDefinition,
-    FunctionDefinition, FunctionSignature,
-    ImportStatement, CodeFileModel,
-    MethodDefinition, Parameter,
-    VariableDeclaration
+    ClassAttribute, ClassDefinition, CodeBase,
+    FunctionDefinition, FunctionSignature, ImportStatement,
+    CodeFileModel, MethodDefinition, Parameter, VariableDeclaration
 )
 
 from concurrent.futures import ThreadPoolExecutor
@@ -55,11 +53,19 @@ class PythonParser(BaseParser):
     def _get_content(code :bytes, node: Node)->str:
         return code[node.start_byte:node.end_byte].decode('utf-8')
     
+    @staticmethod
+    def _skip_init_paths(file_path :Path)->str:
+        file_path = str(file_path)
+        if "__init__" in file_path:
+            file_path = file_path.replace("\\__init__", "")
+            file_path = file_path.replace("/__init__", "")
+        return file_path
+    
     def parse_code(self, code :bytes, file_path :Path):
         tree = self.tree_parser.parse(code)
         root_node = tree.root_node
         codeFile = CodeFileModel(
-            file_path=str(file_path),
+            file_path=self._skip_init_paths(file_path),
             raw=self._get_content(code, root_node)
         )
         self._process_node(root_node, code, codeFile)
@@ -317,6 +323,9 @@ class PythonParser(BaseParser):
                 type_hint=type_hint,
                 default_value=default
             )
+    
+    def resolve_inter_files_dependencies(self, codebase: CodeBase) -> None:
+        ...
 
 if __name__ == "__main__":
     async def main():
