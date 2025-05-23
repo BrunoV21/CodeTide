@@ -1,6 +1,6 @@
 from codetide.core.defaults import LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
+from codetide.core.models import CodeFileModel, CodeBase
 from codetide.parsers import BaseParser, GenericParser
-from codetide.core.models import CodeFileModel
 from codetide.core.common import readFile
 from codetide import parsers
 
@@ -18,10 +18,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class CodeBase(BaseModel):
+class CodeTide(BaseModel):
     """Root model representing a complete codebase"""    
     rootpath : Union[str, Path]
-    root: List[CodeFileModel] = Field(default_factory=list)
+    codebase :CodeBase = Field(default_factory=CodeBase)
     _instantiated_parsers :Dict[str, BaseParser] = {}
     _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
     
@@ -166,7 +166,7 @@ class CodeBase(BaseModel):
         """Add processed files to the codebase."""
         for code_file in results:
             if code_file is not None:
-                self.root.append(code_file)
+                self.codebase.root.append(code_file)
         logger.debug(f"Added {len(results)} files to codebase")
 
     @staticmethod
