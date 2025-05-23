@@ -1,10 +1,9 @@
-
+from codetide.core.models import CodeFileModel
 from abc import ABC, abstractmethod
 from typing import Optional, Union
-from pathlib import Path
 from tree_sitter import  Parser
 from pydantic import BaseModel
-from codetide.core.models import CodeFileModel
+from pathlib import Path
 
 class BaseParser(ABC, BaseModel):
     """
