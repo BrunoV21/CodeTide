@@ -157,3 +157,7 @@ class CodeFileModel(BaseModel):
         ### TODO first one should extract the CodeFile for each file and then extract the correct mapping between each import and its refernce in
         ### another file or if it is a package import at CodeBase level and only after move towards filling references per CodeFileModel
         ### later consider update schema for reindexing
+
+class CodeBase(BaseModel):
+    """Root model representing a complete codebase"""
+    root: List[CodeFileModel] = Field(default_factory=list)
