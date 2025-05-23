@@ -290,7 +290,9 @@ class PythonParser(BaseParser):
         parameters = []
         for child in node.children:
             if child.type in ["typed_parameter", "typed_default_parameter"]:
-                parameters.append(cls._process_type_parameter(child, code))
+                param = cls._process_type_parameter(child, code)
+                if param is not None:
+                    parameters.append(param)
         return parameters
 
     @classmethod
@@ -308,12 +310,13 @@ class PythonParser(BaseParser):
                 next_is_default = True
             elif next_is_default:
                 default = cls._get_content(code, child)
-
-        return Parameter(
-            name=parameter,
-            type_hint=type_hint,
-            default_value=default
-        )
+        
+        if parameter:
+            return Parameter(
+                name=parameter,
+                type_hint=type_hint,
+                default_value=default
+            )
 
 if __name__ == "__main__":
     async def main():
