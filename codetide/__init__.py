@@ -1,14 +1,16 @@
 from codetide.core.defaults import LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
+from codetide.parsers import BaseParser, GenericParser
 from codetide.core.models import CodeFileModel
-from codetide.parsers import BaseParser
+from codetide.core.common import readFile
 from codetide import parsers
 
-from pydantic import RootModel, Field, computed_field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Union, Dict
+from pathspec import GitIgnoreSpec
 from pathlib import Path
-import fnmatch
 import logging
 import asyncio
+import time
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,22 +18,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class CodeBase(RootModel):
-    """Root model representing a complete codebase"""
+class CodeBase(BaseModel):
+    """Root model representing a complete codebase"""    
+    rootpath : Union[str, Path]
     root: List[CodeFileModel] = Field(default_factory=list)
-    _ignore_patterns :Optional[str] = None
     _instantiated_parsers :Dict[str, BaseParser] = {}
-
-    @computed_field
-    def ignore_patterns(self)->str:
-        return self._ignore_patterns
+    _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
     
-    @ignore_patterns.setter
-    def ignore_patterns(self, content :str):
-        self._ignore_patterns = content
+    @field_validator("rootpath", mode="after")
+    @classmethod
+    def rootpath_to_path(cls, rootpath : Union[str, Path])->Path:
+        return Path(rootpath)
 
     @staticmethod
-    def parserId(language :str)->str:
+    def parserId(language :Optional[str]=None)->str:
+        if language is None:
+            language = "Generic"
         return f"{language.capitalize()}Parser"
 
     @classmethod
@@ -55,13 +57,11 @@ class CodeBase(RootModel):
             Initialized CodeBase instance
         """
         rootpath = Path(rootpath)
-        codebase = cls()
-        logger.info(f"Initializing CodeBase from path: {rootpath}")
+        codebase = cls(rootpath=rootpath)
+        logger.info(f"Initializing CodeBase from path: {str(rootpath)}")
         
-        await codebase._initialize_codebase(rootpath)
-        
+        st = time.time()
         file_list = codebase._find_code_files(rootpath, languages=languages)
-
         if not file_list:
             logger.warning("No code files found matching the criteria")
             return codebase
@@ -71,23 +71,14 @@ class CodeBase(RootModel):
         
         results = await codebase._process_files_concurrently(
             language_files,
-            rootpath,
             max_concurrent_tasks,
             batch_size
         )
         
         codebase._add_results_to_codebase(results)
-        logger.info(f"CodeBase initialized with {len(results)} files processed")
+        logger.info(f"CodeBase initialized with {len(results)} files processed in {time.time() - st:.2f}s")
         
         return codebase
-
-    async def _initialize_codebase(
-        self,
-        rootpath: Path
-    ) -> None:
-        """Initialize the codebase with gitignore patterns and basic setup."""
-        self._load_gitignore_patterns(rootpath)
-        logger.debug("Loaded gitignore patterns")
 
     def _organize_files_by_language(
         self,
@@ -109,17 +100,13 @@ class CodeBase(RootModel):
         """Initialize parsers for all required languages."""
         for language in languages:
             if language not in self._instantiated_parsers:
-                parser_obj = getattr(parsers, self.parserId(language), None)
-                if parser_obj is None:
-                    logger.warning(f"No parser {self.parserId(language)} implemented for {language}")
-                    continue
+                parser_obj = getattr(parsers, self.parserId(language), GenericParser)
                 self._instantiated_parsers[language] = parser_obj()
                 logger.debug(f"Initialized parser for {language}")
 
     async def _process_files_concurrently(
         self,
         language_files: Dict[str, List[Path]],
-        rootpath: Path,
         max_concurrent_tasks: int,
         batch_size: int
     ) -> List:
@@ -133,7 +120,7 @@ class CodeBase(RootModel):
         
         async def process_file_with_semaphore(filepath: Path, parser: BaseParser):
             async with semaphore:
-                return await self._process_single_file(filepath, parser, rootpath)
+                return await self._process_single_file(filepath, parser)
 
         tasks = []
         for language, files in language_files.items():
@@ -162,13 +149,12 @@ class CodeBase(RootModel):
     async def _process_single_file(
         self,
         filepath: Path,
-        parser: BaseParser,
-        rootpath: Path
+        parser: BaseParser
     ) -> Optional[CodeFileModel]:
         """Process a single file with error handling."""
         try:
             logger.debug(f"Processing file: {filepath}")
-            return await parser.parse_file(filepath, rootpath)
+            return await parser.parse_file(filepath, self.rootpath)
         except Exception as e:
             logger.warning(f"Failed to process {filepath}: {str(e)}")
             return None
@@ -182,102 +168,113 @@ class CodeBase(RootModel):
             if code_file is not None:
                 self.root.append(code_file)
         logger.debug(f"Added {len(results)} files to codebase")
-    
-    def _load_gitignore_patterns(self, rootpath :Path):
+
+    @staticmethod
+    def _load_gitignore_spec(directory: Path) -> GitIgnoreSpec:
         """
-        Load patterns from .gitignore file if it exists.
+        Load and parse .gitignore file from a directory into a GitIgnoreSpec object.
         
+        Args:
+            directory: Directory containing the .gitignore file
+            
         Returns:
-            List of gitignore patterns
+            GitIgnoreSpec object with the patterns from the .gitignore file
         """
-        gitignore_path = rootpath / ".gitignore"
-        patterns = []
+        gitignore_path = directory / ".gitignore"
+        patterns = [".git/"]
         
         if gitignore_path.exists() and gitignore_path.is_file():
             try:
-                with open(gitignore_path, 'r', encoding='utf-8') as f:
-                    for line in f:
-                        line = line.strip()
-                        # Skip empty lines and comments
-                        if line and not line.startswith('#'):
-                            # Convert gitignore pattern to fnmatch pattern
-                            if line.startswith('/'):
-                                # Pattern anchored to root
-                                line = line[1:]  # Remove leading slash
-                                pattern = f"{rootpath.name}/{line}"
-                            else:
-                                # Pattern can match anywhere
-                                pattern = f"*{line}" if not line.startswith('*') else line
-                                
-                            patterns.append(pattern)
-                            # Also add pattern with trailing /* to catch directories
-                            if not pattern.endswith('*'):
-                                patterns.append(f"{pattern}/*")
+                _gitignore = readFile(gitignore_path)
+                for line in _gitignore.splitlines():
+                    line = line.strip()
+                    # Skip empty lines and comments
+                    if line and not line.startswith('#'):
+                        patterns.append(line)
             except Exception as e:
-                logger.warning(f"Error reading .gitignore file: {e}")
+                logger.warning(f"Error reading .gitignore file {gitignore_path}: {e}")
                 
-        self.ignore_patterns = patterns
+        return GitIgnoreSpec.from_lines(patterns)
 
-    def _should_ignore_file(self, file_path: Path) -> bool:
+    def _get_gitignore_for_path(self, path: Path) -> GitIgnoreSpec:
         """
-        Check if a file should be ignored based on patterns.
+        Get the combined GitIgnoreSpec for a path by checking all parent directories.
         
         Args:
-            file_path: Path to the file
-            ignore_patterns: List of glob patterns to ignore
+            path: The file path to check
             
         Returns:
-            True if the file should be ignored, False otherwise
+            Combined GitIgnoreSpec for all relevant .gitignore files
         """
-        if not self.ignore_patterns:
-            return False
+        # Check cache first
+        if path in self._gitignore_cache:
+            return self._gitignore_cache[path]
         
-        # Check if any part of the path matches any ignore pattern
-        path_str = str(file_path)
-        for pattern in self.ignore_patterns:
-            if any(fnmatch.fnmatch(part, pattern) for part in file_path.parts):
-                return True
-            if fnmatch.fnmatch(path_str, pattern):
-                return True
+        # Collect all .gitignore specs from parent directories
+        specs = []
         
-        return False
+        # Check the directory containing the file
+        parent_dir = path.parent if path.is_file() else path
+        
+        # Walk up the directory tree
+        for directory in [parent_dir, *parent_dir.parents]:
+            if directory not in self._gitignore_cache:
+                # Load and cache the spec for this directory
+                self._gitignore_cache[directory] = self._load_gitignore_spec(directory)
+            
+            specs.append(self._gitignore_cache[directory])
+        
+        # Combine all specs into one
+        combined_spec = GitIgnoreSpec([])
+        for spec in reversed(specs):  # Apply from root to leaf
+            combined_spec += spec
+        
+        return combined_spec
 
     def _find_code_files(self, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
         """
-        Find all code files in a directory tree.
+        Find all code files in a directory tree, respecting .gitignore rules in each directory.
         
         Args:
-            root_path: Root directory to search
-            languages: List of languages to include (None for all supported languages)
-            ignore_patterns: List of glob patterns to ignore
+            rootpath: Root directory to search
+            languages: List of languages to include (None for all supported)
             
         Returns:
             List of paths to code files
         """
-        
         if not rootpath.exists() or not rootpath.is_dir():
             logger.error(f"Root path does not exist or is not a directory: {rootpath}")
             return []
-        
-        # Get relevant extensions
+
+        # Determine valid extensions
         extensions = []
         if languages:
             for lang in languages:
                 if lang in LANGUAGE_EXTENSIONS:
                     extensions.extend(LANGUAGE_EXTENSIONS[lang])
-        else:
-            # Use all supported extensions
-            for exts in LANGUAGE_EXTENSIONS.values():
-                extensions.extend(exts)
-        
-        # Find all files with relevant extensions
+
         code_files = []
-        for file_path in rootpath.glob('**/*'):
-            if file_path.is_file() and file_path.suffix.lower() in extensions:
-                print(f"{file_path=}")
-                if not self._should_ignore_file(file_path):
-                    code_files.append(file_path)
-        
+
+        for file_path in rootpath.rglob('*'):
+            if not file_path.is_file() or (extensions and file_path.suffix.lower() not in extensions):
+                continue
+
+            # Get the combined gitignore spec for this path
+            gitignore_spec = self._get_gitignore_for_path(file_path)
+            
+            # Convert path to relative path for gitignore matching
+            try:
+                rel_path = file_path.relative_to(rootpath)
+            except ValueError:
+                # This shouldn't happen since we're scanning from rootpath
+                continue
+                
+            # Check if the file is ignored by any gitignore rules
+            if gitignore_spec.match_file(rel_path):
+                continue
+
+            code_files.append(file_path)
+
         return code_files
     
     @staticmethod
