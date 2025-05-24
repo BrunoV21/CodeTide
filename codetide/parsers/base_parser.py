@@ -19,6 +19,11 @@ class BaseParser(ABC, BaseModel):
 
     @property
     @abstractmethod
+    def extension(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
     def tree_parser(self) -> Optional[Parser]:
         """The tree-sitter parser instance"""
         pass
