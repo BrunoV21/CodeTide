@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field, computed_field
 from typing import List, Optional, Literal, Union
+from pathlib import Path
 
 class CodeReference(BaseModel):
-    """Reference to another code element"""
-    # unique_id: str
+    """Reference to another code element"""    
+    unique_id :Optional[str]=None
     name: str
     type: Literal["import", "variable", "function", "class", "method", "inheritance"]
 
@@ -14,14 +15,12 @@ class ImportStatement(BaseModel):
     alias: Optional[str] = None  # The alias for the import
     import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
     definition_id :Optional[str]=None # ID to store where the Import is defined if from another file, none if is package
-    file_path: str="" 
+    file_path: str=""
+    unique_id :Optional[str]=None
 
-    @computed_field
-    def unique_id(self) -> str:
-        """Generate a unique ID for the import statement"""
-        if self.name:
-            return f"{self.file_path}:{self.source}:{self.name}"
-        return f"{self.file_path}:{self.source}"
+    @property
+    def file_path_without_suffix(self)->str:
+        return str(Path(self.file_path).with_suffix("")).replace("\\", ".").replace("/", ".")
     
     @property
     def as_dependency(self)->str:
@@ -37,10 +36,17 @@ class VariableDeclaration(BaseModel):
     file_path: str = ""
     raw :Optional[str] = ""
 
+    @property
+    def file_path_without_suffix(self)->str:
+        return "".join(self.file_path.split(".")[:-1]).replace("\\", ".").replace("/", ".")
+    
     @computed_field
     def unique_id(self) -> str:
-        """Generate a unique ID for the variable declaration"""
-        return f"{self.file_path}:{self.name}"
+        """Generate a unique ID for the function definition"""
+        file_path_without_suffix = self.file_path_without_suffix
+        if file_path_without_suffix:
+            file_path_without_suffix = f"{file_path_without_suffix}:"
+        return f"{file_path_without_suffix}{self.name}"
 
 class Parameter(BaseModel):
     """Function parameter representation"""
@@ -57,9 +63,6 @@ class FunctionSignature(BaseModel):
     """Function signature with parameters and return type"""
     parameters: List[Parameter] = []
     return_type: Optional[str] = None
-    # is_variadic: bool = False  # For *args-like constructs
-    # is_kw_variadic: bool = False  # For **kwargs-like constructs
-
 
 class FunctionDefinition(BaseModel):
     """Representation of a function definition"""
@@ -71,10 +74,17 @@ class FunctionDefinition(BaseModel):
     file_path: str = ""
     raw :Optional[str] = ""
 
+    @property
+    def file_path_without_suffix(self)->str:
+        return "".join(self.file_path.split(".")[:-1]).replace("\\", ".").replace("/", ".")
+    
     @computed_field
     def unique_id(self) -> str:
         """Generate a unique ID for the function definition"""
-        return f"{self.file_path}:{self.name}"
+        file_path_without_suffix = self.file_path_without_suffix
+        if file_path_without_suffix:
+            file_path_without_suffix = f"{file_path_without_suffix}."
+        return f"{file_path_without_suffix}{self.name}"
 
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
@@ -82,9 +92,7 @@ class MethodDefinition(FunctionDefinition):
 class ClassAttribute(VariableDeclaration):
     """Class attribute representation"""
     # unique_id: str
-    visibility: Literal["public", "protected", "private"] = "public"    
-    
-    ### TODO add add_class_defintion
+    visibility: Literal["public", "protected", "private"] = "public"
 
 class ClassDefinition(BaseModel):
     """Representation of a class definition"""
@@ -96,13 +104,18 @@ class ClassDefinition(BaseModel):
     references: List[CodeReference] = Field(default_factory=list)
     file_path: str = ""
     raw :Optional[str] = ""
+
+    @property
+    def file_path_without_suffix(self)->str:
+        return "".join(self.file_path.split(".")[:-1]).replace("\\", ".").replace("/", ".")
     
     @computed_field
     def unique_id(self) -> str:
         """Generate a unique ID for the function definition"""
-        return f"{self.file_path}:{self.name}"
-    
-    ### TODO add add_class_defintion
+        file_path_without_suffix = self.file_path_without_suffix
+        if file_path_without_suffix:
+            file_path_without_suffix = f"{file_path_without_suffix}."
+        return f"{file_path_without_suffix}{self.name}"
 
 class CodeFileModel(BaseModel):
     """Representation of a single code file"""
@@ -149,15 +162,45 @@ class CodeFileModel(BaseModel):
     def add_class(self, class_definition :ClassDefinition):
         class_definition.file_path = self.file_path
         self.classes.append(class_definition)
-        
-    def fill_references(self):
-        """fill all the references accounting for intra file dependencies"""
-        ### TODO complete this
 
-        ### TODO first one should extract the CodeFile for each file and then extract the correct mapping between each import and its refernce in
-        ### another file or if it is a package import at CodeBase level and only after move towards filling references per CodeFileModel
-        ### later consider update schema for reindexing
+    def get_all(self, unique_id :str)->Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
+        ...
+
+    def get_import(self, unique_id :str)->Optional[ImportStatement]:
+        for importStatement in self.imports:
+            if unique_id == importStatement.unique_id:
+                return importStatement
+        return None
 
 class CodeBase(BaseModel):
     """Root model representing a complete codebase"""
     root: List[CodeFileModel] = Field(default_factory=list)
+
+    def _list_all_unique_ids_for_property(self, property :Literal["classes", "functions", "variables", "imports"])->List[str]:
+        return sum([
+            getattr(entry, f"all_{property}") for entry in self.root
+        ], [])
+
+    @property
+    def all_variables(self)->List[str]:
+        return self._list_all_unique_ids_for_property("variables")
+    
+    @property
+    def all_functions(self)->List[str]:
+        return self._list_all_unique_ids_for_property("functions")
+    
+    @property
+    def all_classes(self)->List[str]:
+        return self._list_all_unique_ids_for_property("classes")
+    
+    @property
+    def all_imports(self)->List[str]:
+        return self._list_all_unique_ids_for_property("imports")
+    
+    def get_import(self, unique_id :str)->Optional[ImportStatement]:
+        match = None
+        for codeFile in self.root:
+            match = codeFile.get_import(unique_id)
+            if match is not None:
+                return match
+        return match
