@@ -99,10 +99,12 @@ class ClassDefinition(BaseCodeElement):
     raw :Optional[str] = ""
     
     def add_method(self, method :MethodDefinition):
+        method.file_path = self.file_path
         method.unique_id = f"{self.unique_id}.{method.unique_id}"
         self.methods.append(method)
 
     def add_attribute(self, attribute :ClassAttribute):
+        attribute.file_path = self.file_path
         attribute.unique_id = f"{self.unique_id}.{attribute.unique_id}"
         self.attributes.append(attribute)
 
