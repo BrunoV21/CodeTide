@@ -6,9 +6,9 @@ from codetide.core.models import (
     CodeFileModel, MethodDefinition, Parameter, VariableDeclaration
 )
 
+from typing import List, Literal, Optional, Union
 from concurrent.futures import ThreadPoolExecutor
 from tree_sitter import Language, Parser, Node
-from typing import List, Optional, Union
 import tree_sitter_python as tspython
 from pydantic import model_validator
 from pathlib import Path
@@ -408,59 +408,106 @@ class PythonParser(BaseParser):
             for importStatement in codeFile.imports:
                 importAsDependency = importStatement.as_dependency
                 importCounts = self.count_occurences_in_code(raw_contents_str, importAsDependency)
-                raw_contents_str.count(importAsDependency)
                 if not importCounts:
                     continue
                 
-                matches_found = 0
-                for _id, raw_content in zip(non_import_ids, raw_contents):
-                    if importAsDependency in raw_content:
-                        codeElement = codeFile.get(_id)
-                        if isinstance(codeElement, (VariableDeclaration, FunctionDefinition)):
-                            codeElement.references.append(
+                self._find_references(
+                    non_import_ids=non_import_ids,
+                    raw_contents=raw_contents,
+                    matches_count=importCounts,
+                    codeFile=codeFile,
+                    unique_id=importStatement.unique_id,
+                    reference_name=importAsDependency
+                )
+            
+            for elemen_type in ["variables", "functions", "classes"]:
+                self._find_elements_references(
+                    element_type=elemen_type,
+                    non_import_ids=non_import_ids,
+                    raw_contents=raw_contents,
+                    codeFile=codeFile
+                )
+
+    def _find_elements_references(self,
+        element_type :Literal["variables", "functions", "classes", ""],
+        non_import_ids :List[str],
+        raw_contents :List[str],
+        codeFile :CodeFileModel):
+        for element in getattr(codeFile, element_type):
+            ### broken for class defintion as we need to search through methods and attributes
+            # # if isinstance
+            elementCounts = self.count_occurences_in_code("\n".join(raw_contents), element.name)
+            elementCounts -= 1
+            if elementCounts <= 0:
+                continue
+            
+            self._find_references(
+                non_import_ids=non_import_ids,
+                raw_contents=raw_contents,
+                matches_count=elementCounts,
+                codeFile=codeFile,
+                unique_id=element.unique_id,
+                reference_name=element.name
+            )
+
+    def _find_references(self,
+        non_import_ids :List[str],
+        raw_contents :List[str],
+        matches_count :int,
+        codeFile :CodeFileModel,
+        unique_id :str,
+        reference_name :str):
+        
+        matches_found = 0
+        for _id, raw_content in zip(non_import_ids, raw_contents):
+            if reference_name in raw_content:
+                codeElement = codeFile.get(_id)
+                counts = self.count_occurences_in_code(codeElement.raw, reference_name)
+                if isinstance(codeElement, (VariableDeclaration, FunctionDefinition)):
+                    codeElement.references.append(
+                        CodeReference(
+                            unique_id=unique_id,
+                            name=reference_name
+                        )
+                    )
+                    matches_found += counts
+
+                elif isinstance(codeElement, (ClassDefinition)):
+                    for method in codeElement.methods:
+                        if reference_name in method.raw:
+                            method.references.append(
                                 CodeReference(
-                                    unique_id=importStatement.unique_id,
-                                    name=importAsDependency
+                                    unique_id=unique_id,
+                                    name=reference_name
                                 )
                             )
-                            matches_found += 1
-
-                        elif isinstance(codeElement, (ClassDefinition)):
-                            for method in codeElement.methods:
-                                if importAsDependency in method.raw:
-                                    method.references.append(
-                                        CodeReference(
-                                            unique_id=importStatement.unique_id,
-                                            name=importAsDependency
-                                        )
-                                    )
-                                    matches_found += 1
-                                    if matches_found == importCounts:
-                                        break
-                            
-                            for attribute in codeElement.attributes:
-                                if importAsDependency in attribute.raw:
-                                    attribute.references.append(
-                                        CodeReference(
-                                            unique_id=importStatement.unique_id,
-                                            name=importAsDependency
-                                        )
-                                    )
-                                    matches_found += 1
-                                    if matches_found == importCounts:
-                                        break
-
-                            if importAsDependency in codeElement.bases:
-                                codeElement.bases_references.append(
-                                    CodeReference(
-                                        unique_id=importStatement.unique_id,
-                                        name=importAsDependency
-                                    )
+                            matches_found += counts
+                            if matches_found >= matches_count:
+                                break
+                    
+                    for attribute in codeElement.attributes:
+                        if reference_name in attribute.raw:
+                            attribute.references.append(
+                                CodeReference(
+                                    unique_id=unique_id,
+                                    name=reference_name
                                 )
-                        
-                        if matches_found == importCounts:
-                            break
+                            )
+                            matches_found += counts
+                            if matches_found >= matches_count:
+                                break
 
+                    if reference_name in codeElement.bases:
+                        codeElement.bases_references.append(
+                            CodeReference(
+                                unique_id=unique_id,
+                                name=reference_name
+                            )
+                        )
+                
+                if matches_found >= matches_count:
+                    break
+ 
             ### TODO search for remaing intra dependencies i.e 
             # functions in [functions, classes, variables]
             # classes in [functions, classes, variables]
