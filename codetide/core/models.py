@@ -25,10 +25,10 @@ class BaseCodeElement(BaseModel):
         self._unique_id = value
 
 class CodeReference(BaseModel):
-    """Reference to another code element"""    
+    """Reference to another code element"""
     unique_id :Optional[str]=None
     name: str
-    type: Literal["import", "variable", "function", "class", "method", "inheritance"]
+    # type: Literal["import", "variable", "function", "class", "method", "inheritance"]
 
 class ImportStatement(BaseCodeElement):
     """Generic representation of an import statement"""
@@ -94,7 +94,7 @@ class ClassDefinition(BaseCodeElement):
     bases: List[str] = Field(default_factory=list)
     attributes: List[ClassAttribute] = Field(default_factory=list)
     methods: List[MethodDefinition] = Field(default_factory=list)
-    references: List[CodeReference] = Field(default_factory=list)
+    bases_references: List[CodeReference] = Field(default_factory=list)
     file_path: str = ""
     raw :Optional[str] = ""
     
@@ -105,6 +105,18 @@ class ClassDefinition(BaseCodeElement):
     def add_attribute(self, attribute :ClassAttribute):
         attribute.unique_id = f"{self.unique_id}.{attribute.unique_id}"
         self.attributes.append(attribute)
+
+    @property
+    def references(self)->List[CodeReference]:
+        all_references = []
+        all_references.extend(self.bases_references)
+        all_references.extend(
+            {attribute.references for attribute in self.attributes}
+        )
+        all_references.extend(
+            {method.references for method in self.methods}
+        )
+        return all_references
 
 class CodeFileModel(BaseModel):
     """Representation of a single code file"""
@@ -152,14 +164,63 @@ class CodeFileModel(BaseModel):
         class_definition.file_path = self.file_path
         self.classes.append(class_definition)
 
-    def get_all(self, unique_id :str)->Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
-        ...
+    def get(self, unique_id: str) -> Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
+        """Get any code element by its unique_id"""
+        # Check imports
+        for imp in self.imports:
+            if imp.unique_id == unique_id:
+                return imp
+        
+        # Check variables
+        for var in self.variables:
+            if var.unique_id == unique_id:
+                return var
+        
+        # Check functions
+        for func in self.functions:
+            if func.unique_id == unique_id:
+                return func
+            # Check methods within functions (if this is a method)
+            if isinstance(func, MethodDefinition):
+                if func.unique_id == unique_id:
+                    return func
+        
+        # Check classes and their members
+        for _cls in self.classes:
+            if _cls.unique_id == unique_id:
+                return _cls
+            
+            # Check class attributes
+            for attr in _cls.attributes:
+                if attr.unique_id == unique_id:
+                    return attr
+            # Check methods
+            for method in _cls.methods:
+                if method.unique_id == unique_id:
+                    return method
+        
+        return None
 
     def get_import(self, unique_id :str)->Optional[ImportStatement]:
         for importStatement in self.imports:
             if unique_id == importStatement.unique_id:
                 return importStatement
         return None
+    
+    @property
+    def list_raw_contents(self)->List[str]:
+        raw :List[str] = []
+
+        for variable in self.variables:
+            raw.append(variable.raw)
+        
+        for function in self.functions:
+            raw.append(function.raw)
+
+        for classDefintion in self.classes:
+            raw.append(classDefintion.raw)
+
+        return raw
 
 class CodeBase(BaseModel):
     """Root model representing a complete codebase"""
