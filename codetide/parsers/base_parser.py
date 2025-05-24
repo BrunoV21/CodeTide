@@ -1,4 +1,5 @@
-from codetide.core.models import CodeFileModel
+from codetide.core.models import CodeBase, CodeFileModel, ImportStatement
+
 from abc import ABC, abstractmethod
 from typing import Optional, Union
 from tree_sitter import  Parser
@@ -21,6 +22,11 @@ class BaseParser(ABC, BaseModel):
     def tree_parser(self) -> Optional[Parser]:
         """The tree-sitter parser instance"""
         pass
+    
+    @staticmethod
+    @abstractmethod
+    def import_statement_template(importSatement :ImportStatement)->str:
+        pass
 
     @abstractmethod
     async def parse_file(self, file_path: Union[str, Path], root_path: Optional[Union[str, Path]]=None) -> CodeFileModel:
@@ -33,6 +39,14 @@ class BaseParser(ABC, BaseModel):
         Returns:
             CodeFileModel representing the parsed file
         """
+        pass
+
+    @abstractmethod
+    def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
+        pass
+    
+    @abstractmethod
+    def resolve_intra_file_dependencies(self, codeFile: CodeFileModel) -> None:
         pass
 
     # @abstractmethod

@@ -1,6 +1,6 @@
+from codetide.core.models import CodeBase, CodeFileModel, ImportStatement
 from codetide.parsers.base_parser import BaseParser
 from concurrent.futures import ThreadPoolExecutor
-from codetide.core.models import CodeFileModel
 
 from typing import Optional, Union
 from pathlib import Path
@@ -19,6 +19,10 @@ class GenericParser(BaseParser):
     @property
     def tree_parser(self) -> None:
         """The tree-sitter parser instance"""
+        pass
+    
+    @staticmethod
+    def import_statement_template(importSatement :ImportStatement)->str:
         pass
 
     async def parse_file(self, file_path: Union[str, Path], root_path: Optional[Union[str, Path]]=None) -> CodeFileModel:
@@ -49,3 +53,9 @@ class GenericParser(BaseParser):
             file_path=str(file_path)
         )
         return codeFile
+    
+    def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
+        pass
+    
+    def resolve_intra_file_dependencies(self, codeFile: CodeFileModel) -> None:
+        pass
