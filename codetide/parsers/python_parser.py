@@ -57,8 +57,8 @@ class PythonParser(BaseParser):
     def _skip_init_paths(file_path :Path)->str:
         file_path = str(file_path)
         if "__init__" in file_path:
-            file_path = file_path.replace("\\__init__", "")
-            file_path = file_path.replace("/__init__", "")
+            file_path = file_path.replace("\\__init__.py", "")
+            file_path = file_path.replace("/__init__.py", "")
         return file_path
     
     def parse_code(self, code :bytes, file_path :Path):
@@ -127,12 +127,12 @@ class PythonParser(BaseParser):
                     name = None
 
                 if source is not None:
-                    codeFile.add_import(
-                        ImportStatement(
+                    importStatement = ImportStatement(
                             source=source,
                             name=name
                         )
-                    )
+                    codeFile.add_import(importStatement)
+                    cls._generate_unique_import_id(codeFile.imports[-1])
 
     @classmethod
     def _process_aliased_import(cls, node: Node, code: bytes, codeFile :CodeFileModel, source :str):
@@ -143,13 +143,13 @@ class PythonParser(BaseParser):
             elif child.type == "identifier":
                 alias = cls._get_content(code, child)
                 if source is not None:
-                    codeFile.add_import(
-                        ImportStatement(
+                    importStatement = ImportStatement(
                             source=source,
                             name=name,
                             alias=alias
                         )
-                    )
+                    codeFile.add_import(importStatement)
+                    cls._generate_unique_import_id(codeFile.imports[-1])
 
     @classmethod
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
@@ -324,8 +324,52 @@ class PythonParser(BaseParser):
                 default_value=default
             )
     
-    def resolve_inter_files_dependencies(self, codebase: CodeBase) -> None:
-        ...
+    @staticmethod
+    def _default_unique_import_id(importModel :ImportStatement)->str:        
+        if importModel.name:
+            unique_id = f"{importModel.source}.{importModel.name}"
+        else:
+            unique_id = f"{importModel.source}"
+        return unique_id
+
+    @classmethod
+    def _generate_unique_import_id(cls, importModel :ImportStatement):
+        """Generate a unique ID for the function definition"""
+        unique_id = cls._default_unique_import_id(importModel)
+        if Path(importModel.file_path).with_suffix("") == Path(importModel.file_path):
+            ### it is an init file need to map prefill definiton_id which will be usde for mapping
+            importModel.definition_id = unique_id
+            importModel.unique_id = ".".join([
+                entry for entry in unique_id.split(".")
+                if entry in importModel.file_path or entry in [importModel.name, importModel.source]
+            ])
+
+        else:
+            importModel.unique_id = unique_id
+            importModel.definition_id = unique_id
+    
+    def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
+        ### for codeFile in codeBase search through imports and if defition_id matches an id from a class, a function or a variable  let it be
+        ### otherwise check if it matches a unique_id from imports, if so map dfeiniton_id to import unique id 
+        ### othewise map to None and is a package
+        ### this should handle all imports across file
+        all_imports = codeBase.all_imports
+        all_elements = codeBase.all_classes + codeBase.all_functions + codeBase.all_variables
+        for codeFile in codeBase.root:
+            global_imports_minus_current = [
+                importId for importId in all_imports
+                if importId not in codeFile.all_imports
+            ]
+            for importStatement in codeFile.imports:
+                definitionId = importStatement.definition_id
+                if definitionId not in all_elements:
+                    if definitionId in global_imports_minus_current:
+                        matchingImport = codeBase.get_import(definitionId)
+                        importStatement.definition_id = matchingImport.definition_id
+                        continue
+
+                    importStatement.definition_id = None
+                    importStatement.unique_id = self._default_unique_import_id(importStatement)
 
 if __name__ == "__main__":
     async def main():
