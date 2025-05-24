@@ -273,6 +273,7 @@ class PythonParser(BaseParser):
         # print(node.type, cls._get_content(code, node))
         definition = None
         signature = FunctionSignature()
+        modifiers = []
         
         if raw is None:
             raw = cls._get_content(code, node)
@@ -284,6 +285,8 @@ class PythonParser(BaseParser):
         for child in node.children:
             if child.type == "identifier":
                 definition = cls._get_content(code, child)
+            elif child.type == "async":
+                modifiers.append(cls._get_content(code, child))
             elif child.type == "parameters":
                 ### process parameters
                 signature.parameters = cls._process_parameters(child, code)
@@ -296,6 +299,7 @@ class PythonParser(BaseParser):
                     name=definition,
                     signature=signature,
                     decorators=decorators,
+                    modifiers=modifiers,
                     raw=raw
                 )
             )
@@ -305,6 +309,7 @@ class PythonParser(BaseParser):
                     name=definition,
                     signature=signature,
                     decorators=decorators,
+                    modifiers=modifiers,
                     raw=raw
                 )
             )
@@ -390,17 +395,23 @@ class PythonParser(BaseParser):
                     importStatement.unique_id = self._default_unique_import_id(importStatement)
 
     @staticmethod
-    def count_occurences_in_code(code :str, substring :str)->int:
-        pattern = r"(?<!\w)" + re.escape(substring) + r"(?!\w)"
-        count = re.findall(pattern, code)
-        return len(count)
+    def count_occurences_in_code(code: str, substring: str) -> int:
+        # Pattern explanation:
+        # (?<![a-zA-Z0-9_]) - negative lookbehind: not preceded by any word character
+        # (?![a-zA-Z0-9_])  - negative lookahead: not followed by any word character
+        # This ensures we only match at true word boundaries
+        
+        pattern = r"(?<![a-zA-Z0-9_])" + re.escape(substring) + r"(?![a-zA-Z0-9_])"
+        
+        matches = re.findall(pattern, code)
+        return len(matches)
 
     def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
         for codeFile in codeBase.root:
             if not codeFile.file_path.endswith(self.extension):
                 continue
             
-            non_import_ids = codeFile.all_classes + codeFile.all_functions + codeBase.all_variables
+            non_import_ids = codeFile.all_classes + codeFile.all_functions + codeFile.all_variables
             raw_contents = codeFile.list_raw_contents
             raw_contents_str = "\n".join(raw_contents)
 
@@ -429,26 +440,64 @@ class PythonParser(BaseParser):
                 )
 
     def _find_elements_references(self,
-        element_type :Literal["variables", "functions", "classes", ""],
+        element_type :Literal["variables", "functions", "classes"],
         non_import_ids :List[str],
         raw_contents :List[str],
         codeFile :CodeFileModel):
         for element in getattr(codeFile, element_type):
             ### broken for class defintion as we need to search through methods and attributes
-            # # if isinstance
-            elementCounts = self.count_occurences_in_code("\n".join(raw_contents), element.name)
-            elementCounts -= 1
-            if elementCounts <= 0:
-                continue
+            if element_type == "classes":
+                for classAttribute in element.attributes:
+                    elementCounts = self._get_element_count(raw_contents, classAttribute)
+
+                    if elementCounts <= 0:
+                        continue
+
+                    self._find_references(
+                        non_import_ids=non_import_ids,
+                        raw_contents=raw_contents,
+                        matches_count=elementCounts,
+                        codeFile=codeFile,
+                        unique_id=classAttribute.unique_id,
+                        reference_name=classAttribute.name
+                    )
+
+                for classMethod in element.methods:
+                    # print(f"{classMethod.name=}")
+                    elementCounts = self._get_element_count(raw_contents, classMethod)
+
+                    if elementCounts <= 0:
+                        continue
+
+                    self._find_references(
+                        non_import_ids=non_import_ids,
+                        raw_contents=raw_contents,
+                        matches_count=elementCounts,
+                        codeFile=codeFile,
+                        unique_id=classMethod.unique_id,
+                        reference_name=classMethod.name
+                    )
             
-            self._find_references(
-                non_import_ids=non_import_ids,
-                raw_contents=raw_contents,
-                matches_count=elementCounts,
-                codeFile=codeFile,
-                unique_id=element.unique_id,
-                reference_name=element.name
-            )
+            else:
+                elementCounts = self._get_element_count(raw_contents, element)
+
+                if elementCounts <= 0:
+                    continue
+                
+                self._find_references(
+                    non_import_ids=non_import_ids,
+                    raw_contents=raw_contents,
+                    matches_count=elementCounts,
+                    codeFile=codeFile,
+                    unique_id=element.unique_id,
+                    reference_name=element.name
+                )
+
+    @classmethod
+    def _get_element_count(cls, raw_contents :List[str], element):
+        elementCounts = cls.count_occurences_in_code("\n".join(raw_contents), element.name)
+        elementCounts -= 1
+        return elementCounts
 
     def _find_references(self,
         non_import_ids :List[str],
@@ -462,7 +511,8 @@ class PythonParser(BaseParser):
         for _id, raw_content in zip(non_import_ids, raw_contents):
             if reference_name in raw_content:
                 codeElement = codeFile.get(_id)
-                counts = self.count_occurences_in_code(codeElement.raw, reference_name)
+                ### TODO check why getting counts occurence in codeElement.raw is resulting in misfilling
+                counts = 1 #self.count_occurences_in_code(codeElement.raw, reference_name)
                 if isinstance(codeElement, (VariableDeclaration, FunctionDefinition)):
                     codeElement.references.append(
                         CodeReference(
@@ -507,13 +557,6 @@ class PythonParser(BaseParser):
                 
                 if matches_found >= matches_count:
                     break
- 
-            ### TODO search for remaing intra dependencies i.e 
-            # functions in [functions, classes, variables]
-            # classes in [functions, classes, variables]
-            # variables in [functions, classes, variables]
-            # when searching for classes must account for bases / methods / attributes and include in proper reference
-        pass
 
 if __name__ == "__main__":
     async def main():
