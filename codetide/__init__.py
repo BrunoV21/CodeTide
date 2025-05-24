@@ -76,6 +76,7 @@ class CodeTide(BaseModel):
         )
         
         codebase._add_results_to_codebase(results)
+        codebase._resolve_files_dependencies()
         logger.info(f"CodeBase initialized with {len(results)} files processed in {time.time() - st:.2f}s")
         
         return codebase
@@ -296,5 +297,7 @@ class CodeTide(BaseModel):
                 return language
         
         return None
-
-
+    
+    def _resolve_files_dependencies(self):
+        for _, parser in self._instantiated_parsers.items():
+            parser.resolve_inter_files_dependencies(self.codebase)
