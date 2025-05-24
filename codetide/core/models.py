@@ -1,40 +1,8 @@
 from pydantic import BaseModel, Field, computed_field
 from typing import List, Optional, Literal, Union
-from pathlib import Path
 
-class CodeReference(BaseModel):
-    """Reference to another code element"""    
-    unique_id :Optional[str]=None
-    name: str
-    type: Literal["import", "variable", "function", "class", "method", "inheritance"]
-
-class ImportStatement(BaseModel):
-    """Generic representation of an import statement"""
-    source: str  # The module/package being imported from
-    name :Optional[str] = None  # The alias for the import
-    alias: Optional[str] = None  # The alias for the import
-    import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
-    definition_id :Optional[str]=None # ID to store where the Import is defined if from another file, none if is package
-    file_path: str=""
-    unique_id :Optional[str]=None
-
-    @property
-    def file_path_without_suffix(self)->str:
-        return str(Path(self.file_path).with_suffix("")).replace("\\", ".").replace("/", ".")
-    
-    @property
-    def as_dependency(self)->str:
-        return self.alias or self.name or self.source
-
-class VariableDeclaration(BaseModel):
-    """Representation of a variable declaration"""
-    name: str
-    type_hint: Optional[str] = None
-    value: Optional[str] = None    
-    modifiers: List[str] = Field(default_factory=list)  # e.g., "final", "abstract"
-    references: List[CodeReference] = []
-    file_path: str = ""
-    raw :Optional[str] = ""
+class BaseCodeElement(BaseModel):
+    _unique_id :Optional[str]=None
 
     @property
     def file_path_without_suffix(self)->str:
@@ -43,10 +11,47 @@ class VariableDeclaration(BaseModel):
     @computed_field
     def unique_id(self) -> str:
         """Generate a unique ID for the function definition"""
+        if self._unique_id is not None:
+            return self._unique_id
+        
         file_path_without_suffix = self.file_path_without_suffix
         if file_path_without_suffix:
             file_path_without_suffix = f"{file_path_without_suffix}:"
+
         return f"{file_path_without_suffix}{self.name}"
+    
+    @unique_id.setter
+    def unique_id(self, value :str):
+        self._unique_id = value
+
+class CodeReference(BaseModel):
+    """Reference to another code element"""    
+    unique_id :Optional[str]=None
+    name: str
+    type: Literal["import", "variable", "function", "class", "method", "inheritance"]
+
+class ImportStatement(BaseCodeElement):
+    """Generic representation of an import statement"""
+    source: str  # The module/package being imported from
+    name :Optional[str] = None  # The alias for the import
+    alias: Optional[str] = None  # The alias for the import
+    import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
+    definition_id :Optional[str]=None # ID to store where the Import is defined if from another file, none if is package
+    file_path: str=""
+    
+    @property
+    def as_dependency(self)->str:
+        return self.alias or self.name or self.source
+
+class VariableDeclaration(BaseCodeElement):
+    """Representation of a variable declaration"""
+    name: str
+    type_hint: Optional[str] = None
+    value: Optional[str] = None    
+    modifiers: List[str] = Field(default_factory=list)  # e.g., "final", "abstract"
+    references: List[CodeReference] = []
+    file_path: str = ""
+    raw :Optional[str] = ""
 
 class Parameter(BaseModel):
     """Function parameter representation"""
@@ -64,7 +69,7 @@ class FunctionSignature(BaseModel):
     parameters: List[Parameter] = []
     return_type: Optional[str] = None
 
-class FunctionDefinition(BaseModel):
+class FunctionDefinition(BaseCodeElement):
     """Representation of a function definition"""
     name: str
     signature: Optional[FunctionSignature]=None
@@ -74,18 +79,6 @@ class FunctionDefinition(BaseModel):
     file_path: str = ""
     raw :Optional[str] = ""
 
-    @property
-    def file_path_without_suffix(self)->str:
-        return "".join(self.file_path.split(".")[:-1]).replace("\\", ".").replace("/", ".")
-    
-    @computed_field
-    def unique_id(self) -> str:
-        """Generate a unique ID for the function definition"""
-        file_path_without_suffix = self.file_path_without_suffix
-        if file_path_without_suffix:
-            file_path_without_suffix = f"{file_path_without_suffix}."
-        return f"{file_path_without_suffix}{self.name}"
-
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
 
@@ -94,7 +87,7 @@ class ClassAttribute(VariableDeclaration):
     # unique_id: str
     visibility: Literal["public", "protected", "private"] = "public"
 
-class ClassDefinition(BaseModel):
+class ClassDefinition(BaseCodeElement):
     """Representation of a class definition"""
     # unique_id: str
     name: str
@@ -104,18 +97,14 @@ class ClassDefinition(BaseModel):
     references: List[CodeReference] = Field(default_factory=list)
     file_path: str = ""
     raw :Optional[str] = ""
-
-    @property
-    def file_path_without_suffix(self)->str:
-        return "".join(self.file_path.split(".")[:-1]).replace("\\", ".").replace("/", ".")
     
-    @computed_field
-    def unique_id(self) -> str:
-        """Generate a unique ID for the function definition"""
-        file_path_without_suffix = self.file_path_without_suffix
-        if file_path_without_suffix:
-            file_path_without_suffix = f"{file_path_without_suffix}."
-        return f"{file_path_without_suffix}{self.name}"
+    def add_method(self, method :MethodDefinition):
+        method.unique_id = f"{self.unique_id}.{method.unique_id}"
+        self.methods.append(method)
+
+    def add_attribute(self, attribute :ClassAttribute):
+        attribute.unique_id = f"{self.unique_id}.{attribute.unique_id}"
+        self.attributes.append(attribute)
 
 class CodeFileModel(BaseModel):
     """Representation of a single code file"""
