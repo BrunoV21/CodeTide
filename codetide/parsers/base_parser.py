@@ -46,7 +46,7 @@ class BaseParser(ABC, BaseModel):
         pass
     
     @abstractmethod
-    def resolve_intra_file_dependencies(self, codeFile: CodeFileModel) -> None:
+    def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
         pass
 
     # @abstractmethod
