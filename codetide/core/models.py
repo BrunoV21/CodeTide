@@ -16,7 +16,7 @@ class BaseCodeElement(BaseModel):
         
         file_path_without_suffix = self.file_path_without_suffix
         if file_path_without_suffix:
-            file_path_without_suffix = f"{file_path_without_suffix}:"
+            file_path_without_suffix = f"{file_path_without_suffix}."
 
         return f"{file_path_without_suffix}{self.name}"
     
@@ -100,12 +100,12 @@ class ClassDefinition(BaseCodeElement):
     
     def add_method(self, method :MethodDefinition):
         method.file_path = self.file_path
-        method.unique_id = f"{self.unique_id}.{method.unique_id}"
+        method.unique_id = f"{self.unique_id}.{method.name}"
         self.methods.append(method)
 
     def add_attribute(self, attribute :ClassAttribute):
         attribute.file_path = self.file_path
-        attribute.unique_id = f"{self.unique_id}.{attribute.unique_id}"
+        attribute.unique_id = f"{self.unique_id}.{attribute.name}"
         self.attributes.append(attribute)
 
     @property
