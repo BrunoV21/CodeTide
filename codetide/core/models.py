@@ -213,14 +213,14 @@ class CodeFileModel(BaseModel):
     def list_raw_contents(self)->List[str]:
         raw :List[str] = []
 
-        for variable in self.variables:
-            raw.append(variable.raw)
+        for classDefintion in self.classes:
+            raw.append(classDefintion.raw)
         
         for function in self.functions:
             raw.append(function.raw)
 
-        for classDefintion in self.classes:
-            raw.append(classDefintion.raw)
+        for variable in self.variables:
+            raw.append(variable.raw)
 
         return raw
 
