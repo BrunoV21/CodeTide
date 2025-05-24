@@ -26,6 +26,10 @@ class PythonParser(BaseParser):
         return "python"
     
     @property
+    def extension(self) -> str:
+        return ":py"
+    
+    @property
     def filepath (self) -> Optional[Union[str, Path]]:
         return self._filepath
     
@@ -234,7 +238,7 @@ class PythonParser(BaseParser):
                 next_is_default = None
         
         if is_class_attribute:
-            codeFile.classes[-1].attributes.append(
+            codeFile.classes[-1].add_attribute(
                 ClassAttribute(
                     name=attribute,
                     type_hint=type_hint,
@@ -286,7 +290,7 @@ class PythonParser(BaseParser):
                 signature.return_type = cls._get_content(code, child)
         
         if is_class_method:
-            codeFile.classes[-1].methods.append(
+            codeFile.classes[-1].add_method(
                 MethodDefinition(
                     name=definition,
                     signature=signature,
