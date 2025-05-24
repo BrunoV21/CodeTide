@@ -17,6 +17,11 @@ class GenericParser(BaseParser):
         return "any"
     
     @property
+    def extension(self) -> str:
+        return ""
+
+    
+    @property
     def tree_parser(self) -> None:
         """The tree-sitter parser instance"""
         pass
