@@ -34,6 +34,19 @@ class PythonParser(BaseParser):
         if isinstance(filepath, str):
             filepath = Path(filepath)
         self._filepath = filepath
+
+    @staticmethod
+    def import_statement_template(importSatement :ImportStatement)->str:
+        statement = f"import {importSatement.source}"
+        if importSatement.name:
+            statement = f"from {importSatement.source} import {importSatement.name}"
+        else:
+            statement = f"import {importSatement.source}"
+
+        if importSatement.alias:
+            statement = f"{statement} as {importSatement.alias}"
+
+        return statement
     
     @property
     def tree_parser(self) -> Optional[Parser]:
@@ -370,6 +383,9 @@ class PythonParser(BaseParser):
 
                     importStatement.definition_id = None
                     importStatement.unique_id = self._default_unique_import_id(importStatement)
+
+    def resolve_intra_file_dependencies(self, codeFile: CodeFileModel) -> None:
+        pass
 
 if __name__ == "__main__":
     async def main():
