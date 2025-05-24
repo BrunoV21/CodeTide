@@ -27,7 +27,7 @@ class PythonParser(BaseParser):
     
     @property
     def extension(self) -> str:
-        return ":py"
+        return ".py"
     
     @property
     def filepath (self) -> Optional[Union[str, Path]]:
