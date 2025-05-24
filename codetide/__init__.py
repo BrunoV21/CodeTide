@@ -1,7 +1,8 @@
 from codetide.core.defaults import LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
 from codetide.core.models import CodeFileModel, CodeBase
-from codetide.parsers import BaseParser, GenericParser
 from codetide.core.common import readFile
+
+from codetide.parsers import BaseParser
 from codetide import parsers
 
 from pydantic import BaseModel, Field, field_validator
@@ -22,6 +23,7 @@ class CodeTide(BaseModel):
     """Root model representing a complete codebase"""    
     rootpath : Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
+    file_list :List[Path] = Field(default_factory=list)
     _instantiated_parsers :Dict[str, BaseParser] = {}
     _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
     
@@ -33,7 +35,7 @@ class CodeTide(BaseModel):
     @staticmethod
     def parserId(language :Optional[str]=None)->str:
         if language is None:
-            language = "Generic"
+            return ""
         return f"{language.capitalize()}Parser"
 
     @classmethod
@@ -61,12 +63,12 @@ class CodeTide(BaseModel):
         logger.info(f"Initializing CodeBase from path: {str(rootpath)}")
         
         st = time.time()
-        file_list = codebase._find_code_files(rootpath, languages=languages)
-        if not file_list:
+        codebase._find_code_files(rootpath, languages=languages)
+        if not codebase.file_list:
             logger.warning("No code files found matching the criteria")
             return codebase
             
-        language_files = codebase._organize_files_by_language(file_list)
+        language_files = codebase._organize_files_by_language()
         await codebase._initialize_parsers(language_files.keys())
         
         results = await codebase._process_files_concurrently(
@@ -83,11 +85,10 @@ class CodeTide(BaseModel):
 
     def _organize_files_by_language(
         self,
-        file_list: List[Path]
     ) -> Dict[str, List[Path]]:
         """Organize files by their programming language."""
         language_files = {}
-        for filepath in file_list:
+        for filepath in self.file_list:
             language = self._get_language_from_extension(filepath)
             if language not in language_files:
                 language_files[language] = []
@@ -101,9 +102,10 @@ class CodeTide(BaseModel):
         """Initialize parsers for all required languages."""
         for language in languages:
             if language not in self._instantiated_parsers:
-                parser_obj = getattr(parsers, self.parserId(language), GenericParser)
-                self._instantiated_parsers[language] = parser_obj()
-                logger.debug(f"Initialized parser for {language}")
+                parser_obj = getattr(parsers, self.parserId(language), None)
+                if parser_obj is not None:
+                    self._instantiated_parsers[language] = parser_obj()
+                    logger.debug(f"Initialized parser for {language}")
 
     async def _process_files_concurrently(
         self,
@@ -276,6 +278,7 @@ class CodeTide(BaseModel):
 
             code_files.append(file_path)
 
+        self.file_list = code_files
         return code_files
     
     @staticmethod
