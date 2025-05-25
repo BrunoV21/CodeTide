@@ -118,10 +118,10 @@ class ClassDefinition(BaseCodeElement):
         all_references = []
         all_references.extend(self.bases_references)
         all_references.extend(
-            {attribute.references for attribute in self.attributes}
+            sum([attribute.references for attribute in self.attributes], [])
         )
         all_references.extend(
-            {method.references for method in self.methods}
+            sum([method.references for method in self.methods], [])
         )
         return all_references
 
@@ -267,7 +267,9 @@ class CodeBase(BaseModel):
                         print(f"VARIABLE {unique_id} already exists")
                         continue
                     self._cached_elements[unique_id] = element
-                
+
+            ### DO IMPORT LATER
+            for codeFile in self.root:
                 for unique_id, element in codeFile.all_imports(as_dict=True).items():
                     if unique_id in self._cached_elements:
                         # print(f"IMPORT {unique_id} already exists")
