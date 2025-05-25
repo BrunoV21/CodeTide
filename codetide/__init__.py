@@ -45,9 +45,9 @@ class CodeTide(BaseModel):
         languages: Optional[List[str]] = None,
         max_concurrent_tasks: int = DEFAULT_MAX_CONCURRENT_TASKS,
         batch_size: int = DEFAULT_BATCH_SIZE
-    ) -> "CodeBase":
+    ) -> "CodeTide":
         """
-        Asynchronously create a CodeBase from a directory path.
+        Asynchronously create a CodeTide from a directory path.
         
         Args:
             rootpath: Path to the root directory
@@ -56,7 +56,7 @@ class CodeTide(BaseModel):
             batch_size: Number of files to process in each batch
             
         Returns:
-            Initialized CodeBase instance
+            Initialized CodeTide instance
         """
         rootpath = Path(rootpath)
         codebase = cls(rootpath=rootpath)
