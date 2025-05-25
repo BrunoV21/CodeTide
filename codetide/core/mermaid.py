@@ -1,4 +1,5 @@
 from codetide.core.models import CodeBase
+import ulid
 
 def to_mermaid_boxy_flowchart(codebase: CodeBase, include_modules: bool = False, include_types: bool = False) -> str:
     tree_dict = codebase._build_tree_dict()
@@ -71,7 +72,7 @@ def _render_class_contents(class_def, lines: list, indent: int):
 
 
 def _safe_mermaid_id(label: str) -> str:
-    return label.replace(" ", "_").replace("-", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
+    return ulid.ulid() + label.replace(" ", "_").replace("-", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
 
 
 def save_mermaid_to_html_file(mermaid_code: str, output_path: str = "diagram.html", title: str = "CodeBase Diagram"):
