@@ -239,13 +239,25 @@ class CodeBase(BaseModel):
             for codeFile in self.root:
                 for unique_id, element in codeFile.all_classes(as_dict=True).items():
                     if unique_id in self._cached_elements:
-                        print(f"CLASS {unique_id} already exists")                        
+                        print(f"CLASS {unique_id} already exists")
                         continue
                     self._cached_elements[unique_id] = element
-                
+
+                    for classAttribute in element.attributes:
+                        if classAttribute.unique_id in self._cached_elements:
+                            print(f"CLASS ATTRIBUTE {classAttribute.unique_id} already exists")
+                            continue
+                        self._cached_elements[classAttribute.unique_id] = classAttribute
+                    
+                    for classMethod in element.methods:
+                        if classMethod.unique_id in self._cached_elements:
+                            print(f"CLASS METHOD {classMethod.unique_id } already exists")
+                            continue
+                        self._cached_elements[classMethod.unique_id] = classMethod
+            
                 for unique_id, element in codeFile.all_functions(as_dict=True).items():
                     if unique_id in self._cached_elements:
-                        print(f"FUNCTION {unique_id} already exists")                        
+                        print(f"FUNCTION {unique_id} already exists")
                         continue
                     self._cached_elements[unique_id] = element
 
