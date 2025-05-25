@@ -256,3 +256,180 @@ class CodeBase(BaseModel):
             if match is not None:
                 return match
         return match
+
+    def get_tree_view(self, include_modules: bool = False, include_types: bool = False) -> str:
+        """
+        Generate a bash-style tree view of the codebase structure.
+        
+        Args:
+            include_modules: If True, include classes, functions, and variables within each file
+            include_types: If True, prefix each entry with its type (F/V/C/A/M)
+        
+        Returns:
+            str: ASCII tree representation of the codebase structure
+        """
+        # Build the nested structure first
+        tree_dict = self._build_tree_dict()
+        
+        # Convert to ASCII tree
+        lines = []
+        self._render_tree_node(tree_dict, "", True, lines, include_modules, include_types)
+        
+        return "\n".join(lines)
+
+    def _build_tree_dict(self) -> dict:
+        """Build a nested dictionary representing the directory structure."""
+        tree = {}
+        
+        for code_file in self.root:
+            if not code_file.file_path:
+                continue
+                
+            # Split the file path into parts
+            path_parts = code_file.file_path.replace("\\", "/").split("/")
+            
+            # Navigate/create the nested dictionary structure
+            current_level = tree
+            for i, part in enumerate(path_parts):
+                if i == len(path_parts) - 1:  # This is the file
+                    current_level[part] = {"_type": "file", "_data": code_file}
+                else:  # This is a directory
+                    if part not in current_level:
+                        current_level[part] = {"_type": "directory"}
+                    current_level = current_level[part]
+        
+        return tree
+
+    def _render_tree_node(self, node: dict, prefix: str, is_last: bool, lines: list, 
+                        include_modules: bool, include_types: bool, depth: int = 0):
+        """
+        Recursively render a tree node with ASCII art.
+        
+        Args:
+            node: Dictionary node to render
+            prefix: Current line prefix for ASCII art
+            is_last: Whether this is the last item at current level
+            lines: List to append rendered lines to
+            include_modules: Whether to include module contents
+            include_types: Whether to include type prefixes
+            depth: Current depth in the tree
+        """
+        items = [(k, v) for k, v in node.items() if not k.startswith("_")]
+        items.sort(key=lambda x: (x[1].get("_type", "directory") == "file", x[0]))
+        
+        for i, (name, data) in enumerate(items):
+            is_last_item = i == len(items) - 1
+            
+            # Choose the appropriate tree characters
+            if is_last_item:
+                current_prefix = "└── "
+                next_prefix = prefix + "    "
+            else:
+                current_prefix = "├── "
+                next_prefix = prefix + "│   "
+            
+            # Determine display name with optional type prefix
+            display_name = name
+            if include_types:
+                if data.get("_type") == "file":
+                    display_name = f" {name}"
+                else:
+                    display_name = f"{name}"
+            
+            lines.append(f"{prefix}{current_prefix}{display_name}")
+            
+            # Handle file contents if requested
+            if data.get("_type") == "file" and include_modules:
+                code_file = data["_data"]
+                self._render_file_contents(code_file, next_prefix, lines, include_types)
+            elif data.get("_type") != "file":
+                # This is a directory - recursively render its contents
+                self._render_tree_node(data, next_prefix, is_last_item, lines, 
+                                    include_modules, include_types, depth + 1)
+
+    def _render_file_contents(self, code_file: 'CodeFileModel', prefix: str, 
+                            lines: list, include_types: bool):
+        """
+        Render the contents of a file in the tree.
+        
+        Args:
+            code_file: The CodeFileModel to render
+            prefix: Current line prefix
+            lines: List to append lines to
+            include_types: Whether to include type prefixes
+        """
+        contents = []
+        
+        # Collect all file-level items
+        for variable in code_file.variables:
+            name = f"V {variable.name}" if include_types else variable.name
+            contents.append(("variable", name, None))
+        
+        for function in code_file.functions:
+            name = f" {function.name}" if include_types else function.name
+            contents.append(("function", name, None))
+        
+        for class_def in code_file.classes:
+            name = f"C {class_def.name}" if include_types else class_def.name
+            contents.append(("class", name, class_def))
+        
+        # Sort: variables, functions, then classes
+        contents.sort(key=lambda x: (
+            {"variable": 0, "function": 1, "class": 2}[x[0]], 
+            x[1]
+        ))
+        
+        for i, (item_type, name, class_def) in enumerate(contents):
+            is_last_item = i == len(contents) - 1
+            
+            if is_last_item:
+                current_prefix = "└── "
+                next_prefix = prefix + "    "
+            else:
+                current_prefix = "├── "
+                next_prefix = prefix + "│   "
+            
+            lines.append(f"{prefix}{current_prefix}{name}")
+            
+            # If it's a class, render its contents
+            if item_type == "class" and class_def:
+                self._render_class_contents(class_def, next_prefix, lines, include_types)
+
+    def _render_class_contents(self, class_def: 'ClassDefinition', prefix: str, 
+                            lines: list, include_types: bool):
+        """
+        Render the contents of a class in the tree.
+        
+        Args:
+            class_def: The ClassDefinition to render
+            prefix: Current line prefix
+            lines: List to append lines to
+            include_types: Whether to include type prefixes
+        """
+        class_contents = []
+        
+        # Collect class attributes
+        for attribute in class_def.attributes:
+            name = f"A {attribute.name}" if include_types else attribute.name
+            class_contents.append(("attribute", name))
+        
+        # Collect class methods
+        for method in class_def.methods:
+            name = f"M {method.name}" if include_types else method.name
+            class_contents.append(("method", name))
+        
+        # Sort: attributes first, then methods
+        class_contents.sort(key=lambda x: (
+            {"attribute": 0, "method": 1}[x[0]], 
+            x[1]
+        ))
+        
+        for i, (item_type, name) in enumerate(class_contents):
+            is_last_item = i == len(class_contents) - 1
+            
+            if is_last_item:
+                current_prefix = "└── "
+            else:
+                current_prefix = "├── "
+            
+            lines.append(f"{prefix}{current_prefix}{name}")
