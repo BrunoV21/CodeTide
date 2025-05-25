@@ -82,12 +82,12 @@ class FunctionDefinition(BaseCodeElement):
 
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
-    class_id :str
+    class_id :str=""
 
 class ClassAttribute(VariableDeclaration):
     """Class attribute representation"""
     # unique_id: str
-    class_id :str
+    class_id :str=""
     visibility: Literal["public", "protected", "private"] = "public"
 
 class ClassDefinition(BaseCodeElement):
@@ -251,6 +251,7 @@ class CodeBase(BaseModel):
                     
                     for classMethod in element.methods:
                         if classMethod.unique_id in self._cached_elements:
+                            ### due to setters vs properties
                             print(f"CLASS METHOD {classMethod.unique_id } already exists")
                             continue
                         self._cached_elements[classMethod.unique_id] = classMethod
@@ -269,7 +270,7 @@ class CodeBase(BaseModel):
                 
                 for unique_id, element in codeFile.all_imports(as_dict=True).items():
                     if unique_id in self._cached_elements:
-                        print(f"IMPORT {unique_id} already exists")
+                        # print(f"IMPORT {unique_id} already exists")
                         continue
                     self._cached_elements[unique_id] = element
                 
