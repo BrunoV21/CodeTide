@@ -38,6 +38,7 @@ class ImportStatement(BaseCodeElement):
     import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
     definition_id :Optional[str]=None # ID to store where the Import is defined if from another file, none if is package
     file_path: str=""
+    raw: str=""
     
     @property
     def as_dependency(self)->str:
