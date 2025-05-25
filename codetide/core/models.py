@@ -482,3 +482,39 @@ class CodeBase(BaseModel):
                 current_prefix = "├── "
             
             lines.append(f"{prefix}{current_prefix}{name}")
+
+    def get(self, unique_id :str, degree :int=0, as_string :bool=False, as_list_str :bool=False)->List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
+        if not self._cached_elements:
+            self._build_cached_elements()
+        
+        references_ids = [unique_id]
+        retrieved_elements = []
+        retrieved_ids = []
+        
+        while True:
+            new_references_ids = []
+            for reference in references_ids:
+                element = self._cached_elements.get(reference)
+                if element is not None and element.unique_id not in retrieved_ids:
+                    retrieved_elements.append(element)
+                    retrieved_ids.append(element.unique_id)
+
+                    if hasattr(element, "references") and degree > 0:
+                        new_references_ids.extend([
+                            _reference.unique_id for _reference in element.references if _reference.unique_id and _reference.unique_id not in references_ids
+                        ])
+
+            if degree == 0:
+                break
+
+            references_ids = new_references_ids.copy()
+
+            degree -= 1
+
+        ### TODO implement schema to return each type as string with emphasis in on building partiall class representation with required attributees and imports only
+        ### can create a template for return as string and fill it with imports, class[A+M], functions varaibles
+        #### actually can extend that template even to normal returns to ensure consitent experienc
+        ### todo if id is class no need to search for references that are classmethods or classattributes with if class_id = self
+        return retrieved_elements[::-1]
+    
+    ### TODO for retrueveal / search / embeddings / whatever use a map of raw_content vs id to retrieve the required_id!
