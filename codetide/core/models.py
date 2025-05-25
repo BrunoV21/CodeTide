@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, computed_field
-from typing import List, Optional, Literal, Union
+from typing import Any, Dict, List, Optional, Literal, Union
 
 class BaseCodeElement(BaseModel):
     _unique_id :Optional[str]=None
@@ -82,10 +82,12 @@ class FunctionDefinition(BaseCodeElement):
 
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
+    class_id :str
 
 class ClassAttribute(VariableDeclaration):
     """Class attribute representation"""
     # unique_id: str
+    class_id :str
     visibility: Literal["public", "protected", "private"] = "public"
 
 class ClassDefinition(BaseCodeElement):
@@ -102,11 +104,13 @@ class ClassDefinition(BaseCodeElement):
     def add_method(self, method :MethodDefinition):
         method.file_path = self.file_path
         method.unique_id = f"{self.unique_id}.{method.name}"
+        method.class_id = self.unique_id
         self.methods.append(method)
 
     def add_attribute(self, attribute :ClassAttribute):
         attribute.file_path = self.file_path
         attribute.unique_id = f"{self.unique_id}.{attribute.name}"
+        attribute.class_id = self.unique_id
         self.attributes.append(attribute)
 
     @property
@@ -130,26 +134,26 @@ class CodeFileModel(BaseModel):
     classes: List[ClassDefinition] = Field(default_factory=list)
     file_path: str = ""
     raw: Optional[str] = None
-
+    
     @staticmethod
-    def _list_all_unique_ids(entries_list :List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]])->List[str]:
-        return [entry.unique_id for entry in entries_list]
+    def _list_all(entries_list :List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]])->Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
+        return {entry.unique_id: entry for entry in entries_list}
+
+    def all_imports(self, as_dict :bool=False)->Union[List[str], Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]]:
+        unique_dict = self._list_all(self.imports)
+        return list(unique_dict.keys()) if not as_dict else unique_dict
     
-    @property
-    def all_imports(self)->List[str]:
-        return self._list_all_unique_ids(self.imports)
+    def all_variables(self, as_dict :bool=False)->Union[List[str], Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]]:
+        unique_dict = self._list_all(self.variables)
+        return list(unique_dict.keys()) if not as_dict else unique_dict
     
-    @property
-    def all_variables(self)->List[str]:
-        return self._list_all_unique_ids(self.variables)
+    def all_classes(self, as_dict :bool=False)->Union[List[str], Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]]:
+        unique_dict = self._list_all(self.classes)
+        return list(unique_dict.keys()) if not as_dict else unique_dict
     
-    @property
-    def all_functions(self)->List[str]:
-        return self._list_all_unique_ids(self.functions)
-    
-    @property
-    def all_classes(self)->List[str]:
-        return self._list_all_unique_ids(self.classes)
+    def all_functions(self, as_dict :bool=False)->Union[List[str], Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]]:
+        unique_dict = self._list_all(self.functions)
+        return list(unique_dict.keys()) if not as_dict else unique_dict
 
     def add_import(self, import_statement :ImportStatement):
         import_statement.file_path = self.file_path
@@ -228,25 +232,54 @@ class CodeFileModel(BaseModel):
 class CodeBase(BaseModel):
     """Root model representing a complete codebase"""
     root: List[CodeFileModel] = Field(default_factory=list)
+    _cached_elements :Dict[str, Any]= dict()
+
+    def _build_cached_elements(self, force_update :bool=False):
+        if not self._cached_elements or force_update:
+            for codeFile in self.root:
+                for unique_id, element in codeFile.all_classes(as_dict=True).items():
+                    if unique_id in self._cached_elements:
+                        print(f"CLASS {unique_id} already exists")                        
+                        continue
+                    self._cached_elements[unique_id] = element
+                
+                for unique_id, element in codeFile.all_functions(as_dict=True).items():
+                    if unique_id in self._cached_elements:
+                        print(f"FUNCTION {unique_id} already exists")                        
+                        continue
+                    self._cached_elements[unique_id] = element
+
+                for unique_id, element in codeFile.all_variables(as_dict=True).items():
+                    if unique_id in self._cached_elements:
+                        print(f"VARIABLE {unique_id} already exists")
+                        continue
+                    self._cached_elements[unique_id] = element
+                
+                for unique_id, element in codeFile.all_imports(as_dict=True).items():
+                    if unique_id in self._cached_elements:
+                        print(f"IMPORT {unique_id} already exists")
+                        continue
+                    self._cached_elements[unique_id] = element
+                
 
     def _list_all_unique_ids_for_property(self, property :Literal["classes", "functions", "variables", "imports"])->List[str]:
         return sum([
-            getattr(entry, f"all_{property}") for entry in self.root
+            getattr(entry, f"all_{property}")() for entry in self.root
         ], [])
-
-    @property
+    
+    # @property
     def all_variables(self)->List[str]:
         return self._list_all_unique_ids_for_property("variables")
     
-    @property
+    # @property
     def all_functions(self)->List[str]:
         return self._list_all_unique_ids_for_property("functions")
     
-    @property
+    # @property
     def all_classes(self)->List[str]:
         return self._list_all_unique_ids_for_property("classes")
     
-    @property
+    # @property
     def all_imports(self)->List[str]:
         return self._list_all_unique_ids_for_property("imports")
     
