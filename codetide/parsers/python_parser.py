@@ -83,7 +83,7 @@ class PythonParser(BaseParser):
         tree = self.tree_parser.parse(code)
         root_node = tree.root_node
         codeFile = CodeFileModel(
-            file_path=self._skip_init_paths(file_path),
+            file_path=str(file_path), #self._skip_init_paths(file_path),
             raw=self._get_content(code, root_node)
         )
         self._process_node(root_node, code, codeFile)
@@ -347,19 +347,22 @@ class PythonParser(BaseParser):
                 default_value=default
             )
     
-    @staticmethod
-    def _default_unique_import_id(importModel :ImportStatement)->str:        
+    @classmethod
+    def _default_unique_import_id(cls, importModel :ImportStatement)->str:        
         if importModel.name:
             unique_id = f"{importModel.source}.{importModel.name}"
         else:
             unique_id = f"{importModel.source}"
+        unique_id = cls._skip_init_paths(unique_id)
         return unique_id
 
     @classmethod
     def _generate_unique_import_id(cls, importModel :ImportStatement):
         """Generate a unique ID for the function definition"""
         unique_id = cls._default_unique_import_id(importModel)
-        if Path(importModel.file_path).with_suffix("") == Path(importModel.file_path):
+        
+        if "__init__" in importModel.file_path:
+            # if Path(importModel.file_path).with_suffix("") == Path(importModel.file_path):
             ### it is an init file need to map prefill definiton_id which will be usde for mapping
             importModel.definition_id = unique_id
             importModel.unique_id = ".".join([
@@ -368,6 +371,8 @@ class PythonParser(BaseParser):
             ])
 
         else:
+            
+            # print(f"\n{unique_id=}->>>>>>>>>>>>>>>>>")
             importModel.unique_id = unique_id
             importModel.definition_id = unique_id
     
