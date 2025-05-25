@@ -375,6 +375,8 @@ class PythonParser(BaseParser):
             # print(f"\n{unique_id=}->>>>>>>>>>>>>>>>>")
             importModel.unique_id = unique_id
             importModel.definition_id = unique_id
+            
+        importModel.raw = cls.import_statement_template(importModel)
     
     def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
         ### for codeFile in codeBase search through imports and if defition_id matches an id from a class, a function or a variable  let it be
