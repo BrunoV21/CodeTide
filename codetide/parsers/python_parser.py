@@ -383,12 +383,12 @@ class PythonParser(BaseParser):
         ### otherwise check if it matches a unique_id from imports, if so map dfeiniton_id to import unique id 
         ### othewise map to None and is a package
         ### this should handle all imports across file
-        all_imports = codeBase.all_imports
-        all_elements = codeBase.all_classes + codeBase.all_functions + codeBase.all_variables
+        all_imports = codeBase.all_imports()
+        all_elements = codeBase.all_classes() + codeBase.all_functions() + codeBase.all_variables()
         for codeFile in codeBase.root:
             global_imports_minus_current = [
                 importId for importId in all_imports
-                if importId not in codeFile.all_imports
+                if importId not in codeFile.all_imports()
             ]
             for importStatement in codeFile.imports:
                 definitionId = importStatement.definition_id
@@ -418,7 +418,7 @@ class PythonParser(BaseParser):
             if not codeFile.file_path.endswith(self.extension):
                 continue
             
-            non_import_ids = codeFile.all_classes + codeFile.all_functions + codeFile.all_variables
+            non_import_ids = codeFile.all_classes() + codeFile.all_functions() + codeFile.all_variables()
             raw_contents = codeFile.list_raw_contents
             raw_contents_str = "\n".join(raw_contents)
 
