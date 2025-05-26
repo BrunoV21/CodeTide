@@ -228,6 +228,74 @@ class CodeFileModel(BaseModel):
             raw.append(variable.raw)
 
         return raw
+    
+class CodeContextStructure(BaseModel):
+    imports :Dict[str, ImportStatement] = Field(default_factory=dict)
+    variables :Dict[str, VariableDeclaration] = Field(default_factory=dict)
+    functions :Dict[str, ClassDefinition] = Field(default_factory=dict)
+    classes :Dict[str, ClassDefinition] = Field(default_factory=dict)
+    class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
+    class_methods :Dict[str, MethodDefinition] = Field(default_factory=list)
+    requested_elemtent :Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]] = None
+
+    _unique_class_elements_ids :List[str] = list()
+    
+    def add_import(self, import_statement :ImportStatement):
+        if import_statement.unique_id in self.imports:
+            return
+        self.imports[import_statement.unique_id] = import_statement
+
+    def add_class_method(self, method :MethodDefinition):
+        if method.class_id not in self._unique_class_elements_ids:
+            self._unique_class_elements_ids.append(method.class_id)
+
+        self.class_methods[method.unique_id] = method
+
+    def add_class_attribute(self, attribute :ClassAttribute):
+        if attribute.class_id not in self._unique_class_elements_ids:
+            self._unique_class_elements_ids.append(attribute.class_id)
+            
+        self.class_attributes[attribute.unique_id] = attribute
+
+    def add_variable(self, variable: VariableDeclaration):
+        if variable.unique_id in self.variables:
+            return
+        self.variables[variable.unique_id] = variable
+
+    def add_function(self, function: ClassDefinition):
+        if function.unique_id in self.functions:
+            return
+        self.functions[function.unique_id] = function
+
+    def add_class(self, cls: ClassDefinition):
+        if cls.unique_id in self.classes:
+            return
+        self.classes[cls.unique_id] = cls
+
+    @classmethod
+    def from_list_of_elements(cls, elements: list, requested_element_index :int=0) -> 'CodeContextStructure':
+        instance = cls()
+        if requested_element_index < 0:
+            requested_element_index = len(elements) + requested_element_index
+        for i, element in enumerate(elements):
+            if i == requested_element_index:
+                instance.requested_elemtent = element
+            elif isinstance(element, ImportStatement):
+                instance.add_import(element)
+            elif isinstance(element, ClassDefinition) :
+                instance.add_class(element)
+            elif isinstance(element, MethodDefinition):
+                instance.add_class_method(element)
+            elif isinstance(element, ClassAttribute):
+                instance.add_class_attribute(element)
+            elif isinstance(element, VariableDeclaration):
+                instance.add_variable(element)
+            elif isinstance(element, FunctionDefinition):
+                instance.add_function(element)
+            else:
+                raise TypeError(f"Unsupported element type: {type(element).__name__}")
+
+        return instance
 
 class CodeBase(BaseModel):
     """Root model representing a complete codebase"""
@@ -483,14 +551,14 @@ class CodeBase(BaseModel):
             
             lines.append(f"{prefix}{current_prefix}{name}")
 
-    def get(self, unique_id :str, degree :int=0, as_string :bool=False, as_list_str :bool=False)->List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
+    def get(self, unique_id :str, degree :int=0, as_string :bool=False, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
         if not self._cached_elements:
             self._build_cached_elements()
         
         references_ids = [unique_id]
         retrieved_elements = []
         retrieved_ids = []
-        
+
         while True:
             new_references_ids = []
             for reference in references_ids:
@@ -511,10 +579,14 @@ class CodeBase(BaseModel):
 
             degree -= 1
 
+        codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements)
+
+
+
         ### TODO implement schema to return each type as string with emphasis in on building partiall class representation with required attributees and imports only
         ### can create a template for return as string and fill it with imports, class[A+M], functions varaibles
         #### actually can extend that template even to normal returns to ensure consitent experienc
         ### todo if id is class no need to search for references that are classmethods or classattributes with if class_id = self
-        return retrieved_elements[::-1]
+        return codeContext #retrieved_elements[::-1]
     
     ### TODO for retrueveal / search / embeddings / whatever use a map of raw_content vs id to retrieve the required_id!
