@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, computed_field
 from typing import Any, Dict, List, Optional, Literal, Union
 
 class BaseCodeElement(BaseModel):
+    file_path: str = ""
     _unique_id :Optional[str]=None
 
     @property
@@ -37,7 +38,6 @@ class ImportStatement(BaseCodeElement):
     alias: Optional[str] = None  # The alias for the import
     import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
     definition_id :Optional[str]=None # ID to store where the Import is defined if from another file, none if is package
-    file_path: str=""
     raw: str=""
     
     @property
@@ -51,7 +51,6 @@ class VariableDeclaration(BaseCodeElement):
     value: Optional[str] = None    
     modifiers: List[str] = Field(default_factory=list)  # e.g., "final", "abstract"
     references: List[CodeReference] = []
-    file_path: str = ""
     raw :Optional[str] = ""
 
 class Parameter(BaseModel):
@@ -77,7 +76,6 @@ class FunctionDefinition(BaseCodeElement):
     modifiers: List[str] = Field(default_factory=list)  # e.g., "async", "generator", etc.
     decorators: List[str] = Field(default_factory=list)
     references: List[CodeReference] = Field(default_factory=list)
-    file_path: str = ""
     raw :Optional[str] = ""
 
 class MethodDefinition(FunctionDefinition):
@@ -98,7 +96,6 @@ class ClassDefinition(BaseCodeElement):
     attributes: List[ClassAttribute] = Field(default_factory=list)
     methods: List[MethodDefinition] = Field(default_factory=list)
     bases_references: List[CodeReference] = Field(default_factory=list)
-    file_path: str = ""
     raw :Optional[str] = ""
     
     def add_method(self, method :MethodDefinition):
@@ -132,7 +129,6 @@ class CodeFileModel(BaseModel):
     variables: List[VariableDeclaration] = Field(default_factory=list)
     functions: List[FunctionDefinition] = Field(default_factory=list)
     classes: List[ClassDefinition] = Field(default_factory=list)
-    file_path: str = ""
     raw: Optional[str] = None
     
     @staticmethod
