@@ -1,4 +1,4 @@
-from codetide.core.common import wrap_content
+from codetide.core.common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
 
 from typing import Any, Dict, List, Optional, Literal, Union
 from pydantic import BaseModel, Field, computed_field
@@ -237,7 +237,8 @@ class PartialClasses(BaseModel):
 
     @property
     def raw(self)->str:
-        return f"{self.class_header}\n{'\n\n'.join(self.attributes)}\n\n{'\n\n'.join(self.methods)}"
+        ### TODO need to preserve first line indent here?
+        return f"{self.class_header}\n{'\n'.join(self.attributes)}\n\n{'\n'.join(self.methods)}"
     
 class CodeContextStructure(BaseModel):
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
@@ -327,7 +328,8 @@ class CodeContextStructure(BaseModel):
         wrapped_list = [
             wrap_content(content="\n\n".join(elements), filepath=filepath)
             for filepath, elements in raw_elements_by_file.items()
-        ]
+        ] + [wrap_content(content=self.requested_elemtent.raw, filepath=self.requested_elemtent.file_path)]
+
         return wrapped_list
 
     @classmethod
@@ -638,13 +640,25 @@ class CodeBase(BaseModel):
             degree -= 1
 
         codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements)
+        codeContext._cached_elements = self._cached_elements
 
+        if as_string:
+            context = codeContext.as_list_str()
+            if len(context) > 1:
+                context.insert(0, CONTEXT_INTRUCTION)
+                context.insert(-1, TARGET_INSTRUCTION)
 
+            return "\n\n".join(context)
+        
+        elif as_list_str:
+            return codeContext.as_list_str()
+        
+        else:
+            return codeContext
 
         ### TODO implement schema to return each type as string with emphasis in on building partiall class representation with required attributees and imports only
         ### can create a template for return as string and fill it with imports, class[A+M], functions varaibles
         #### actually can extend that template even to normal returns to ensure consitent experienc
         ### todo if id is class no need to search for references that are classmethods or classattributes with if class_id = self
-        return codeContext #retrieved_elements[::-1]
     
     ### TODO for retrueveal / search / embeddings / whatever use a map of raw_content vs id to retrieve the required_id!

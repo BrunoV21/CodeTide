@@ -17,3 +17,17 @@ def wrap_content(content: str, filepath: str) -> str:
     return f"""<FILE_START::{safe_path}>
 {content}
 </FILE_END::{safe_path}>"""
+
+CONTEXT_INTRUCTION = """
+[CONTEXT FILES START BELOW]
+These files provide dependencies, configuration, and supporting logic.
+You may modify them **only if absolutely necessary** to implement the desired logic or ensure compatibility with the changes in the target file.
+Otherwise, leave them unchanged.
+"""
+
+TARGET_INSTRUCTION = """
+[TARGET FILE STARTS BELOW][TARGET FILE STARTS BELOW]
+The following file is the main focus. 
+Apply your changes primarily to this file.
+Use the context above to ensure correctness and compatibility.
+"""
