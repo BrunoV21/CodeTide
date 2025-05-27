@@ -1,5 +1,8 @@
-from pydantic import BaseModel, Field, computed_field
+from codetide.core.common import wrap_content
+
 from typing import Any, Dict, List, Optional, Literal, Union
+from pydantic import BaseModel, Field, computed_field
+from collections import defaultdict
 
 class BaseCodeElement(BaseModel):
     file_path: str = ""
@@ -225,15 +228,27 @@ class CodeFileModel(BaseModel):
 
         return raw
     
+class PartialClasses(BaseModel):
+    class_id :str
+    class_header :str
+    filepath :str
+    attributes :List[ClassAttribute] = Field(default_factory=list)
+    methods :List[MethodDefinition] = Field(default_factory=list)
+
+    @property
+    def raw(self)->str:
+        return f"{self.class_header}\n{'\n\n'.join(self.attributes)}\n\n{'\n\n'.join(self.methods)}"
+    
 class CodeContextStructure(BaseModel):
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
     variables :Dict[str, VariableDeclaration] = Field(default_factory=dict)
     functions :Dict[str, ClassDefinition] = Field(default_factory=dict)
     classes :Dict[str, ClassDefinition] = Field(default_factory=dict)
     class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
-    class_methods :Dict[str, MethodDefinition] = Field(default_factory=list)
+    class_methods :Dict[str, MethodDefinition] = Field(default_factory=dict)
     requested_elemtent :Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]] = None
 
+    _cached_elements :Dict[str, Any] = dict()
     _unique_class_elements_ids :List[str] = list()
     
     def add_import(self, import_statement :ImportStatement):
@@ -268,6 +283,53 @@ class CodeContextStructure(BaseModel):
             return
         self.classes[cls.unique_id] = cls
 
+    def as_list_str(self)->List[str]:
+
+        partially_filled_classes :Dict[str, PartialClasses]= {}
+
+        raw_elements_by_file = defaultdict(list)
+
+        # Assuming each entry has a `.raw` (str) and `.filepath` (str) attribute
+        for entry in self.imports.values():
+            raw_elements_by_file[entry.filepath].append(entry.raw)
+
+        for entry in self.variables.values():
+            raw_elements_by_file[entry.filepath].append(entry.raw)
+
+        for entry in self.functions.values():
+            raw_elements_by_file[entry.filepath].append(entry.raw)
+
+        for entry in self.classes.values():
+            raw_elements_by_file[entry.filepath].append(entry.raw)
+
+        unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys())
+            
+        for target_class in unique_class_elements_not_in_classes:
+            classObj :ClassDefinition = self._cached_elements.get(target_class)
+            if classObj is not None:
+                partially_filled_classes[classObj.unique_id] = PartialClasses(
+                    filepath=classObj.file_path,
+                    class_id=classObj.unique_id,
+                    class_header=classObj.raw.split("\n")[0]
+                )
+
+        for class_attribute in self.class_attributes.values():
+            if class_attribute.class_id in unique_class_elements_not_in_classes:
+                partially_filled_classes[classObj.unique_id].attributes.append(class_attribute.raw)
+
+        for class_method in self.class_methods.values():
+            if class_method.class_id in unique_class_elements_not_in_classes:
+                partially_filled_classes[classObj.unique_id].methods.append(class_method.raw)
+
+        for partial in partially_filled_classes.values():
+            raw_elements_by_file[partial.filepath].append(partial.raw)
+
+        wrapped_list = [
+            wrap_content(content="\n\n".join(elements), filepath=filepath)
+            for filepath, elements in raw_elements_by_file.items()
+        ]
+        return wrapped_list
+
     @classmethod
     def from_list_of_elements(cls, elements: list, requested_element_index :int=0) -> 'CodeContextStructure':
         instance = cls()
@@ -296,7 +358,7 @@ class CodeContextStructure(BaseModel):
 class CodeBase(BaseModel):
     """Root model representing a complete codebase"""
     root: List[CodeFileModel] = Field(default_factory=list)
-    _cached_elements :Dict[str, Any]= dict()
+    _cached_elements :Dict[str, Any] = dict()
 
     def _build_cached_elements(self, force_update :bool=False):
         if not self._cached_elements or force_update:
