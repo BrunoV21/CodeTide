@@ -245,8 +245,7 @@ class PartialClasses(BaseModel):
 
     @property
     def raw(self)->str:
-        ### TODO need to preserve first line indent here?
-        return f"{self.class_header}\n{'\n'.join(self.attributes)}\n\n{'\n'.join(self.methods)}"
+        return f"{self.class_header}\n{'\n'.join(self.attributes)}\n{'\n\n'.join(self.methods)}"
     
 class CodeContextStructure(BaseModel):
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
@@ -328,6 +327,8 @@ class CodeContextStructure(BaseModel):
 
         for class_method in self.class_methods.values():
             if class_method.class_id in unique_class_elements_not_in_classes:
+                if not partially_filled_classes[classObj.unique_id].methods:
+                    partially_filled_classes[classObj.unique_id].methods.append("\n    ...\n")
                 partially_filled_classes[classObj.unique_id].methods.append(class_method.raw)
 
         for partial in partially_filled_classes.values():
@@ -335,7 +336,7 @@ class CodeContextStructure(BaseModel):
 
         if isinstance(self.requested_elemtent, (ClassAttribute, MethodDefinition)):
             classObj :ClassDefinition = self._cached_elements.get(self.requested_elemtent.class_id)
-            self.requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n{self.requested_elemtent.raw}"
+            self.requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n    ...\n\n{self.requested_elemtent.raw}"
 
         wrapped_list = [
             wrap_content(content="\n\n".join(elements), filepath=filepath)
