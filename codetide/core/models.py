@@ -1,12 +1,22 @@
 from codetide.core.common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
 
+from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union
-from pydantic import BaseModel, Field, computed_field
 from collections import defaultdict
 
 class BaseCodeElement(BaseModel):
     file_path: str = ""
+    raw :Optional[str] = ""
     _unique_id :Optional[str]=None
+
+    @field_validator("raw")
+    @classmethod
+    def apply_second_line_indent_to_first(cls, value):
+        if not value:
+            return value
+
+        lines = value.splitlines()
+        return "\n".join(lines)
 
     @property
     def file_path_without_suffix(self)->str:
@@ -26,7 +36,7 @@ class BaseCodeElement(BaseModel):
     
     @unique_id.setter
     def unique_id(self, value :str):
-        self._unique_id = value
+        self._unique_id = value 
 
 class CodeReference(BaseModel):
     """Reference to another code element"""
@@ -79,7 +89,6 @@ class FunctionDefinition(BaseCodeElement):
     modifiers: List[str] = Field(default_factory=list)  # e.g., "async", "generator", etc.
     decorators: List[str] = Field(default_factory=list)
     references: List[CodeReference] = Field(default_factory=list)
-    raw :Optional[str] = ""
 
 class MethodDefinition(FunctionDefinition):
     """Class method representation"""
@@ -99,7 +108,6 @@ class ClassDefinition(BaseCodeElement):
     attributes: List[ClassAttribute] = Field(default_factory=list)
     methods: List[MethodDefinition] = Field(default_factory=list)
     bases_references: List[CodeReference] = Field(default_factory=list)
-    raw :Optional[str] = ""
     
     def add_method(self, method :MethodDefinition):
         method.file_path = self.file_path

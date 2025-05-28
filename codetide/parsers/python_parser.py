@@ -68,8 +68,18 @@ class PythonParser(BaseParser):
         return self
     
     @staticmethod
-    def _get_content(code :bytes, node: Node)->str:
-        return code[node.start_byte:node.end_byte].decode('utf-8')
+    def _get_content(code: bytes, node: Node, preserve_indentation: bool = False) -> str:
+        if not preserve_indentation:
+            return code[node.start_byte:node.end_byte].decode('utf-8')
+
+        if preserve_indentation:
+            # Go back to the start of the line to include indentation
+            line_start = node.start_byte
+            while line_start > 0 and code[line_start - 1] not in (10, 13):
+                line_start -= 1
+
+        return code[line_start:node.end_byte].decode('utf-8')
+
     
     @staticmethod
     def _skip_init_paths(file_path :Path)->str:
@@ -84,7 +94,7 @@ class PythonParser(BaseParser):
         root_node = tree.root_node
         codeFile = CodeFileModel(
             file_path=str(file_path), #self._skip_init_paths(file_path),
-            raw=self._get_content(code, root_node)
+            raw=self._get_content(code, root_node, preserve_indentation=True)
         )
         self._process_node(root_node, code, codeFile)
         return codeFile
@@ -175,7 +185,7 @@ class PythonParser(BaseParser):
         is_class = False
         class_name = None
         bases = []
-        raw = cls._get_content(code, node)
+        raw = cls._get_content(code, node, preserve_indentation=True)
         for child in node.children: 
             if child.type == "class":
                 is_class = True
@@ -226,7 +236,6 @@ class PythonParser(BaseParser):
         type_hint = None
         default = None
         next_is_default = None
-        raw = cls._get_content(code, node)
         for child in node.children:
             if child.type == "identifier" and attribute is None:
                 attribute = cls._get_content(code, child)
@@ -239,6 +248,7 @@ class PythonParser(BaseParser):
                 next_is_default = None
         
         if is_class_attribute:
+            raw = cls._get_content(code, node, preserve_indentation=True)
             codeFile.classes[-1].add_attribute(
                 ClassAttribute(
                     name=attribute,
@@ -248,6 +258,7 @@ class PythonParser(BaseParser):
                 )
             )
         else:
+            raw = cls._get_content(code, node)
             codeFile.add_variable(
                 VariableDeclaration(
                     name=attribute,
@@ -260,7 +271,8 @@ class PythonParser(BaseParser):
     @classmethod
     def _process_decorated_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_method :bool=False):
         decorators = []
-        raw = cls._get_content(code, node)
+        raw = cls._get_content(code, node, preserve_indentation=True)
+        # print(f"{raw=}")
 
         for child in node.children:
             if child.type == "decorator":
@@ -275,8 +287,6 @@ class PythonParser(BaseParser):
         signature = FunctionSignature()
         modifiers = []
         
-        if raw is None:
-            raw = cls._get_content(code, node)
 
         if decorators is None:
             decorators = []
@@ -294,6 +304,8 @@ class PythonParser(BaseParser):
                 signature.return_type = cls._get_content(code, child)
         
         if is_class_method:
+            if raw is None:
+                raw = cls._get_content(code, node, preserve_indentation=True)
             codeFile.classes[-1].add_method(
                 MethodDefinition(
                     name=definition,
@@ -304,6 +316,8 @@ class PythonParser(BaseParser):
                 )
             )
         else:
+            if raw is None:
+                raw = cls._get_content(code, node)
             codeFile.add_function(
                 FunctionDefinition(
                     name=definition,
