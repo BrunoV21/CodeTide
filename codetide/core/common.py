@@ -1,4 +1,3 @@
-import re
 from codetide.core.defaults import DEFAULT_ENCODING
 from typing import Union
 from pathlib import Path
@@ -13,10 +12,9 @@ def writeFile(contents :str, path :Union[str, Path], mode :str="w"):
         _file.write(contents)
 
 def wrap_content(content: str, filepath: str) -> str:
-    safe_path = re.sub(r"[^\w\-\.]", "_", filepath)
-    return f"""<FILE_START::{safe_path}>
+    return f"""<FILE_START::{filepath}>
 {content}
-</FILE_END::{safe_path}>"""
+</FILE_END::{filepath}>"""
 
 CONTEXT_INTRUCTION = """
 [CONTEXT FILES START BELOW]
