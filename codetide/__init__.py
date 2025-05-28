@@ -20,13 +20,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class CodeTide(BaseModel):
-    """Root model representing a complete codebase"""    
+    """Root model representing a complete codebase"""
     rootpath : Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
     file_list :List[Path] = Field(default_factory=list)
     _instantiated_parsers :Dict[str, BaseParser] = {}
     _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
-    
+
     @field_validator("rootpath", mode="after")
     @classmethod
     def rootpath_to_path(cls, rootpath : Union[str, Path])->Path:
@@ -48,39 +48,39 @@ class CodeTide(BaseModel):
     ) -> "CodeTide":
         """
         Asynchronously create a CodeTide from a directory path.
-        
+
         Args:
             rootpath: Path to the root directory
             languages: List of languages to include (None for all)
             max_concurrent_tasks: Maximum concurrent file processing tasks
             batch_size: Number of files to process in each batch
-            
+
         Returns:
             Initialized CodeTide instance
         """
         rootpath = Path(rootpath)
         codebase = cls(rootpath=rootpath)
         logger.info(f"Initializing CodeBase from path: {str(rootpath)}")
-        
+
         st = time.time()
         codebase._find_code_files(rootpath, languages=languages)
         if not codebase.file_list:
             logger.warning("No code files found matching the criteria")
             return codebase
-            
+
         language_files = codebase._organize_files_by_language()
         await codebase._initialize_parsers(language_files.keys())
-        
+
         results = await codebase._process_files_concurrently(
             language_files,
             max_concurrent_tasks,
             batch_size
         )
-        
+
         codebase._add_results_to_codebase(results)
         codebase._resolve_files_dependencies()
         logger.info(f"CodeBase initialized with {len(results)} files processed in {time.time() - st:.2f}s")
-        
+
         return codebase
 
     def _organize_files_by_language(
@@ -115,12 +115,12 @@ class CodeTide(BaseModel):
     ) -> List:
         """
         Process all files concurrently with progress tracking.
-        
+
         Returns:
             List of successfully processed CodeFileModel objects
         """
         semaphore = asyncio.Semaphore(max_concurrent_tasks)
-        
+
         async def process_file_with_semaphore(filepath: Path, parser: BaseParser):
             async with semaphore:
                 return await self._process_single_file(filepath, parser)
@@ -139,14 +139,14 @@ class CodeTide(BaseModel):
         for i in range(0, len(tasks), batch_size ):
             batch = tasks[i:i + batch_size]
             batch_results = await asyncio.gather(*batch)
-            
+
             for result in batch_results:
                 if isinstance(result, Exception):
                     logger.debug(f"File processing failed: {str(result)}")
                     continue
                 if result is not None:
                     results.append(result)
-        
+
         return results
 
     async def _process_single_file(
@@ -176,16 +176,16 @@ class CodeTide(BaseModel):
     def _load_gitignore_spec(directory: Path) -> GitIgnoreSpec:
         """
         Load and parse .gitignore file from a directory into a GitIgnoreSpec object.
-        
+
         Args:
             directory: Directory containing the .gitignore file
-            
+
         Returns:
             GitIgnoreSpec object with the patterns from the .gitignore file
         """
         gitignore_path = directory / ".gitignore"
         patterns = [".git/"]
-        
+
         if gitignore_path.exists() and gitignore_path.is_file():
             try:
                 _gitignore = readFile(gitignore_path)
@@ -196,52 +196,52 @@ class CodeTide(BaseModel):
                         patterns.append(line)
             except Exception as e:
                 logger.warning(f"Error reading .gitignore file {gitignore_path}: {e}")
-                
+
         return GitIgnoreSpec.from_lines(patterns)
 
     def _get_gitignore_for_path(self, path: Path) -> GitIgnoreSpec:
         """
         Get the combined GitIgnoreSpec for a path by checking all parent directories.
-        
+
         Args:
             path: The file path to check
-            
+
         Returns:
             Combined GitIgnoreSpec for all relevant .gitignore files
         """
         # Check cache first
         if path in self._gitignore_cache:
             return self._gitignore_cache[path]
-        
+
         # Collect all .gitignore specs from parent directories
         specs = []
-        
+
         # Check the directory containing the file
         parent_dir = path.parent if path.is_file() else path
-        
+
         # Walk up the directory tree
         for directory in [parent_dir, *parent_dir.parents]:
             if directory not in self._gitignore_cache:
                 # Load and cache the spec for this directory
                 self._gitignore_cache[directory] = self._load_gitignore_spec(directory)
-            
+
             specs.append(self._gitignore_cache[directory])
-        
+
         # Combine all specs into one
         combined_spec = GitIgnoreSpec([])
         for spec in reversed(specs):  # Apply from root to leaf
             combined_spec += spec
-        
+
         return combined_spec
 
     def _find_code_files(self, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
         """
         Find all code files in a directory tree, respecting .gitignore rules in each directory.
-        
+
         Args:
             rootpath: Root directory to search
             languages: List of languages to include (None for all supported)
-            
+
         Returns:
             List of paths to code files
         """
@@ -264,14 +264,14 @@ class CodeTide(BaseModel):
 
             # Get the combined gitignore spec for this path
             gitignore_spec = self._get_gitignore_for_path(file_path)
-            
+
             # Convert path to relative path for gitignore matching
             try:
                 rel_path = file_path.relative_to(rootpath)
             except ValueError:
                 # This shouldn't happen since we're scanning from rootpath
                 continue
-                
+
             # Check if the file is ignored by any gitignore rules
             if gitignore_spec.match_file(rel_path):
                 continue
@@ -280,27 +280,27 @@ class CodeTide(BaseModel):
 
         self.file_list = code_files
         return code_files
-    
+
     @staticmethod
     def _get_language_from_extension(filepath: Path) -> Optional[str]:
         """
         Determine the programming language based on file extension.
-        
+
         Args:
             file_path: Path to the file
-            
+
         Returns:
             Language name or None if not recognized
         """
-        
+
         extension = filepath.suffix.lower()
-        
+
         for language, extensions in LANGUAGE_EXTENSIONS.items():
             if extension in extensions:
                 return language
-        
+
         return None
-    
+
     def _resolve_files_dependencies(self):
         for _, parser in self._instantiated_parsers.items():
             parser.resolve_inter_files_dependencies(self.codebase)
