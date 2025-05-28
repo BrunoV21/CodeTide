@@ -299,7 +299,7 @@ class CodeContextStructure(BaseModel):
 
         # Assuming each entry has a `.raw` (str) and `.filepath` (str) attribute
         for entry in self.imports.values():
-            raw_elements_by_file[entry.file_path].append(entry.raw)
+            raw_elements_by_file["PACKAGES"].append(entry.raw)
 
         for entry in self.variables.values():
             raw_elements_by_file[entry.file_path].append(entry.raw)
