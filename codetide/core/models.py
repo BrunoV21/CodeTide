@@ -254,7 +254,7 @@ class CodeContextStructure(BaseModel):
     classes :Dict[str, ClassDefinition] = Field(default_factory=dict)
     class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
     class_methods :Dict[str, MethodDefinition] = Field(default_factory=dict)
-    requested_elemtent :Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]] = None
+    requested_elements :Optional[List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]] = Field(default_factory=list)
 
     _cached_elements :Dict[str, Any] = dict()
     _unique_class_elements_ids :List[str] = list()
@@ -334,25 +334,39 @@ class CodeContextStructure(BaseModel):
         for partial in partially_filled_classes.values():
             raw_elements_by_file[partial.filepath].append(partial.raw)
 
-        if isinstance(self.requested_elemtent, (ClassAttribute, MethodDefinition)):
-            classObj :ClassDefinition = self._cached_elements.get(self.requested_elemtent.class_id)
-            self.requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n    ...\n\n{self.requested_elemtent.raw}"
+        for requested_elemtent in self.requested_elements:
+            if isinstance(requested_elemtent, (ClassAttribute, MethodDefinition)):
+                classObj :ClassDefinition = self._cached_elements.get(requested_elemtent.class_id)
+                requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n    ...\n\n{requested_elemtent.raw}"
 
         wrapped_list = [
             wrap_content(content="\n\n".join(elements), filepath=filepath)
             for filepath, elements in raw_elements_by_file.items()
-        ] + [wrap_content(content=self.requested_elemtent.raw, filepath=self.requested_elemtent.file_path)]
+        ] + [
+            wrap_content(content=requested_elemtent.raw, filepath=requested_elemtent.file_path)
+            for requested_elemtent in self.requested_elements
+        ]
 
         return wrapped_list
 
     @classmethod
-    def from_list_of_elements(cls, elements: list, requested_element_index :int=0) -> 'CodeContextStructure':
+    def from_list_of_elements(cls, elements: list, requested_element_index :List[int]=[0]) -> 'CodeContextStructure':
         instance = cls()
-        if requested_element_index < 0:
-            requested_element_index = len(elements) + requested_element_index
+        # Normalize negative indices to positive
+        normalized_indices = [
+            idx if idx >= 0 else len(elements) + idx
+            for idx in requested_element_index
+        ]
+
+        # Optional: Ensure indices are within bounds
+        normalized_indices = [
+            idx for idx in normalized_indices
+            if 0 <= idx < len(elements)
+        ]
+
         for i, element in enumerate(elements):
-            if i == requested_element_index:
-                instance.requested_elemtent = element
+            if i in requested_element_index:
+                instance.requested_elements.append(element)
             elif isinstance(element, ImportStatement):
                 instance.add_import(element)
             elif isinstance(element, ClassDefinition) :
@@ -624,11 +638,14 @@ class CodeBase(BaseModel):
             
             lines.append(f"{prefix}{current_prefix}{name}")
 
-    def get(self, unique_id :str, degree :int=0, as_string :bool=False, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+    def get(self, unique_id :Union[str, List[str]], degree :int=0, as_string :bool=False, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
         if not self._cached_elements:
             self._build_cached_elements()
-        
-        references_ids = [unique_id]
+            
+        if isinstance(unique_id, str):
+            unique_id = [unique_id]
+
+        references_ids = unique_id
         retrieved_elements = []
         retrieved_ids = []
 
@@ -652,7 +669,7 @@ class CodeBase(BaseModel):
 
             degree -= 1
 
-        codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements)
+        codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements, requested_element_index=[i for i in range(len(unique_id))])
         codeContext._cached_elements = self._cached_elements
 
         if as_string:
@@ -668,10 +685,3 @@ class CodeBase(BaseModel):
         
         else:
             return codeContext
-
-        ### TODO implement schema to return each type as string with emphasis in on building partiall class representation with required attributees and imports only
-        ### can create a template for return as string and fill it with imports, class[A+M], functions varaibles
-        #### actually can extend that template even to normal returns to ensure consitent experienc
-        ### todo if id is class no need to search for references that are classmethods or classattributes with if class_id = self
-    
-    ### TODO for retrueveal / search / embeddings / whatever use a map of raw_content vs id to retrieve the required_id!
