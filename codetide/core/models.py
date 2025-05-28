@@ -333,6 +333,10 @@ class CodeContextStructure(BaseModel):
         for partial in partially_filled_classes.values():
             raw_elements_by_file[partial.filepath].append(partial.raw)
 
+        if isinstance(self.requested_elemtent, (ClassAttribute, MethodDefinition)):
+            classObj :ClassDefinition = self._cached_elements.get(self.requested_elemtent.class_id)
+            self.requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n{self.requested_elemtent.raw}"
+
         wrapped_list = [
             wrap_content(content="\n\n".join(elements), filepath=filepath)
             for filepath, elements in raw_elements_by_file.items()
