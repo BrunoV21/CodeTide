@@ -11,7 +11,15 @@ def writeFile(contents :str, path :Union[str, Path], mode :str="w"):
     with open(path, mode, encoding=DEFAULT_ENCODING) as  _file:
         _file.write(contents)
 
+def wrap_package_dependencies(content: str) -> str:
+    return f"""<PACKAGE_DEPENDENCIES_START>
+{content}
+</PACKAGE_DEPENDENCIES_END>"""
+
 def wrap_content(content: str, filepath: str) -> str:
+    if filepath == "PACKAGES":
+        return wrap_package_dependencies(content)
+    
     return f"""<FILE_START::{filepath}>
 {content}
 </FILE_END::{filepath}>"""
