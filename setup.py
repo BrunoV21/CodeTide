@@ -2,16 +2,13 @@ from setuptools import setup, find_packages
 
 setup(
     name="codetide",
-    version="0.1.0",
+    version="0.0.1",
     packages=find_packages(),
     install_requires=[
-        "colorlog==6.9.0",
         "pathspec==0.12.1",
         "pydantic==2.10.3",
-        "pyyaml==6.0.2",
         "tree-sitter==0.24.0",
         "tree-sitter-python==0.23.6",
-        "json-repair==0.35.0"
     ],
     extras_require={
         "visualization": [
