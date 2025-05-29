@@ -75,9 +75,9 @@ jobs:
       - name: Upgrade pip and install build
         run: |
           python -m pip install --upgrade pip
-          pip install build
+          pip install setuptools wheel
       - name: Build package for deployment
-        run: python -m build
+        run: python setup.py bdist_wheel sdist
       - name: Publish distribution 📦 to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         #   password: ${{ secrets.PYPI_API_TOKEN }}
