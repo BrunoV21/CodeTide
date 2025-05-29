@@ -98,7 +98,7 @@ def render_html_view(codebase, include_modules: bool = True, include_types: bool
         html_lines.append("</div>")
 
     def _render_file_contents(code_file, container_id, parent_class):
-        nonlocal html_lines
+        nonlocal html_lines # noqa: F824
 
         def block(label, name, cls):
             return f"<div class='block {cls}'>{label}<br>{name}</div>"

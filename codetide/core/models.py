@@ -245,7 +245,7 @@ class PartialClasses(BaseModel):
 
     @property
     def raw(self)->str:
-        return f"{self.class_header}\n{'\n'.join(self.attributes)}\n{'\n\n'.join(self.methods)}"
+        return f"{self.class_header}\n{'\n'.join(self.attributes)}\n{'\n\n'.join(self.methods)}" # noqa: E999
     
 class CodeContextStructure(BaseModel):
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
