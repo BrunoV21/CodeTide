@@ -1,6 +1,6 @@
-from codetide.core.defaults import LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
+from codetide.core.defaults import DEFAULT_SERIALIZATION_PATH, LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
 from codetide.core.models import CodeFileModel, CodeBase
-from codetide.core.common import readFile
+from codetide.core.common import readFile, writeFile
 
 from codetide.parsers import BaseParser
 from codetide import parsers
@@ -12,6 +12,7 @@ from pathlib import Path
 import logging
 import asyncio
 import time
+import os
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,6 +83,19 @@ class CodeTide(BaseModel):
         logger.info(f"CodeBase initialized with {len(results)} files processed in {time.time() - st:.2f}s")
 
         return codebase
+    
+    def serialize(self, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH):
+        if not os.path.exists(filepath):
+            os.makedirs(os.path.split(filepath)[0], exist_ok=True)
+        writeFile(self.model_dump_json(indent=4), filepath)
+
+    @classmethod
+    def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH)->"CodeTide":
+        if not os.path.exists(filepath):
+            raise FileNotFoundError(f"{filepath} is not a valid path")
+        
+        kwargs = readFile(filepath)
+        return cls(**kwargs)
 
     def _organize_files_by_language(
         self,

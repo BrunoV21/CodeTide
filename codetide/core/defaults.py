@@ -50,4 +50,4 @@ DEFAULT_BATCH_SIZE = 128
 
 DEFAULT_ENCODING = "utf8"
 
-DEFAULT_ENCODINGS = ['utf-8', 'latin1', 'cp1252']
+DEFAULT_SERIALIZATION_PATH = "./storage/tide.json"
