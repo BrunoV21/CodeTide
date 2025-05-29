@@ -578,15 +578,3 @@ class PythonParser(BaseParser):
                 
                 if matches_found >= matches_count:
                     break
-
-if __name__ == "__main__":
-    async def main():
-        parser = PythonParser()
-        codeFile = await parser.parse_file(
-            Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore/logger.py"),
-            root_path=Path("C:/Users/GL504GS/Desktop/repos/AiCore/aicore")
-        )#llm/llm.py"))
-        with open("oi.json", "w") as _file:
-            _file.write(codeFile.model_dump_json(indent=4))
-
-    asyncio.run(main())
