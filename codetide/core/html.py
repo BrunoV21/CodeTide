@@ -74,7 +74,7 @@ def render_html_view(codebase, include_modules: bool = True, include_types: bool
         return div
 
     def _render_node(node, container_class, parent_id=None):
-        nonlocal html_lines
+        nonlocal html_lines # noqa: F824
         items = [(k, v) for k, v in node.items() if not k.startswith("_")]
         items.sort(key=lambda x: (x[1].get("_type") != "directory", x[0]))
 
