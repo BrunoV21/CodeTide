@@ -1,21 +1,19 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+
+here = Path(__file__).resolve().parent
+long_description = (here / "README.md").read_text(encoding="utf-8")
+requirements = (here / "requirements.txt").read_text(encoding="utf-8").splitlines()
+requirements_visualization = (here / "requirements_visualization.txt").read_text(encoding="utf-8").splitlines()
 
 setup(
     name="codetide",
     version="0.0.1",
     packages=find_packages(),
-    install_requires=[
-        "pathspec==0.12.1",
-        "pydantic==2.10.3",
-        "tree-sitter==0.24.0",
-        "tree-sitter-python==0.23.6",
-    ],
+    long_description=long_description,
+    install_requires=requirements,
     extras_require={
-        "visualization": [
-            "plotly==5.24.1",
-            "networkx==3.4.2",
-            "numpy==2.2.0"
-        ]
+        "visualization": requirements_visualization
     },
     entry_points={
         "console_scripts": [
