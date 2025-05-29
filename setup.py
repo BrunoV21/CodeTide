@@ -11,6 +11,7 @@ setup(
     version="0.0.1",
     packages=find_packages(),
     long_description=long_description,
+    long_description_content_type="text/markdown",
     install_requires=requirements,
     extras_require={
         "visualization": requirements_visualization
@@ -21,7 +22,10 @@ setup(
         ]
     },
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: Apache 2.0",
         "Operating System :: OS Independent",
     ],
