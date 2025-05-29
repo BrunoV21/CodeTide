@@ -4,7 +4,7 @@ from pathlib import Path
 here = Path(__file__).resolve().parent
 long_description = (here / "README.md").read_text(encoding="utf-8")
 requirements = (here / "requirements.txt").read_text(encoding="utf-8").splitlines()
-requirements_visualization = (here / "requirements_visualization.txt").read_text(encoding="utf-8").splitlines()
+requirements_visualization = (here / "requirements-visualization.txt").read_text(encoding="utf-8").splitlines()
 
 setup(
     name="codetide",
