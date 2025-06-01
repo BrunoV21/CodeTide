@@ -94,7 +94,7 @@ class CodeTide(BaseModel):
             os.makedirs(os.path.split(filepath)[0], exist_ok=True)
         writeFile(self.model_dump_json(indent=4), filepath)
         if include_codebase_cached_elements or include_cached_ids:
-            dir_path = Path(os.path.split(filepath))[0]
+            dir_path = Path(os.path.split(filepath)[0])
             if include_codebase_cached_elements:
                 cached_elements_path = dir_path / DEFAULT_CACHED_ELEMENTS_FILE
                 writeFile(self.codebase.serialize_cache_elements(), cached_elements_path)
