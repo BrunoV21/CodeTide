@@ -8,7 +8,7 @@ import json
 class BaseCodeElement(BaseModel):
     file_path: str = ""
     raw :Optional[str] = ""
-    _unique_id :Optional[str]=None
+    stored_unique_id :Optional[str]=None
 
     @field_validator("raw")
     @classmethod
@@ -26,8 +26,8 @@ class BaseCodeElement(BaseModel):
     @computed_field
     def unique_id(self) -> str:
         """Generate a unique ID for the function definition"""
-        if self._unique_id is not None:
-            return self._unique_id
+        if self.stored_unique_id is not None:
+            return self.stored_unique_id
         
         file_path_without_suffix = self.file_path_without_suffix
         if file_path_without_suffix:
@@ -37,7 +37,7 @@ class BaseCodeElement(BaseModel):
     
     @unique_id.setter
     def unique_id(self, value :str):
-        self._unique_id = value 
+        self.stored_unique_id = value 
 
 class CodeReference(BaseModel):
     """Reference to another code element"""
