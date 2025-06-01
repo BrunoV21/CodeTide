@@ -108,7 +108,7 @@ class CodeTide(BaseModel):
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"{filepath} is not a valid path")
         
-        kwargs = readFile(filepath)
+        kwargs = json.loads(readFile(filepath))
         tideInstance = cls(**kwargs)
         
         # dir_path = Path(os.path.split(filepath))[0]
