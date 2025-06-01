@@ -3,6 +3,7 @@ from codetide.core.common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_co
 from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union
 from collections import defaultdict
+import json
 
 class BaseCodeElement(BaseModel):
     file_path: str = ""
@@ -685,3 +686,28 @@ class CodeBase(BaseModel):
         
         else:
             return codeContext
+        
+    def serialize_cache_elements(self, indent :int=4)->str:
+        return json.dumps(
+            {
+                key: value.model_dump()
+                for key, value in self._cached_elements
+            }
+        )
+
+    def deserialize_cache_elements(self, contents :str):
+        self._cached_elements = json.loads(contents)
+        ### TODO need to handle model validates and so on
+        # return json.dumps(
+        #     {
+        #         key: value.model_dump()
+        #         for key, value in self._cached_elements
+        #     }
+        # )
+
+
+    def unique_ds(self)->List[str]:
+        if not self._cached_elements:
+            self._build_cached_elements()
+
+        return list(self._cached_elements.keys())

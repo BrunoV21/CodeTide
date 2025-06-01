@@ -1,4 +1,8 @@
-from codetide.core.defaults import DEFAULT_SERIALIZATION_PATH, LANGUAGE_EXTENSIONS, DEFAULT_MAX_CONCURRENT_TASKS, DEFAULT_BATCH_SIZE
+from codetide.core.defaults import (
+    DEFAULT_SERIALIZATION_PATH, DEFAULT_MAX_CONCURRENT_TASKS,
+    DEFAULT_BATCH_SIZE, DEFAULT_CACHED_ELEMENTS_FILE, DEFAULT_CACHED_IDS_FILE,
+    LANGUAGE_EXTENSIONS
+)
 from codetide.core.models import CodeFileModel, CodeBase
 from codetide.core.common import readFile, writeFile
 
@@ -12,6 +16,7 @@ from pathlib import Path
 import logging
 import asyncio
 import time
+import json
 import os
 
 logging.basicConfig(
@@ -84,10 +89,19 @@ class CodeTide(BaseModel):
 
         return codebase
     
-    def serialize(self, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH):
+    def serialize(self, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, include_codebase_cached_elements :bool=False, include_cached_ids :bool=False):
         if not os.path.exists(filepath):
             os.makedirs(os.path.split(filepath)[0], exist_ok=True)
         writeFile(self.model_dump_json(indent=4), filepath)
+        if include_codebase_cached_elements or include_cached_ids:
+            dir_path = Path(os.path.split(filepath))[0]
+            if include_codebase_cached_elements:
+                cached_elements_path = dir_path / DEFAULT_CACHED_ELEMENTS_FILE
+                writeFile(self.codebase.serialize_cache_elements(), cached_elements_path)
+            
+            if include_cached_ids:
+                cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
+                writeFile(json.dumps(self.codebase.unique_ds, indent=4), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH)->"CodeTide":
@@ -95,7 +109,15 @@ class CodeTide(BaseModel):
             raise FileNotFoundError(f"{filepath} is not a valid path")
         
         kwargs = readFile(filepath)
-        return cls(**kwargs)
+        tideInstance = cls(**kwargs)
+        
+        # dir_path = Path(os.path.split(filepath))[0]
+        # cached_elements_path = dir_path / DEFAULT_CACHED_ELEMENTS_FILE
+        # if os.path.exists(cached_elements_path):
+        #     cached_elements = json.loads(readFile(cached_elements_path))
+        #     tideInstance.codebase._cached_elements = cached_elements
+
+        return tideInstance
 
     def _organize_files_by_language(
         self,
