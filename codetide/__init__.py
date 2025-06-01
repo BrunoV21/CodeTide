@@ -101,7 +101,7 @@ class CodeTide(BaseModel):
             
             if include_cached_ids:
                 cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
-                writeFile(json.dumps(self.codebase.unique_ds, indent=4), cached_ids_path)
+                writeFile(json.dumps(self.codebase.unique_ids, indent=4), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH)->"CodeTide":

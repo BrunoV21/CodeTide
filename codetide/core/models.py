@@ -705,8 +705,8 @@ class CodeBase(BaseModel):
         #     }
         # )
 
-
-    def unique_ds(self)->List[str]:
+    @property
+    def unique_ids(self)->List[str]:
         if not self._cached_elements:
             self._build_cached_elements()
 
