@@ -427,10 +427,14 @@ class CodeBase(BaseModel):
             ### DO IMPORT LATER
             for codeFile in self.root:
                 for unique_id, element in codeFile.all_imports(as_dict=True).items():
-                    if unique_id in self._cached_elements:
+                    ### TODO double check this later with tests
+                    if element.definition_id and element.definition_id in self._cached_elements:
+                        self._cached_elements[unique_id] = self._cached_elements[element.definition_id]
+                    elif unique_id in self._cached_elements:
                         # print(f"IMPORT {unique_id} already exists")
                         continue
-                    self._cached_elements[unique_id] = element
+                    else:
+                        self._cached_elements[unique_id] = element
                 
 
     def _list_all_unique_ids_for_property(self, property :Literal["classes", "functions", "variables", "imports"])->List[str]:
