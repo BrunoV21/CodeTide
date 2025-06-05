@@ -306,8 +306,8 @@ class PythonParser(BaseParser):
         if is_class_method:
             if raw is None:
                 raw = cls._get_content(code, node, preserve_indentation=True)
-            codeFile.classes[-1].add_method(
-                MethodDefinition(
+            
+            codeFile.classes[-1].add_method(MethodDefinition(
                     name=definition,
                     signature=signature,
                     decorators=decorators,
@@ -315,6 +315,10 @@ class PythonParser(BaseParser):
                     raw=raw
                 )
             )
+            currentMethod = codeFile.classes[-1].methods[-1]
+            if currentMethod.unique_id in codeFile.classes[-1].all_methods_ids[:-1] and currentMethod.decorators:
+                currentMethod.unique_id = f"{currentMethod.unique_id}{''.join(currentMethod.decorators)}"
+
         else:
             if raw is None:
                 raw = cls._get_content(code, node)

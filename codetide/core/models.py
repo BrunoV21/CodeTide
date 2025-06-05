@@ -133,6 +133,12 @@ class ClassDefinition(BaseCodeElement):
             sum([method.references for method in self.methods], [])
         )
         return all_references
+    
+    @property
+    def all_methods_ids(self)->List[str]:
+        return [
+            method.unique_id for method in self.methods
+        ]
 
 class CodeFileModel(BaseModel):
     """Representation of a single code file"""
@@ -658,7 +664,7 @@ class CodeBase(BaseModel):
             new_references_ids = []
             for reference in references_ids:
                 element = self._cached_elements.get(reference)
-                if element is not None and element.unique_id not in retrieved_ids:
+                if element is not None and (element.unique_id not in retrieved_ids):
                     retrieved_elements.append(element)
                     retrieved_ids.append(element.unique_id)
 
