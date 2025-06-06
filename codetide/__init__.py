@@ -65,29 +65,29 @@ class CodeTide(BaseModel):
             Initialized CodeTide instance
         """
         rootpath = Path(rootpath)
-        codebase = cls(rootpath=rootpath)
-        logger.info(f"Initializing CodeBase from path: {str(rootpath)}")
+        codeTide = cls(rootpath=rootpath)
+        logger.info(f"Initializing CodeTide from path: {str(rootpath)}")
 
         st = time.time()
-        codebase._find_code_files(rootpath, languages=languages)
-        if not codebase.file_list:
+        codeTide._find_code_files(rootpath, languages=languages)
+        if not codeTide.file_list:
             logger.warning("No code files found matching the criteria")
-            return codebase
+            return codeTide
 
-        language_files = codebase._organize_files_by_language()
-        await codebase._initialize_parsers(language_files.keys())
+        language_files = codeTide._organize_files_by_language()
+        await codeTide._initialize_parsers(language_files.keys())
 
-        results = await codebase._process_files_concurrently(
+        results = await codeTide._process_files_concurrently(
             language_files,
             max_concurrent_tasks,
             batch_size
         )
 
-        codebase._add_results_to_codebase(results)
-        codebase._resolve_files_dependencies()
-        logger.info(f"CodeBase initialized with {len(results)} files processed in {time.time() - st:.2f}s")
+        codeTide._add_results_to_codebase(results)
+        codeTide._resolve_files_dependencies()
+        logger.info(f"CodeTide initialized with {len(results)} files processed in {time.time() - st:.2f}s")
 
-        return codebase
+        return codeTide
     
     def serialize(self, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, include_codebase_cached_elements :bool=False, include_cached_ids :bool=False):
         if not os.path.exists(filepath):
