@@ -89,19 +89,37 @@ class CodeTide(BaseModel):
 
         return codeTide
     
-    def serialize(self, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, include_codebase_cached_elements :bool=False, include_cached_ids :bool=False):
+    def serialize(self, filepath: Optional[Union[str, Path]] = DEFAULT_SERIALIZATION_PATH, 
+                include_codebase_cached_elements: bool = False, 
+                include_cached_ids: bool = False):
         if not os.path.exists(filepath):
             os.makedirs(os.path.split(filepath)[0], exist_ok=True)
+
         writeFile(self.model_dump_json(indent=4), filepath)
-        if include_codebase_cached_elements or include_cached_ids:
-            dir_path = Path(os.path.split(filepath)[0])
-            if include_codebase_cached_elements:
-                cached_elements_path = dir_path / DEFAULT_CACHED_ELEMENTS_FILE
-                writeFile(self.codebase.serialize_cache_elements(), cached_elements_path)
-            
-            if include_cached_ids:
-                cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
-                writeFile(json.dumps(self.codebase.unique_ids, indent=4), cached_ids_path)
+
+        dir_path = Path(os.path.split(filepath)[0])
+        
+        current_path = dir_path
+        gitignore_path = None
+        for parent in current_path.parents:
+            potential_gitignore = parent / ".gitignore"
+            if potential_gitignore.exists():
+                gitignore_path = potential_gitignore
+                break
+
+        if gitignore_path:
+            with open(gitignore_path, 'r+') as f:
+                lines = f.read().splitlines()
+                if f"{dir_path.name}/" not in lines:
+                    f.write(f"\n{dir_path.name}/\n")
+
+        if include_codebase_cached_elements:
+            cached_elements_path = dir_path / DEFAULT_CACHED_ELEMENTS_FILE
+            writeFile(self.codebase.serialize_cache_elements(), cached_elements_path)
+
+        if include_cached_ids:
+            cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
+            writeFile(json.dumps(self.codebase.unique_ids, indent=4), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH)->"CodeTide":
