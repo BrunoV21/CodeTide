@@ -85,6 +85,7 @@ class CodeTide(BaseModel):
 
         codeTide._add_results_to_codebase(results)
         codeTide._resolve_files_dependencies()
+        codeTide._build_merkle_tree()
         logger.info(f"CodeTide initialized with {len(results)} files processed in {time.time() - st:.2f}s")
 
         return codeTide
@@ -342,3 +343,5 @@ class CodeTide(BaseModel):
             parser.resolve_inter_files_dependencies(self.codebase)
             parser.resolve_intra_file_dependencies(self.codebase)
 
+    def _build_merkle_tree(self):
+        self.codebase.build_global_tree()
