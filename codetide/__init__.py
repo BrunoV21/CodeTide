@@ -402,3 +402,64 @@ class CodeTide(BaseModel):
         self.files = files
         return changed_files, file_deletion_detected
 
+    async def check_for_updates(self,
+        max_concurrent_tasks: int = DEFAULT_MAX_CONCURRENT_TASKS, 
+        batch_size: int = DEFAULT_BATCH_SIZE):
+
+        changed_files, deletion_detected = self._get_changed_files()
+        if deletion_detected:
+            logger.info("deletion operation detected reseting CodeTide [this is a temporary solution]")
+            await self._reset()
+
+        changed_language_files = self._organize_files_by_language(changed_files)
+        self._initialize_parsers(changed_language_files.keys())
+
+        results :List[CodeFileModel] = await self._process_files_concurrently(
+            changed_language_files,
+            max_concurrent_tasks=max_concurrent_tasks,
+            batch_size=batch_size
+        )
+        changedPaths = {
+            codeFile.file_path: None for codeFile in results
+        }
+
+        for i, codeFile in enumerate(self.codebase.root):
+            if codeFile.file_path in changedPaths:
+                changedPaths[codeFile.file_path] = i
+
+        newFiles :List[CodeFileModel] = []
+        for codeFile in results:
+            i = changedPaths.get(codeFile.file_path)
+            if i is not None: ### is file update
+                ### TODO if new imports are found need to build inter and then intra
+                ### otherwise can just build intra and add directly
+                if codeFile.all_imports() == self.codebase.root[i].all_imports():
+                    language = self._get_language_from_extension(codeFile.file_path)
+                    parser = self._instantiated_parsers.get(language)
+                    self.codebase.root[i] = codeFile
+                    logger.info(f"updating {codeFile.file_path} no new dependencies detected")
+                    continue
+                
+                self.codebase.root[i] = codeFile 
+                logger.info(f"updating {codeFile.file_path} with new dependencies")
+
+            else:
+                self.codebase.root.append(codeFile)
+                changedPaths[codeFile.file_path] = len(self.codebase.root) - 1
+                logger.info(f"adding new file {codeFile.file_path}")
+            
+            newFiles.append(codeFile)
+        
+
+        for language, filepaths in changed_language_files.items():
+            parser = self._instantiated_parsers.get(language)
+            filteredNewFiles = [
+                newFile for newFile in newFiles
+                if self.rootpath / newFile.file_path in filepaths
+            ]
+            parser.resolve_inter_files_dependencies(self.codebase, filteredNewFiles)
+            parser.resolve_intra_file_dependencies(filteredNewFiles)
+
+            for codeFile in filteredNewFiles:
+                i = changedPaths.get(codeFile.file_path)
+                self.codebase.root[i] = codeFile
