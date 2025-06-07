@@ -10,7 +10,7 @@ from codetide.parsers import BaseParser
 from codetide import parsers
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Union, Dict
+from typing import Optional, List, Tuple, Union, Dict
 from datetime import datetime, timezone
 from pathspec import GitIgnoreSpec
 from pathlib import Path
@@ -342,7 +342,11 @@ class CodeTide(BaseModel):
             if gitignore_spec.match_file(rel_path):
                 continue
 
-            code_files[file_path] = datetime.now(timezone.utc)
+            # Get the last modified time and convert to UTC datetime
+            modified_timestamp = file_path.stat().st_mtime
+            modified_datetime = datetime.fromtimestamp(modified_timestamp, timezone.utc)
+            
+            code_files[file_path] = modified_datetime
 
         return code_files
 
@@ -370,4 +374,31 @@ class CodeTide(BaseModel):
         for _, parser in self._instantiated_parsers.items():
             parser.resolve_inter_files_dependencies(self.codebase)
             parser.resolve_intra_file_dependencies(self.codebase.root)
+
+    def _get_changed_files(self) -> Tuple[List[Path], bool]:
+        """
+        this is a bit slow but works: need to optimize _find_code_files for speed
+        """
+        file_deletion_detected = False
+        files = self._find_code_files(self.rootpath)  # Dict[Path, datetime]
+        
+        changed_files = []
+        
+        # Check for new files and modified files
+        for file_path, current_modified_time in files.items():
+            if file_path not in self.files:
+                # New file
+                changed_files.append(file_path)
+            elif current_modified_time > self.files[file_path]:
+                # File has been modified since last scan
+                changed_files.append(file_path)
+        
+        # Check for deleted files
+        for stored_file_path in self.files:
+            if stored_file_path not in files:
+                file_deletion_detected = True
+                break
+        
+        self.files = files
+        return changed_files, file_deletion_detected
 
