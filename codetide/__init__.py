@@ -12,10 +12,10 @@ from codetide import parsers
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Tuple, Union, Dict
 from datetime import datetime, timezone
-from pathspec import GitIgnoreSpec
 from pathlib import Path
 import logging
 import asyncio
+import pygit2
 import time
 import json
 import os
@@ -32,7 +32,6 @@ class CodeTide(BaseModel):
     codebase :CodeBase = Field(default_factory=CodeBase)
     files :Dict[Path, datetime]= Field(default_factory=dict)
     _instantiated_parsers :Dict[str, BaseParser] = {}
-    _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
 
     @field_validator("rootpath", mode="after")
     @classmethod
@@ -238,68 +237,6 @@ class CodeTide(BaseModel):
                 self.codebase.root.append(code_file)
         logger.debug(f"Added {len(results)} files to codebase")
 
-    @staticmethod
-    def _load_gitignore_spec(directory: Path) -> GitIgnoreSpec:
-        """
-        Load and parse .gitignore file from a directory into a GitIgnoreSpec object.
-
-        Args:
-            directory: Directory containing the .gitignore file
-
-        Returns:
-            GitIgnoreSpec object with the patterns from the .gitignore file
-        """
-        gitignore_path = directory / ".gitignore"
-        patterns = [".git/"]
-
-        if gitignore_path.exists() and gitignore_path.is_file():
-            try:
-                _gitignore = readFile(gitignore_path)
-                for line in _gitignore.splitlines():
-                    line = line.strip()
-                    # Skip empty lines and comments
-                    if line and not line.startswith('#'):
-                        patterns.append(line)
-            except Exception as e:
-                logger.warning(f"Error reading .gitignore file {gitignore_path}: {e}")
-
-        return GitIgnoreSpec.from_lines(patterns)
-
-    def _get_gitignore_for_path(self, path: Path) -> GitIgnoreSpec:
-        """
-        Get the combined GitIgnoreSpec for a path by checking all parent directories.
-
-        Args:
-            path: The file path to check
-
-        Returns:
-            Combined GitIgnoreSpec for all relevant .gitignore files
-        """
-        # Check cache first
-        if path in self._gitignore_cache:
-            return self._gitignore_cache[path]
-
-        # Collect all .gitignore specs from parent directories
-        specs = []
-
-        # Check the directory containing the file
-        parent_dir = path.parent if path.is_file() else path
-
-        # Walk up the directory tree
-        for directory in [parent_dir, *parent_dir.parents]:
-            if directory not in self._gitignore_cache:
-                # Load and cache the spec for this directory
-                self._gitignore_cache[directory] = self._load_gitignore_spec(directory)
-
-            specs.append(self._gitignore_cache[directory])
-
-        # Combine all specs into one
-        combined_spec = GitIgnoreSpec([])
-        for spec in reversed(specs):  # Apply from root to leaf
-            combined_spec += spec
-
-        return combined_spec
-
     def _find_code_files(self, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
         """
         Find all code files in a directory tree, respecting .gitignore rules in each directory.
@@ -309,11 +246,11 @@ class CodeTide(BaseModel):
             languages: List of languages to include (None for all supported)
 
         Returns:
-            List of paths to code files
+            List of paths to code files with their last modified timestamps
         """
         if not rootpath.exists() or not rootpath.is_dir():
             logger.error(f"Root path does not exist or is not a directory: {rootpath}")
-            return []
+            return {}
 
         # Determine valid extensions
         extensions = []
@@ -322,32 +259,48 @@ class CodeTide(BaseModel):
                 if lang in LANGUAGE_EXTENSIONS:
                     extensions.extend(LANGUAGE_EXTENSIONS[lang])
 
-        code_files = dict()
-
-        for file_path in rootpath.rglob('*'):
-            if not file_path.is_file() or (extensions and file_path.suffix.lower() not in extensions):
+        code_files = {}
+        
+        try:
+            # Try to open the repository
+            repo = pygit2.Repository(rootpath)
+            
+            # Get the repository's index (staging area)
+            index = repo.index
+            
+            # Convert all tracked files to Path objects
+            tracked_files = {Path(rootpath) / Path(entry.path) for entry in index}
+            
+            # Get status and filter files
+            status = repo.status()
+            
+            # Untracked files are those with status == pygit2.GIT_STATUS_WT_NEW
+            untracked_not_ignored = {
+                Path(rootpath) / Path(filepath)
+                for filepath, file_status in status.items()
+                if file_status == pygit2.GIT_STATUS_WT_NEW and not repo.path_is_ignored(filepath)
+            }
+            
+            all_files = tracked_files.union(untracked_not_ignored)
+            
+        except (pygit2.GitError, KeyError):
+            # Fallback to simple directory walk if not a git repo
+            all_files = set(rootpath.rglob('*'))
+        
+        for file_path in all_files:
+            if not file_path.is_file():
                 continue
-
-            # Get the combined gitignore spec for this path
-            gitignore_spec = self._get_gitignore_for_path(file_path)
-
-            # Convert path to relative path for gitignore matching
-            try:
-                rel_path = file_path.relative_to(rootpath)
-            except ValueError:
-                # This shouldn't happen since we're scanning from rootpath
+                
+            # Check extension filter if languages were specified
+            if extensions and file_path.suffix.lower() not in extensions:
                 continue
-
-            # Check if the file is ignored by any gitignore rules
-            if gitignore_spec.match_file(rel_path):
-                continue
-
+                
             # Get the last modified time and convert to UTC datetime
             modified_timestamp = file_path.stat().st_mtime
             modified_datetime = datetime.fromtimestamp(modified_timestamp, timezone.utc)
             
             code_files[file_path] = modified_datetime
-
+        
         return code_files
 
     @staticmethod
@@ -377,7 +330,8 @@ class CodeTide(BaseModel):
 
     def _get_changed_files(self) -> Tuple[List[Path], bool]:
         """
-        this is a bit slow but works: need to optimize _find_code_files for speed
+        TODO consider if it is worth storing singular timestamp for latest fetch and then just use 
+        pygit2 to changed files based on commit history + current repo status
         """
         file_deletion_detected = False
         files = self._find_code_files(self.rootpath)  # Dict[Path, datetime]
