@@ -90,6 +90,9 @@ class CodeTide(BaseModel):
 
         return codeTide
     
+    async def _reset(self):
+        self = await self.from_path(self.rootpath)
+    
     def serialize(self,
         filepath: Optional[Union[str, Path]] = DEFAULT_SERIALIZATION_PATH, 
         include_codebase_cached_elements: bool = False, 
@@ -356,7 +359,7 @@ class CodeTide(BaseModel):
             Language name or None if not recognized
         """
 
-        extension = filepath.suffix.lower()
+        extension = Path(filepath).suffix.lower()
 
         for language, extensions in LANGUAGE_EXTENSIONS.items():
             if extension in extensions:
@@ -367,5 +370,5 @@ class CodeTide(BaseModel):
     def _resolve_files_dependencies(self):
         for _, parser in self._instantiated_parsers.items():
             parser.resolve_inter_files_dependencies(self.codebase)
-            parser.resolve_intra_file_dependencies(self.codebase)
+            parser.resolve_intra_file_dependencies(self.codebase.root)
 
