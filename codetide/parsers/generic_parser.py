@@ -2,7 +2,7 @@ from codetide.core.models import CodeBase, CodeFileModel, ImportStatement
 from codetide.parsers.base_parser import BaseParser
 from concurrent.futures import ThreadPoolExecutor
 
-from typing import Optional, Union
+from typing import List, Optional, Union
 from pathlib import Path
 import asyncio
 
@@ -59,8 +59,8 @@ class GenericParser(BaseParser):
         )
         return codeFile
     
-    def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
+    def resolve_inter_files_dependencies(self, codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         pass
     
-    def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
+    def resolve_intra_file_dependencies(self, codeFiles: List[CodeFileModel]) -> None:
         pass

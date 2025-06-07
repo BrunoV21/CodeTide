@@ -396,7 +396,8 @@ class PythonParser(BaseParser):
             
         importModel.raw = cls.import_statement_template(importModel)
     
-    def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
+    @classmethod
+    def resolve_inter_files_dependencies(cls, codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         ### for codeFile in codeBase search through imports and if defition_id matches an id from a class, a function or a variable  let it be
         ### otherwise check if it matches a unique_id from imports, if so map dfeiniton_id to import unique id 
         ### othewise map to None and is a package
@@ -417,7 +418,7 @@ class PythonParser(BaseParser):
                         continue
 
                     importStatement.definition_id = None
-                    importStatement.unique_id = self._default_unique_import_id(importStatement)
+                    importStatement.unique_id = cls._default_unique_import_id(importStatement)
 
     @staticmethod
     def count_occurences_in_code(code: str, substring: str) -> int:
@@ -431,8 +432,8 @@ class PythonParser(BaseParser):
         matches = re.findall(pattern, code)
         return len(matches)
 
-    def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
-        for codeFile in codeBase.root:
+    def resolve_intra_file_dependencies(self, codeFiles: List[CodeFileModel]) -> None:
+        for codeFile in codeFiles:
             if not codeFile.file_path.endswith(self.extension):
                 continue
             
@@ -464,7 +465,8 @@ class PythonParser(BaseParser):
                     codeFile=codeFile
                 )
 
-    def _find_elements_references(self,
+    @classmethod
+    def _find_elements_references(cls,
         element_type :Literal["variables", "functions", "classes"],
         non_import_ids :List[str],
         raw_contents :List[str],
@@ -473,12 +475,12 @@ class PythonParser(BaseParser):
             ### broken for class defintion as we need to search through methods and attributes
             if element_type == "classes":
                 for classAttribute in element.attributes:
-                    elementCounts = self._get_element_count(raw_contents, classAttribute)
+                    elementCounts = cls._get_element_count(raw_contents, classAttribute)
 
                     if elementCounts <= 0:
                         continue
 
-                    self._find_references(
+                    cls._find_references(
                         non_import_ids=non_import_ids,
                         raw_contents=raw_contents,
                         matches_count=elementCounts,
@@ -489,12 +491,12 @@ class PythonParser(BaseParser):
 
                 for classMethod in element.methods:
                     # print(f"{classMethod.name=}")
-                    elementCounts = self._get_element_count(raw_contents, classMethod)
+                    elementCounts = cls._get_element_count(raw_contents, classMethod)
 
                     if elementCounts <= 0:
                         continue
 
-                    self._find_references(
+                    cls._find_references(
                         non_import_ids=non_import_ids,
                         raw_contents=raw_contents,
                         matches_count=elementCounts,
@@ -504,12 +506,12 @@ class PythonParser(BaseParser):
                     )
             
             else:
-                elementCounts = self._get_element_count(raw_contents, element)
+                elementCounts = cls._get_element_count(raw_contents, element)
 
                 if elementCounts <= 0:
                     continue
                 
-                self._find_references(
+                cls._find_references(
                     non_import_ids=non_import_ids,
                     raw_contents=raw_contents,
                     matches_count=elementCounts,
@@ -524,7 +526,8 @@ class PythonParser(BaseParser):
         elementCounts -= 1
         return elementCounts
 
-    def _find_references(self,
+    @staticmethod
+    def _find_references(
         non_import_ids :List[str],
         raw_contents :List[str],
         matches_count :int,

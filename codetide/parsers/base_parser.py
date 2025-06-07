@@ -1,7 +1,8 @@
 from codetide.core.models import CodeBase, CodeFileModel, ImportStatement
 
+
+from typing import List, Optional, Union
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 from tree_sitter import  Parser
 from pydantic import BaseModel
 from pathlib import Path
@@ -47,11 +48,11 @@ class BaseParser(ABC, BaseModel):
         pass
 
     @abstractmethod
-    def resolve_inter_files_dependencies(self, codeBase: CodeBase) -> None:
+    def resolve_inter_files_dependencies(self, codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         pass
     
     @abstractmethod
-    def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
+    def resolve_intra_file_dependencies(self, codeFiles: List[CodeFileModel]) -> None:
         pass
 
     # @abstractmethod
