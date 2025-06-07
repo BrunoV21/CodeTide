@@ -402,9 +402,12 @@ class PythonParser(BaseParser):
         ### otherwise check if it matches a unique_id from imports, if so map dfeiniton_id to import unique id 
         ### othewise map to None and is a package
         ### this should handle all imports across file
+        if codeFiles is None:
+            codeFiles = codeBase.root
+        
         all_imports = codeBase.all_imports()
         all_elements = codeBase.all_classes() + codeBase.all_functions() + codeBase.all_variables()
-        for codeFile in codeBase.root:
+        for codeFile in codeFiles:
             global_imports_minus_current = [
                 importId for importId in all_imports
                 if importId not in codeFile.all_imports()
