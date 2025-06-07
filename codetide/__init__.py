@@ -70,12 +70,12 @@ class CodeTide(BaseModel):
         logger.info(f"Initializing CodeTide from path: {str(rootpath)}")
 
         st = time.time()
-        codeTide._find_code_files(rootpath, languages=languages)
-        if not codeTide.file_list:
+        codeTide.files = codeTide._find_code_files(rootpath, languages=languages)
+        if not codeTide.files:
             logger.warning("No code files found matching the criteria")
             return codeTide
 
-        language_files = codeTide._organize_files_by_language(codeTide.file_list)
+        language_files = codeTide._organize_files_by_language(codeTide.files)
         codeTide._initialize_parsers(language_files.keys())
 
         results = await codeTide._process_files_concurrently(
@@ -151,10 +151,10 @@ class CodeTide(BaseModel):
         return tideInstance
 
     @classmethod
-    def _organize_files_by_language(cls, file_list :Union[List, Dict[str, str]]) -> Dict[str, List[Path]]:
+    def _organize_files_by_language(cls, files :Union[List, Dict[str, str]]) -> Dict[str, List[Path]]:
         """Organize files by their programming language."""
         language_files = {}
-        for filepath in file_list:
+        for filepath in files:
             language = cls._get_language_from_extension(filepath)
             if language not in language_files:
                 language_files[language] = []
@@ -300,7 +300,8 @@ class CodeTide(BaseModel):
 
         return combined_spec
 
-    def _find_code_files(self, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
+    @classmethod
+    def _find_code_files(cls, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
         """
         Find all code files in a directory tree, respecting .gitignore rules in each directory.
 
@@ -329,7 +330,7 @@ class CodeTide(BaseModel):
                 continue
 
             # Get the combined gitignore spec for this path
-            gitignore_spec = self._get_gitignore_for_path(file_path)
+            gitignore_spec = cls._get_gitignore_for_path(file_path)
 
             # Convert path to relative path for gitignore matching
             try:
@@ -344,7 +345,6 @@ class CodeTide(BaseModel):
 
             code_files[file_path] = datetime.now(timezone.utc)
 
-        self.file_list = code_files
         return code_files
 
     @staticmethod
