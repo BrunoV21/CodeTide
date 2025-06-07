@@ -75,8 +75,8 @@ class CodeTide(BaseModel):
             logger.warning("No code files found matching the criteria")
             return codeTide
 
-        language_files = codeTide._organize_files_by_language()
-        await codeTide._initialize_parsers(language_files.keys())
+        language_files = codeTide._organize_files_by_language(codeTide.file_list)
+        codeTide._initialize_parsers(language_files.keys())
 
         results = await codeTide._process_files_concurrently(
             language_files,
@@ -147,19 +147,18 @@ class CodeTide(BaseModel):
 
         return tideInstance
 
-    def _organize_files_by_language(
-        self,
-    ) -> Dict[str, List[Path]]:
+    @classmethod
+    def _organize_files_by_language(cls, file_list :Union[List, Dict[str, str]]) -> Dict[str, List[Path]]:
         """Organize files by their programming language."""
         language_files = {}
-        for filepath in self.file_list:
-            language = self._get_language_from_extension(filepath)
+        for filepath in file_list:
+            language = cls._get_language_from_extension(filepath)
             if language not in language_files:
                 language_files[language] = []
             language_files[language].append(filepath)
         return language_files
 
-    async def _initialize_parsers(
+    def _initialize_parsers(
         self,
         languages: List[str]
     ) -> None:
