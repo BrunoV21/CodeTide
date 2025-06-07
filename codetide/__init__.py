@@ -30,7 +30,7 @@ class CodeTide(BaseModel):
     """Root model representing a complete codebase"""
     rootpath : Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
-    file_list :Dict[Path, datetime]= Field(default_factory=dict)
+    files :Dict[Path, datetime]= Field(default_factory=dict)
     _instantiated_parsers :Dict[str, BaseParser] = {}
     _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
 
@@ -300,8 +300,7 @@ class CodeTide(BaseModel):
 
         return combined_spec
 
-    @classmethod
-    def _find_code_files(cls, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
+    def _find_code_files(self, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
         """
         Find all code files in a directory tree, respecting .gitignore rules in each directory.
 
@@ -330,7 +329,7 @@ class CodeTide(BaseModel):
                 continue
 
             # Get the combined gitignore spec for this path
-            gitignore_spec = cls._get_gitignore_for_path(file_path)
+            gitignore_spec = self._get_gitignore_for_path(file_path)
 
             # Convert path to relative path for gitignore matching
             try:
