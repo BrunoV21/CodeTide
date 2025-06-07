@@ -11,6 +11,7 @@ from codetide import parsers
 
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Union, Dict
+from datetime import datetime, timezone
 from pathspec import GitIgnoreSpec
 from pathlib import Path
 import logging
@@ -29,7 +30,7 @@ class CodeTide(BaseModel):
     """Root model representing a complete codebase"""
     rootpath : Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
-    file_list :List[Path] = Field(default_factory=list)
+    file_list :List[Path] = Field(default_factory=dict)
     _instantiated_parsers :Dict[str, BaseParser] = {}
     _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
 
@@ -332,7 +333,7 @@ class CodeTide(BaseModel):
 
             code_files.append(file_path)
 
-        self.file_list = code_files
+        self.file_list[code_files] = datetime.now(timezone.utc)
         return code_files
 
     @staticmethod
