@@ -90,9 +90,15 @@ class CodeTide(BaseModel):
 
         return codeTide
     
-    def serialize(self, filepath: Optional[Union[str, Path]] = DEFAULT_SERIALIZATION_PATH, 
-                include_codebase_cached_elements: bool = False, 
-                include_cached_ids: bool = False):
+    def serialize(self,
+        filepath: Optional[Union[str, Path]] = DEFAULT_SERIALIZATION_PATH, 
+        include_codebase_cached_elements: bool = False, 
+        include_cached_ids: bool = False,
+        store_in_project_root: bool=True):
+
+        if store_in_project_root:
+            filepath = Path(self.rootpath) / filepath
+        
         if not os.path.exists(filepath):
             os.makedirs(os.path.split(filepath)[0], exist_ok=True)
 
@@ -123,7 +129,10 @@ class CodeTide(BaseModel):
             writeFile(json.dumps(self.codebase.unique_ids, indent=4), cached_ids_path)
 
     @classmethod
-    def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH)->"CodeTide":
+    def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, rootpath :Optional[Union[str, Path]] = None)->"CodeTide":
+        if rootpath is not None:
+            filepath = Path(rootpath) / filepath
+
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"{filepath} is not a valid path")
         
