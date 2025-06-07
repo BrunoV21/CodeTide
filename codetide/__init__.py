@@ -30,7 +30,7 @@ class CodeTide(BaseModel):
     """Root model representing a complete codebase"""
     rootpath : Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
-    file_list :List[Path] = Field(default_factory=dict)
+    file_list :Dict[Path, datetime]= Field(default_factory=dict)
     _instantiated_parsers :Dict[str, BaseParser] = {}
     _gitignore_cache :Dict[str, GitIgnoreSpec] = {}
 
@@ -320,7 +320,7 @@ class CodeTide(BaseModel):
                 if lang in LANGUAGE_EXTENSIONS:
                     extensions.extend(LANGUAGE_EXTENSIONS[lang])
 
-        code_files = []
+        code_files = dict()
 
         for file_path in rootpath.rglob('*'):
             if not file_path.is_file() or (extensions and file_path.suffix.lower() not in extensions):
@@ -340,9 +340,9 @@ class CodeTide(BaseModel):
             if gitignore_spec.match_file(rel_path):
                 continue
 
-            code_files.append(file_path)
+            code_files[file_path] = datetime.now(timezone.utc)
 
-        self.file_list[code_files] = datetime.now(timezone.utc)
+        self.file_list = code_files
         return code_files
 
     @staticmethod
