@@ -425,6 +425,6 @@ class CodeTide(BaseModel):
 
         if serialize:
             self.serialize(
-                store_in_project_root=kwargs.get("include_cached_ids", True),
+                store_in_project_root=kwargs.get("store_in_project_root", True),
                 include_cached_ids=kwargs.get("include_cached_ids", False)
             )
