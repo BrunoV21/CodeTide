@@ -357,13 +357,17 @@ class CodeTide(BaseModel):
         return changed_files, file_deletion_detected
 
     async def check_for_updates(self,
+        serialize :bool=False,
         max_concurrent_tasks: int = DEFAULT_MAX_CONCURRENT_TASKS, 
-        batch_size: int = DEFAULT_BATCH_SIZE):
+        batch_size: int = DEFAULT_BATCH_SIZE, **kwargs):
 
         changed_files, deletion_detected = self._get_changed_files()
         if deletion_detected:
             logger.info("deletion operation detected reseting CodeTide [this is a temporary solution]")
             await self._reset()
+
+        if not changed_files:
+            return
 
         changed_language_files = self._organize_files_by_language(changed_files)
         self._initialize_parsers(changed_language_files.keys())
@@ -373,6 +377,7 @@ class CodeTide(BaseModel):
             max_concurrent_tasks=max_concurrent_tasks,
             batch_size=batch_size
         )
+
         changedPaths = {
             codeFile.file_path: None for codeFile in results
         }
@@ -417,3 +422,9 @@ class CodeTide(BaseModel):
             for codeFile in filteredNewFiles:
                 i = changedPaths.get(codeFile.file_path)
                 self.codebase.root[i] = codeFile
+
+        if serialize:
+            self.serialize(
+                store_in_project_root=kwargs.get("include_cached_ids", True),
+                include_cached_ids=kwargs.get("include_cached_ids", False)
+            )
