@@ -3,7 +3,7 @@ from codetide.core.defaults import (
     DEFAULT_BATCH_SIZE, DEFAULT_CACHED_ELEMENTS_FILE, DEFAULT_CACHED_IDS_FILE,
     LANGUAGE_EXTENSIONS
 )
-from codetide.core.models import CodeFileModel, CodeBase
+from codetide.core.models import CodeFileModel, CodeBase, CodeContextStructure
 from codetide.core.common import readFile, writeFile
 
 from codetide.parsers import BaseParser
@@ -428,3 +428,22 @@ class CodeTide(BaseModel):
                 store_in_project_root=kwargs.get("store_in_project_root", True),
                 include_cached_ids=kwargs.get("include_cached_ids", False)
             )
+
+    def _precheck_id_is_file(self, unique_ids : List[str])->Dict[Path, str]:
+        return {
+            unique_id: readFile(self.rootpath / unique_id) for unique_id in unique_ids
+            if self.rootpath / unique_id in self.files
+        }
+
+    def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=True, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+        if isinstance(unique_id, str):
+            unique_id = [unique_id]
+
+        requestedFiles = self._precheck_id_is_file(unique_id)
+        return self.codebase.get(
+            unique_id=unique_id,
+            degree=degree,
+            as_string=as_string,
+            as_list_str=as_list_str,
+            preloaded_files=requestedFiles
+        )
