@@ -702,7 +702,8 @@ class CodeBase(BaseModel):
 
         if as_string:
             context = codeContext.as_list_str()
-            if len(context) > 1:
+            list_context = sum(context, [])
+            if len(list_context) > 1:
                 context.insert(0, [CONTEXT_INTRUCTION])
                 context.insert(-1, [TARGET_INSTRUCTION])
 
