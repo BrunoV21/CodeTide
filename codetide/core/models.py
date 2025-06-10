@@ -262,6 +262,7 @@ class CodeContextStructure(BaseModel):
     class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
     class_methods :Dict[str, MethodDefinition] = Field(default_factory=dict)
     requested_elements :Optional[List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]] = Field(default_factory=list)
+    preloaded :Optional[Dict[str, str]]=Field(default_factory=dict)
 
     _cached_elements :Dict[str, Any] = dict()
     _unique_class_elements_ids :List[str] = list()
@@ -298,7 +299,10 @@ class CodeContextStructure(BaseModel):
             return
         self.classes[cls.unique_id] = cls
 
-    def as_list_str(self)->List[str]:
+    def add_preloaded(self, preloaded :Dict[str, str]):
+        self.preloaded.update(preloaded)
+
+    def as_list_str(self)->List[List[str]]:
 
         partially_filled_classes :Dict[str, PartialClasses]= {}
 
@@ -347,17 +351,22 @@ class CodeContextStructure(BaseModel):
                 requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n    ...\n\n{requested_elemtent.raw}"
 
         wrapped_list = [
-            wrap_content(content="\n\n".join(elements), filepath=filepath)
-            for filepath, elements in raw_elements_by_file.items()
-        ] + [
-            wrap_content(content=requested_elemtent.raw, filepath=requested_elemtent.file_path)
-            for requested_elemtent in self.requested_elements
+            [
+                wrap_content(content="\n\n".join(elements), filepath=filepath)
+                for filepath, elements in raw_elements_by_file.items()
+            ], [
+                wrap_content(content=content, filepath=filepath)
+                for filepath, content in self.preloaded.items()
+            ] + [
+                wrap_content(content=requested_elemtent.raw, filepath=requested_elemtent.file_path)
+                for requested_elemtent in self.requested_elements
+            ]
         ]
 
         return wrapped_list
 
     @classmethod
-    def from_list_of_elements(cls, elements: list, requested_element_index :List[int]=[0]) -> 'CodeContextStructure':
+    def from_list_of_elements(cls, elements: list, requested_element_index :List[int]=[0], preloaded_files :Optional[List[Dict[str, str]]]=None) -> 'CodeContextStructure':
         instance = cls()
         # Normalize negative indices to positive
         normalized_indices = [
@@ -388,6 +397,9 @@ class CodeContextStructure(BaseModel):
                 instance.add_function(element)
             else:
                 raise TypeError(f"Unsupported element type: {type(element).__name__}")
+        
+        if preloaded_files:
+            instance.add_preloaded(preloaded_files)
 
         return instance
 
@@ -649,7 +661,7 @@ class CodeBase(BaseModel):
             
             lines.append(f"{prefix}{current_prefix}{name}")
 
-    def get(self, unique_id :Union[str, List[str]], degree :int=0, as_string :bool=False, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+    def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
         if not self._cached_elements:
             self._build_cached_elements()
             
@@ -659,12 +671,17 @@ class CodeBase(BaseModel):
         references_ids = unique_id
         retrieved_elements = []
         retrieved_ids = []
+        first_swipe = True
 
         while True:
             new_references_ids = []
             for reference in references_ids:
                 element = self._cached_elements.get(reference)
-                if element is not None and (element.unique_id not in retrieved_ids):
+                if (
+                    element is not None and
+                    element.unique_id not in retrieved_ids and
+                    (not preloaded_files or element.file_path not in preloaded_files or first_swipe)
+                ):
                     retrieved_elements.append(element)
                     retrieved_ids.append(element.unique_id)
 
@@ -677,22 +694,22 @@ class CodeBase(BaseModel):
                 break
 
             references_ids = new_references_ids.copy()
-
+            first_swipe = False
             degree -= 1
 
-        codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements, requested_element_index=[i for i in range(len(unique_id))])
+        codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements, requested_element_index=[i for i in range(len(unique_id)-len(preloaded_files or []))], preloaded_files=preloaded_files)
         codeContext._cached_elements = self._cached_elements
 
         if as_string:
             context = codeContext.as_list_str()
             if len(context) > 1:
-                context.insert(0, CONTEXT_INTRUCTION)
-                context.insert(-1, TARGET_INSTRUCTION)
+                context.insert(0, [CONTEXT_INTRUCTION])
+                context.insert(-1, [TARGET_INSTRUCTION])
 
-            return "\n\n".join(context)
+            return "\n\n".join(sum(context, []))
         
         elif as_list_str:
-            return codeContext.as_list_str()
+            return sum(codeContext.as_list_str(), [])
         
         else:
             return codeContext
