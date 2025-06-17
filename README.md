@@ -384,6 +384,22 @@ Instead, it uses:
 
 ---
 
+## 🗺️ Roadmap
+
+Here’s what’s next for CodeTide:
+
+- 🧩 **Support more languages** already integrated with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/)  
+  → **TypeScript** is the top priority.
+- 🧭 **Handle relative imports** in Python projects  
+  → Improve resolution for intra-package navigation.
+- 🤖 **Long-term vision**: Release a native **CodeTide Agent**  
+  → Seamless, intelligent context resolution directly integrated into the CodeTide core.  
+  → Unlock **clinical issue detection**, **guided refactors**, and **agent-level navigation**.
+
+Stay tuned - or contribute to shape the tide. 🌊
+
+---
+
 ## 📄 License
 
 CodeTide is licensed under the **Apache 2.0 License**.
