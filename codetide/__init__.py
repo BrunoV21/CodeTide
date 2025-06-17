@@ -418,16 +418,17 @@ class CodeTide(BaseModel):
 
         for language, filepaths in changed_language_files.items():
             parser = self._instantiated_parsers.get(language)
-            filteredNewFiles = [
-                newFile for newFile in newFiles
-                if self.rootpath / newFile.file_path in filepaths
-            ]
-            parser.resolve_inter_files_dependencies(self.codebase, filteredNewFiles)
-            parser.resolve_intra_file_dependencies(filteredNewFiles)
+            if parser is not None:
+                filteredNewFiles = [
+                    newFile for newFile in newFiles
+                    if self.rootpath / newFile.file_path in filepaths
+                ]
+                parser.resolve_inter_files_dependencies(self.codebase, filteredNewFiles)
+                parser.resolve_intra_file_dependencies(filteredNewFiles)
 
-            for codeFile in filteredNewFiles:
-                i = changedPaths.get(codeFile.file_path)
-                self.codebase.root[i] = codeFile
+                for codeFile in filteredNewFiles:
+                    i = changedPaths.get(codeFile.file_path)
+                    self.codebase.root[i] = codeFile
 
         if serialize:
             self.serialize(
