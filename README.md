@@ -1,6 +1,11 @@
-![code-tide-logo](./docs/assets/codetide-logo.png)
-
-# 🌊 CodeTide
+<!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
+# <img src="./docs/assets/codetide-logo.png" alt="code-tide-logo" width="35" height="auto"/> CodeTide
+[![GitHub Stars](https://img.shields.io/github/stars/BrunoV21/CodeTide?style=social)](https://github.com/BrunoV21/CodeTide/stargazers)
+[![PyPI Downloads](https://static.pepy.tech/badge/CodeTide)](https://pepy.tech/projects/CodeTide)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/CodeTide?style=flat)
+![PyPI - Version](https://img.shields.io/pypi/v/CodeTide?style=flat)
+[![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://pydantic.dev)
+--- 
 
 **CodeTide** is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.
 
