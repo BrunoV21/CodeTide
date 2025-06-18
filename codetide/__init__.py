@@ -69,7 +69,7 @@ class CodeTide(BaseModel):
         logger.info(f"Initializing CodeTide from path: {str(rootpath)}")
 
         st = time.time()
-        codeTide.files = codeTide._find_code_files(rootpath, languages=languages)
+        codeTide.files = codeTide._find_code_files(languages=languages)
         if not codeTide.files:
             logger.warning("No code files found matching the criteria")
             return codeTide
@@ -243,7 +243,7 @@ class CodeTide(BaseModel):
                 self.codebase.root.append(code_file)
         logger.debug(f"Added {len(results)} files to codebase")
 
-    def _find_code_files(self, rootpath: Path, languages: Optional[List[str]] = None) -> List[Path]:
+    def _find_code_files(self, languages: Optional[List[str]] = None) -> List[Path]:
         """
         Find all code files in a directory tree, respecting .gitignore rules in each directory.
 
@@ -254,8 +254,8 @@ class CodeTide(BaseModel):
         Returns:
             List of paths to code files with their last modified timestamps
         """
-        if not rootpath.exists() or not rootpath.is_dir():
-            logger.error(f"Root path does not exist or is not a directory: {rootpath}")
+        if not self.rootpath.exists() or not self.rootpath.is_dir():
+            logger.error(f"Root path does not exist or is not a directory: {self.rootpath}")
             return {}
 
         # Determine valid extensions
@@ -269,29 +269,30 @@ class CodeTide(BaseModel):
         
         try:
             # Try to open the repository
-            repo = pygit2.Repository(rootpath)
+            repo = pygit2.Repository(self.rootpath)
+            if not Path(repo.workdir) == self.rootpath:
+                self.rootpath = Path(repo.workdir)
             
             # Get the repository's index (staging area)
             index = repo.index
             
             # Convert all tracked files to Path objects
-            tracked_files = {Path(rootpath) / Path(entry.path) for entry in index}
+            tracked_files = {Path(self.rootpath) / Path(entry.path) for entry in index}
             
             # Get status and filter files
             status = repo.status()
             
             # Untracked files are those with status == pygit2.GIT_STATUS_WT_NEW
             untracked_not_ignored = {
-                Path(rootpath) / Path(filepath)
+                Path(self.rootpath) / Path(filepath)
                 for filepath, file_status in status.items()
                 if file_status == pygit2.GIT_STATUS_WT_NEW and not repo.path_is_ignored(filepath)
             }
             
             all_files = tracked_files.union(untracked_not_ignored)
-            
         except (pygit2.GitError, KeyError):
             # Fallback to simple directory walk if not a git repo
-            all_files = set(rootpath.rglob('*'))
+            all_files = set(self.rootpath.rglob('*'))
         
         for file_path in all_files:
             if not file_path.is_file():
@@ -304,7 +305,7 @@ class CodeTide(BaseModel):
             # Get the last modified time and convert to UTC datetime
             modified_timestamp = file_path.stat().st_mtime
             modified_datetime = datetime.fromtimestamp(modified_timestamp, timezone.utc)
-            
+
             code_files[file_path] = modified_datetime
         
         return code_files
@@ -340,7 +341,7 @@ class CodeTide(BaseModel):
         pygit2 to changed files based on commit history + current repo status
         """
         file_deletion_detected = False
-        files = self._find_code_files(self.rootpath)  # Dict[Path, datetime]
+        files = self._find_code_files()  # Dict[Path, datetime]
         
         changed_files = []
         
