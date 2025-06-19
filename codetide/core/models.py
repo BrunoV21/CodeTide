@@ -22,7 +22,10 @@ class BaseCodeElement(BaseModel):
 
     @property
     def file_path_without_suffix(self)->str:
-        return "".join(self.file_path.split(".")[:-1]).replace("\\", ".").replace("/", ".")
+        split_file_path = self.file_path.split(".")[:-1]
+        if not split_file_path:
+            split_file_path = [self.file_path]
+        return "".join(split_file_path).replace("\\", ".").replace("/", ".")
     
     @computed_field
     def unique_id(self) -> str:
