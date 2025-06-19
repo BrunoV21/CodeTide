@@ -5,6 +5,7 @@ from codetide.core.defaults import (
 )
 from codetide.core.models import CodeFileModel, CodeBase, CodeContextStructure
 from codetide.core.common import readFile, writeFile
+from codetide.core.logs import logger
 
 from codetide.parsers import BaseParser
 from codetide import parsers
@@ -13,19 +14,11 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Tuple, Union, Dict
 from datetime import datetime, timezone
 from pathlib import Path
-import logging
 import asyncio
 import pygit2
 import time
 import json
 import os
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
 class CodeTide(BaseModel):
     """Root model representing a complete codebase"""
     rootpath : Union[str, Path]

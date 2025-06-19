@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-INSTALLATION_DIR = Path(os.path.abspath(os.path.dirname(__file__)))
+INSTALLATION_DIR = Path(os.path.abspath(os.path.dirname(__file__))).parent
 
 # Language extensions mapping
 LANGUAGE_EXTENSIONS = {
