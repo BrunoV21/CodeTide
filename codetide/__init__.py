@@ -440,6 +440,14 @@ class CodeTide(BaseModel):
         if isinstance(unique_id, str):
             unique_id = [unique_id]
 
+        # Log the incoming request
+        logger.info(
+            f"Getting code context - IDs: {unique_id}, "
+            f"degree: {degree}, "
+            f"as_string: {as_string}, "
+            f"as_list_str: {as_list_str}"
+        )
+
         requestedFiles = self._precheck_id_is_file(unique_id)
         return self.codebase.get(
             unique_id=unique_id,

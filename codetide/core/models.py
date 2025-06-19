@@ -1,4 +1,5 @@
 from .common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
+from .logs import logger
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union
@@ -663,8 +664,9 @@ class CodeBase(BaseModel):
 
     def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
         if not self._cached_elements:
+            logger.debug("Building cached elements for the first time")
             self._build_cached_elements()
-            
+                
         if isinstance(unique_id, str):
             unique_id = [unique_id]
 
@@ -675,6 +677,8 @@ class CodeBase(BaseModel):
 
         while True:
             new_references_ids = []
+            logger.debug(f"Current degree level: {degree}, processing {len(references_ids)} references")
+            
             for reference in references_ids:
                 element = self._cached_elements.get(reference)
                 if (
@@ -684,20 +688,32 @@ class CodeBase(BaseModel):
                 ):
                     retrieved_elements.append(element)
                     retrieved_ids.append(element.unique_id)
+                    logger.debug(f"Added element: {element.unique_id} ({element.__class__.__name__})")
 
                     if hasattr(element, "references") and degree > 0:
-                        new_references_ids.extend([
-                            _reference.unique_id for _reference in element.references if _reference.unique_id and _reference.unique_id not in references_ids
-                        ])
+                        new_refs = [
+                            _reference.unique_id for _reference in element.references 
+                            if _reference.unique_id and _reference.unique_id not in references_ids
+                        ]
+                        new_references_ids.extend(new_refs)
+                        if new_refs:
+                            logger.debug(f"Found {len(new_refs)} new references from {element.unique_id}")
 
             if degree == 0:
+                logger.debug("Reached maximum degree depth")
                 break
 
             references_ids = new_references_ids.copy()
             first_swipe = False
             degree -= 1
 
-        codeContext = CodeContextStructure.from_list_of_elements(retrieved_elements, requested_element_index=[i for i in range(len(unique_id)-len(preloaded_files or []))], preloaded_files=preloaded_files)
+        logger.info(f"Retrieved {len(retrieved_elements)} total elements")
+
+        codeContext = CodeContextStructure.from_list_of_elements(
+            retrieved_elements, 
+            requested_element_index=[i for i in range(len(unique_id)-len(preloaded_files or []))], 
+            preloaded_files=preloaded_files
+        )
         codeContext._cached_elements = self._cached_elements
 
         if as_string:
@@ -705,13 +721,16 @@ class CodeBase(BaseModel):
             if context[0]:
                 context.insert(0, [CONTEXT_INTRUCTION])
                 context.insert(-1, [TARGET_INSTRUCTION])
-
+            logger.debug(f"Returning as string with {len(context)} sections")
             return "\n\n".join(sum(context, []))
-        
+            
         elif as_list_str:
-            return sum(codeContext.as_list_str(), [])
-        
+            flat_list = sum(codeContext.as_list_str(), [])
+            logger.debug(f"Returning as list with {len(flat_list)} items")
+            return flat_list
+            
         else:
+            logger.debug("Returning raw CodeContextStructure")
             return codeContext
         
     def serialize_cache_elements(self, indent :int=4)->str:
