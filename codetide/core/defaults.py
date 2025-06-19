@@ -53,3 +53,5 @@ DEFAULT_ENCODING = "utf8"
 DEFAULT_SERIALIZATION_PATH = "./storage/tide.json"
 DEFAULT_CACHED_ELEMENTS_FILE = "cached_elements.json"
 DEFAULT_CACHED_IDS_FILE = "cached_ids.json"
+
+BREAKLINE = "\n"

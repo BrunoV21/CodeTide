@@ -1,4 +1,5 @@
 from .common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
+from .defaults import BREAKLINE
 from .logs import logger
 
 from pydantic import BaseModel, Field, computed_field, field_validator
@@ -256,7 +257,7 @@ class PartialClasses(BaseModel):
 
     @property
     def raw(self)->str:
-        return f"{self.class_header}\n{'\n'.join(self.attributes)}\n{'\n\n'.join(self.methods)}" # noqa: E999
+        return f"{self.class_header}{BREAKLINE}{BREAKLINE.join(self.attributes)}{BREAKLINE}{(2*BREAKLINE).join(self.methods)}" # noqa: E999
     
 class CodeContextStructure(BaseModel):
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
@@ -352,7 +353,7 @@ class CodeContextStructure(BaseModel):
         for requested_elemtent in self.requested_elements:
             if isinstance(requested_elemtent, (ClassAttribute, MethodDefinition)):
                 classObj :ClassDefinition = self._cached_elements.get(requested_elemtent.class_id)
-                requested_elemtent.raw = f"{classObj.raw.split('\n')[0]}\n    ...\n\n{requested_elemtent.raw}"
+                requested_elemtent.raw = f"{classObj.raw.split(BREAKLINE)[0]}{BREAKLINE}    ...{2*BREAKLINE}{requested_elemtent.raw}"
 
         wrapped_list = [
             [
