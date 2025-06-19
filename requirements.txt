@@ -1,3 +1,4 @@
+loguru==0.7.3
 pathspec==0.12.1
 pydantic==2.10.3
 pygit2==1.18.0
