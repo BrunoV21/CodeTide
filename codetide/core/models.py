@@ -597,7 +597,7 @@ class CodeBase(BaseModel):
             contents.append(("variable", name, None))
         
         for function in code_file.functions:
-            name = f" {function.name}" if include_types else function.name
+            name = f"F {function.name}" if include_types else function.name
             contents.append(("function", name, None))
         
         for class_def in code_file.classes:
