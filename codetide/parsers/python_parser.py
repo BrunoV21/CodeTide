@@ -1,6 +1,6 @@
-from codetide.parsers.base_parser import BaseParser
-from codetide.core.common import readFile
-from codetide.core.models import (
+from .base_parser import BaseParser
+from ..core.common import readFile
+from ..core.models import (
     ClassAttribute, ClassDefinition, CodeBase, CodeReference,
     FunctionDefinition, FunctionSignature, ImportStatement,
     CodeFileModel, MethodDefinition, Parameter, VariableDeclaration
@@ -14,7 +14,7 @@ from pydantic import model_validator
 from pathlib import Path
 import asyncio
 import re
-
+import os
 class PythonParser(BaseParser):
     """
     Python-specific implementation of the BaseParser using tree-sitter.
@@ -133,15 +133,48 @@ class PythonParser(BaseParser):
             # elif child.type == "assignment": # <- class attribute
             #     cls._process_assignment(child, code, codeFile)
 
+    @staticmethod
+    def _rebuild_source_from_relative(relative_import_source :str, relative_import_name :str, filepath :str)->str:
+            relative_location_index = relative_import_source.count(".")
+            source_location = Path(filepath).parent
+            for _ in range(1, relative_location_index):
+                source_location = Path(source_location).parent
+            source_id = str(source_location).replace(os.path.sep, ".")
+            return f"{source_id}.{relative_import_name}"
+
+    @classmethod
+    def _process_relative_import_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
+        print("inside")
+        source = None
+        relative_import_source = None
+        relative_import_name = None
+        for child in node.children:
+            if child.type == "import_prefix":
+                relative_import_source = cls._get_content(code, child)
+            elif child.type == "dotted_name":
+                relative_import_name = cls._get_content(code, child)
+        if relative_import_source and relative_import_name:
+            source = cls._rebuild_source_from_relative(
+                relative_import_source=relative_import_source,
+                relative_import_name=relative_import_name,
+                filepath=codeFile.file_path
+            )
+            print(f"{source=}\n")
+        return source
+
     @classmethod
     def _process_import_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
         source = None
         next_is_from_import = False
         next_is_import = False
+        is_relative = False
         for child in node.children:
             if child.type == "from":
                 next_is_from_import = True
-            elif child.type == "dotted_name" and next_is_from_import:
+            elif child.type == "relative_import":
+                source = cls._process_relative_import_node(child, code, codeFile)
+                is_relative = True
+            elif child.type == "dotted_name" and next_is_from_import and not is_relative:
                 next_is_from_import = False
                 source = cls._get_content(code, child)
             elif child.type == "import":
@@ -159,6 +192,8 @@ class PythonParser(BaseParser):
                             source=source,
                             name=name
                         )
+                    if is_relative:
+                        importStatement.import_type = "relative"
                     codeFile.add_import(importStatement)
                     cls._generate_unique_import_id(codeFile.imports[-1])
 
@@ -378,6 +413,9 @@ class PythonParser(BaseParser):
     def _generate_unique_import_id(cls, importModel :ImportStatement):
         """Generate a unique ID for the function definition"""
         unique_id = cls._default_unique_import_id(importModel)
+
+        if unique_id.startswith("."):
+            print(f"{unique_id=}")
         
         if "__init__" in importModel.file_path:
             # if Path(importModel.file_path).with_suffix("") == Path(importModel.file_path):
