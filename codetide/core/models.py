@@ -25,7 +25,7 @@ class BaseCodeElement(BaseModel):
         split_file_path = self.file_path.split(".")[:-1]
         if not split_file_path:
             split_file_path = [self.file_path]
-        return "".join(split_file_path).replace("\\", ".").replace("/", ".")
+        return ".".join(split_file_path).replace("\\", ".").replace("/", ".")
     
     @computed_field
     def unique_id(self) -> str:
