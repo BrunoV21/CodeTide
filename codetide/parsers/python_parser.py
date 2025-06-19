@@ -144,7 +144,6 @@ class PythonParser(BaseParser):
 
     @classmethod
     def _process_relative_import_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
-        print("inside")
         source = None
         relative_import_source = None
         relative_import_name = None
@@ -159,7 +158,6 @@ class PythonParser(BaseParser):
                 relative_import_name=relative_import_name,
                 filepath=codeFile.file_path
             )
-            print(f"{source=}\n")
         return source
 
     @classmethod

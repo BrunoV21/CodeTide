@@ -1,4 +1,4 @@
-from codetide.core.common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
+from .common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union

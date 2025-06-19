@@ -1,4 +1,4 @@
-from codetide.core.defaults import DEFAULT_ENCODING
+from .defaults import DEFAULT_ENCODING
 from typing import Union
 from pathlib import Path
 

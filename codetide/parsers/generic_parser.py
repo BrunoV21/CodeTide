@@ -1,7 +1,7 @@
-from codetide.core.models import CodeBase, CodeFileModel, ImportStatement
-from codetide.parsers.base_parser import BaseParser
-from concurrent.futures import ThreadPoolExecutor
+from ..core.models import CodeBase, CodeFileModel, ImportStatement
+from ..parsers.base_parser import BaseParser
 
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
 from pathlib import Path
 import asyncio

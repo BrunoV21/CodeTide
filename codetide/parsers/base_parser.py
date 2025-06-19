@@ -1,4 +1,4 @@
-from codetide.core.models import CodeBase, CodeFileModel, ImportStatement
+from ..core.models import CodeBase, CodeFileModel, ImportStatement
 
 
 from typing import List, Optional, Union

@@ -1,4 +1,4 @@
-from codetide.core.models import CodeBase
+from .models import CodeBase
 import ulid
 
 def to_mermaid_boxy_flowchart(codebase: CodeBase, include_modules: bool = False, include_types: bool = False) -> str:
