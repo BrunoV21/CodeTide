@@ -340,7 +340,7 @@ class CodeContextStructure(BaseModel):
         for entry in self.classes.values():
             raw_elements_by_file[entry.file_path].append(entry.raw)
 
-        unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys())
+        unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys()) - set(self.requested_elements)
             
         for target_class in unique_class_elements_not_in_classes:
             classObj :ClassDefinition = self._cached_elements.get(target_class)
