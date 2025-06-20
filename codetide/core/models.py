@@ -52,7 +52,7 @@ class CodeReference(BaseModel):
 
 class ImportStatement(BaseCodeElement):
     """Generic representation of an import statement"""
-    source: str  # The module/package being imported from
+    source: Optional[str] = None  # The module/package being imported from
     name :Optional[str] = None  # The alias for the import
     alias: Optional[str] = None  # The alias for the import
     import_type: Literal["absolute", "relative", "side_effect"] = "absolute"
@@ -713,6 +713,9 @@ class CodeBase(BaseModel):
                             _reference.unique_id for _reference in element.references 
                             if _reference.unique_id and _reference.unique_id not in references_ids
                         ]
+
+                        ### TODO need a way to distinguish between references that are used in code and references that are functionsignature
+                        ### in the case of function signature only the methods that are used in the requested elements [methods / attr if class] should be present
                         new_references_ids.extend(new_refs)
                         if new_refs:
                             logger.debug(f"Found {len(new_refs)} new references from {element.unique_id}")

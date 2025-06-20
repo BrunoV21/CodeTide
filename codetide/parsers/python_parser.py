@@ -42,10 +42,10 @@ class PythonParser(BaseParser):
 
     @staticmethod
     def import_statement_template(importSatement :ImportStatement)->str:
-        statement = f"import {importSatement.source}"
-        if importSatement.name:
+        statement = f"import {importSatement.source or importSatement.name}"
+        if importSatement.source and importSatement.name:
             statement = f"from {importSatement.source} import {importSatement.name}"
-        else:
+        elif importSatement.source:
             statement = f"import {importSatement.source}"
 
         if importSatement.alias:
@@ -203,14 +203,14 @@ class PythonParser(BaseParser):
                 name = cls._get_content(code, child)
             elif child.type == "identifier":
                 alias = cls._get_content(code, child)
-                if source is not None:
-                    importStatement = ImportStatement(
-                            source=source,
-                            name=name,
-                            alias=alias
-                        )
-                    codeFile.add_import(importStatement)
-                    cls._generate_unique_import_id(codeFile.imports[-1])
+
+                importStatement = ImportStatement(
+                        source=source,
+                        name=name,
+                        alias=alias
+                    )
+                codeFile.add_import(importStatement)
+                cls._generate_unique_import_id(codeFile.imports[-1])
 
     @classmethod
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
@@ -399,11 +399,11 @@ class PythonParser(BaseParser):
             )
     
     @classmethod
-    def _default_unique_import_id(cls, importModel :ImportStatement)->str:        
-        if importModel.name:
+    def _default_unique_import_id(cls, importModel :ImportStatement)->str:
+        if importModel.source and importModel.name:
             unique_id = f"{importModel.source}.{importModel.name}"
         else:
-            unique_id = f"{importModel.source}"
+            unique_id = f"{importModel.source or importModel.name}"
         unique_id = cls._skip_init_paths(unique_id)
         return unique_id
 
@@ -412,9 +412,6 @@ class PythonParser(BaseParser):
         """Generate a unique ID for the function definition"""
         unique_id = cls._default_unique_import_id(importModel)
 
-        if unique_id.startswith("."):
-            print(f"{unique_id=}")
-        
         if "__init__" in importModel.file_path:
             # if Path(importModel.file_path).with_suffix("") == Path(importModel.file_path):
             ### it is an init file need to map prefill definiton_id which will be usde for mapping
