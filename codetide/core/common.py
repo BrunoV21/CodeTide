@@ -32,7 +32,7 @@ Otherwise, leave them unchanged.
 """
 
 TARGET_INSTRUCTION = """
-[TARGET FILE STARTS BELOW][TARGET FILE STARTS BELOW]
+[TARGET FILE STARTS BELOW]
 The following file is the main focus. 
 Apply your changes primarily to this file.
 Use the context above to ensure correctness and compatibility.
