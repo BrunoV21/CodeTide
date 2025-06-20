@@ -350,7 +350,7 @@ class TestCodeContextStructure:
         print(f"{context=}")
         
         assert len(context.requested_elements) == 1
-        assert context.requested_elements[0].name == "my_method"
+        assert context.requested_elements.get("main.MyClass.my_method").name == "my_method"
         
         assert "os" in context.imports
         assert "main.MyClass" in context.classes
@@ -405,7 +405,7 @@ class TestCodeContextStructure:
             classes={"file1.FullClass": full_class},
             class_methods={"file2.PartialClass.partial_method": partial_class_method},
             imports={"numpy": pkg_import},
-            requested_elements=[requested_element],
+            requested_elements={"requested_element": requested_element},
             preloaded={"preloaded.txt": "preloaded content"}
         )
         context._cached_elements = {"file2.PartialClass": partial_class_obj_for_cache}
