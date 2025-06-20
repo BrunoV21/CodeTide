@@ -266,41 +266,55 @@ class CodeContextStructure(BaseModel):
     classes :Dict[str, ClassDefinition] = Field(default_factory=dict)
     class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
     class_methods :Dict[str, MethodDefinition] = Field(default_factory=dict)
-    requested_elements :Optional[List[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]] = Field(default_factory=list)
+    requested_elements :Optional[Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]] = Field(default_factory=dict)
     preloaded :Optional[Dict[str, str]]=Field(default_factory=dict)
 
     _cached_elements :Dict[str, Any] = dict()
     _unique_class_elements_ids :List[str] = list()
-    
+
+    def add_requested_element(self, element :Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition, ClassAttribute, MethodDefinition]):
+        if isinstance(element, (ClassDefinition, ClassAttribute, MethodDefinition)):
+            element_class_id = element.unique_id if isinstance(element, ClassDefinition) else element.class_id
+            if element_class_id not in self._unique_class_elements_ids:
+                self._unique_class_elements_ids.append(element_class_id)
+
+        self.requested_elements[element.unique_id ] = element
+
     def add_import(self, import_statement :ImportStatement):
-        if import_statement.unique_id in self.imports:
+        if import_statement.unique_id in self.imports or import_statement.unique_id in self.requested_elements:
             return
         self.imports[import_statement.unique_id] = import_statement
 
     def add_class_method(self, method :MethodDefinition):
+        if method.class_id in self.requested_elements:
+            return
+
         if method.class_id not in self._unique_class_elements_ids:
             self._unique_class_elements_ids.append(method.class_id)
 
         self.class_methods[method.unique_id] = method
 
     def add_class_attribute(self, attribute :ClassAttribute):
+        if attribute.class_id in self.requested_elements:
+            return
+
         if attribute.class_id not in self._unique_class_elements_ids:
             self._unique_class_elements_ids.append(attribute.class_id)
             
         self.class_attributes[attribute.unique_id] = attribute
 
     def add_variable(self, variable: VariableDeclaration):
-        if variable.unique_id in self.variables:
+        if variable.unique_id in self.variables or variable.unique_id in self.requested_elements:
             return
         self.variables[variable.unique_id] = variable
 
     def add_function(self, function: ClassDefinition):
-        if function.unique_id in self.functions:
+        if function.unique_id in self.functions or function.unique_id in self.requested_elements:
             return
         self.functions[function.unique_id] = function
 
     def add_class(self, cls: ClassDefinition):
-        if cls.unique_id in self.classes:
+        if cls.unique_id in self.classes or cls.unique_id in self.requested_elements:
             return
         self.classes[cls.unique_id] = cls
 
@@ -350,7 +364,7 @@ class CodeContextStructure(BaseModel):
         for partial in partially_filled_classes.values():
             raw_elements_by_file[partial.filepath].append(partial.raw)
 
-        for requested_elemtent in self.requested_elements:
+        for requested_elemtent in self.requested_elements.values():
             if isinstance(requested_elemtent, (ClassAttribute, MethodDefinition)):
                 classObj :ClassDefinition = self._cached_elements.get(requested_elemtent.class_id)
                 requested_elemtent.raw = f"{classObj.raw.split(BREAKLINE)[0]}{BREAKLINE}    ...{2*BREAKLINE}{requested_elemtent.raw}"
@@ -364,7 +378,7 @@ class CodeContextStructure(BaseModel):
                 for filepath, content in self.preloaded.items()
             ] + [
                 wrap_content(content=requested_elemtent.raw, filepath=requested_elemtent.file_path)
-                for requested_elemtent in self.requested_elements
+                for requested_elemtent in self.requested_elements.values()
             ]
         ]
 
@@ -387,7 +401,7 @@ class CodeContextStructure(BaseModel):
 
         for i, element in enumerate(elements):
             if i in requested_element_index:
-                instance.requested_elements.append(element)
+                instance.add_requested_element(element)
             elif isinstance(element, ImportStatement):
                 instance.add_import(element)
             elif isinstance(element, ClassDefinition) :
