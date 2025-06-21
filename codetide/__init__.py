@@ -21,7 +21,8 @@ import json
 import os
 
 class CodeTide(BaseModel):
-    """Root model representing a complete codebase"""
+    """Root model representing a complete codebase with tools for parsing, tracking, and managing code files."""
+
     rootpath :Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
     files :Dict[Path, datetime]= Field(default_factory=dict)
@@ -97,6 +98,15 @@ class CodeTide(BaseModel):
         include_codebase_cached_elements: bool = False, 
         include_cached_ids: bool = False,
         store_in_project_root: bool=True):
+        """
+        Serialize the CodeTide object to a file.
+
+        Args:
+            filepath: Output path for the serialized object.
+            include_codebase_cached_elements: Whether to include codebase cache.
+            include_cached_ids: Whether to save list of unique file IDs.
+            store_in_project_root: Store file relative to project root if True.
+        """
 
         if store_in_project_root:
             filepath = Path(self.rootpath) / filepath
@@ -132,6 +142,16 @@ class CodeTide(BaseModel):
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, rootpath :Optional[Union[str, Path]] = None)->"CodeTide":
+        """
+        Load a CodeTide instance from a serialized file.
+
+        Args:
+            filepath: Path to the serialized CodeTide JSON.
+            rootpath: Project root directory (used for relative paths).
+
+        Returns:
+            Deserialized CodeTide instance.
+        """
         if rootpath is not None:
             filepath = Path(rootpath) / filepath
 
@@ -219,7 +239,16 @@ class CodeTide(BaseModel):
         filepath: Path,
         parser: BaseParser
     ) -> Optional[CodeFileModel]:
-        """Process a single file with error handling."""
+        """
+        Asynchronously process a single file using the given parser.
+
+        Args:
+            filepath: Path to the file.
+            parser: Parser object corresponding to the file's language.
+
+        Returns:
+            Parsed CodeFileModel or None on failure.
+        """
         try:
             logger.debug(f"Processing file: {filepath}")
             return await parser.parse_file(filepath, self.rootpath)
@@ -331,8 +360,10 @@ class CodeTide(BaseModel):
 
     def _get_changed_files(self) -> Tuple[List[Path], bool]:
         """
-        TODO consider if it is worth storing singular timestamp for latest fetch and then just use 
-        pygit2 to changed files based on commit history + current repo status
+        Detect which files have been added, modified, or deleted since last scan.
+
+        Returns:
+            Tuple containing list of changed file paths and deletion flag.
         """
         file_deletion_detected = False
         files = self._find_code_files()  # Dict[Path, datetime]
@@ -361,6 +392,14 @@ class CodeTide(BaseModel):
         serialize :bool=False,
         max_concurrent_tasks: int = DEFAULT_MAX_CONCURRENT_TASKS, 
         batch_size: int = DEFAULT_BATCH_SIZE, **kwargs):
+        """
+        Update the codebase by detecting and reprocessing changed files.
+
+        Args:
+            serialize: Whether to serialize after updates.
+            max_concurrent_tasks: Max concurrent parser tasks.
+            batch_size: Batch size for async file processing.
+        """
 
         changed_files, deletion_detected = self._get_changed_files()
         if deletion_detected:
@@ -432,12 +471,33 @@ class CodeTide(BaseModel):
             )
 
     def _precheck_id_is_file(self, unique_ids : List[str])->Dict[Path, str]:
+        """
+        Preload file contents for the given IDs if they correspond to known files.
+
+        Args:
+            unique_ids: List of file paths or unique identifiers.
+
+        Returns:
+            Dictionary mapping paths to file content.
+        """
         return {
             unique_id: readFile(self.rootpath / unique_id) for unique_id in unique_ids
             if self.rootpath / unique_id in self.files
         }
 
     def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=True, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+        """
+        Retrieve context around code by unique ID(s).
+
+        Args:
+            unique_id: Single or list of unique IDs for code entities.
+            degree: Depth of context to fetch.
+            as_string: Whether to return as a single string.
+            as_list_str: Whether to return as list of strings.
+
+        Returns:
+            Code context in the requested format.
+        """
         if isinstance(unique_id, str):
             unique_id = [unique_id]
 
