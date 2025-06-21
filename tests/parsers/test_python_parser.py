@@ -38,7 +38,7 @@ class TestPythonParser:
         ("def func():\n  pass\nfunc()", "func", 2),
         ("test(test)", "test", 2),
         ("class MyTest: pass", "MyTest", 1),
-        ("a.b.c(b)", "b", 1),
+        ("a.b.c(b)", "b", 2),
     ])
     def test_count_occurences_in_code(self, code, substring, count):
         """Tests the regex-based word occurrence counter."""

@@ -619,6 +619,5 @@ class PythonParser(BaseParser):
                             )
                         )
                 
-                # TODO deactivate count
-                # if matches_found >= matches_count:
-                #     break
+                if matches_found > matches_count:
+                    break
