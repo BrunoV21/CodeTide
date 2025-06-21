@@ -8,7 +8,7 @@ requirements_visualization = (here / "requirements-visualization.txt").read_text
 
 setup(
     name="codetide",
-    version="0.0.1",
+    version="0.0.2",
     packages=find_packages(),
     long_description=long_description,
     long_description_content_type="text/markdown",
