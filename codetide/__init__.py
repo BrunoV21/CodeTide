@@ -19,9 +19,10 @@ import pygit2
 import time
 import json
 import os
+
 class CodeTide(BaseModel):
     """Root model representing a complete codebase"""
-    rootpath : Union[str, Path]
+    rootpath :Union[str, Path]
     codebase :CodeBase = Field(default_factory=CodeBase)
     files :Dict[Path, datetime]= Field(default_factory=dict)
     _instantiated_parsers :Dict[str, BaseParser] = {}
