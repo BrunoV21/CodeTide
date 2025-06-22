@@ -156,7 +156,7 @@ class TypeScriptParser(BaseParser):
         bases = []
         raw = cls._get_content(code, node, preserve_indentation=True)
         for child in node.children:
-            if child.type == "identifier" and class_name is None:
+            if child.type == "type_identifier" and class_name is None:
                 class_name = cls._get_content(code, child)
             elif child.type == "heritage_clause":
                 for base_child in child.children:
