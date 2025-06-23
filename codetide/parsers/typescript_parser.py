@@ -115,40 +115,50 @@ class TypeScriptParser(BaseParser):
                 cls._process_expression_statement(child, code, codeFile)
 
     @classmethod
+    def _process_import_clause_node(cls, node: Node, code: bytes)->str:
+        for child in node.children:
+            if child.type == "named_imports":
+                for import_child in child.children:
+                    if import_child.type == "import_specifier":
+                        name = cls._get_content(code, import_child)
+                        return name
+        return
+        #                 print(f"{import_child.type=}, {cls._get_content(code, import_child)}")
+        # print("outside import clause")
+
+    @classmethod
     def _process_import_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         source = None
         name = None
-        alias = None
+        # alias = None
+        # is_relative = False
+        next_is_from_import = False
+        next_is_import = False
         for child in node.children:
-            if child.type == "string":
-                source = cls._get_content(code, child).strip("'\"")
-            elif child.type == "import_clause":
-                for clause_child in child.children:
-                    if clause_child.type == "named_imports":
-                        for named_child in clause_child.children:
-                            if named_child.type == "import_specifier":
-                                name = None
-                                alias = None
-                                for spec_child in named_child.children:
-                                    if spec_child.type == "identifier" and name is None:
-                                        name = cls._get_content(code, spec_child)
-                                    elif spec_child.type == "identifier":
-                                        alias = cls._get_content(code, spec_child)
-                                importStatement = ImportStatement(
-                                    source=source,
-                                    name=name,
-                                    alias=alias
-                                )
-                                codeFile.add_import(importStatement)
-                                cls._generate_unique_import_id(codeFile.imports[-1])
-                    elif clause_child.type == "identifier":
-                        name = cls._get_content(code, clause_child)
-                        importStatement = ImportStatement(
-                            source=source,
-                            name=name
-                        )
-                        codeFile.add_import(importStatement)
-                        cls._generate_unique_import_id(codeFile.imports[-1])
+            print(f"{child.type=}, {cls._get_content(code, child)}")
+            if child.type == "import":
+                next_is_import = True
+            elif child.type == "import_clause" and next_is_import:
+                name = cls._process_import_clause_node(child, code)
+                next_is_import = False
+            elif child.type == "from":
+                next_is_from_import = True
+            elif child.type == "string" and next_is_from_import:
+                source = cls._get_content(code, child)
+
+        if name and source is None:
+            source = name
+            name = None
+
+        if source:
+            importStatement = ImportStatement(
+                source=source,
+                name=name
+            )
+            print(f"{importStatement=}")
+
+            codeFile.add_import(importStatement)
+            cls._generate_unique_import_id(codeFile.imports[-1])        
 
     @classmethod
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
