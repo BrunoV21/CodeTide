@@ -146,7 +146,7 @@ class Child extends Base1 {
         assert len(cls.attributes) == 1
         attr = cls.attributes[0]
         assert attr.name == "classAttr"
-        assert attr.type_hint == ": number"
+        assert attr.type_hint == "number"
         assert attr.value == "10"
         assert len(cls.methods) >= 2
         method1 = next(m for m in cls.methods if m.name == "constructor")
