@@ -158,6 +158,9 @@ class TypeScriptParser(BaseParser):
             elif child.type == "import_clause" and next_is_import:
                 name, alias = cls._process_import_clause_node(child, code)
                 next_is_import = False
+            elif next_is_import:
+                source = cls._get_content(code, child)
+                next_is_import = False
             elif child.type == "from":
                 next_is_from_import = True
             elif child.type == "string" and next_is_from_import:
