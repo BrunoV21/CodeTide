@@ -152,7 +152,6 @@ class TypeScriptParser(BaseParser):
         next_is_from_import = False
         next_is_import = False
         for child in node.children:
-            print(f"{child.type=}, {cls._get_content(code, child)}")
             if child.type == "import":
                 next_is_import = True
             elif child.type == "import_clause" and next_is_import:
@@ -276,6 +275,7 @@ class TypeScriptParser(BaseParser):
         decorators = []
         raw = cls._get_content(code, node, preserve_indentation=True)
         for child in node.children:
+            print(f"{child.type=}, {cls._get_content(code, child)}")
             if child.type == "identifier" and definition is None:
                 definition = cls._get_content(code, child)
             elif child.type == "formal_parameters":
@@ -342,12 +342,24 @@ class TypeScriptParser(BaseParser):
     def _process_type_parameter(cls, node: Node, code: bytes) -> Parameter:
         parameter = None
         type_hint = None
-        default = None
+        default = None        
+        next_is_assignment = False
         for child in node.children:
             if child.type == "identifier" and parameter is None:
                 parameter = cls._get_content(code, child)
             elif child.type == "type_annotation":
-                type_hint = cls._get_content(code, child)
+                next_is_type = False
+                for type_child in child.children:
+                    if type_child.type == ":":
+                        next_is_type = True
+                    elif next_is_type:
+                        type_hint = cls._get_content(code, type_child)
+                        next_is_type = False
+            elif child.type == "=":
+                next_is_assignment = True
+            elif next_is_assignment:
+                default = cls._get_content(code, child)
+                next_is_assignment = False
             elif child.type == "assignment_expression":
                 for assign_child in child.children:
                     if assign_child.type == "expression":
