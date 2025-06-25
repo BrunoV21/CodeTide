@@ -85,7 +85,7 @@ class TypeScriptParser(BaseParser):
         root_node = tree.root_node
         codeFile = CodeFileModel(
             file_path=str(file_path),
-            raw=self._get_content(code, root_node, preserve_indentation=True)
+            raw=self._get_content(code, root_node)
         )
         self._process_node(root_node, code, codeFile)
         return codeFile
@@ -175,7 +175,6 @@ class TypeScriptParser(BaseParser):
                 name=name,
                 alias=alias
             )
-            print(f"{importStatement=}")
 
             codeFile.add_import(importStatement)
             cls._generate_unique_import_id(codeFile.imports[-1])        
@@ -184,13 +183,13 @@ class TypeScriptParser(BaseParser):
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         class_name = None
         bases = []
-        raw = cls._get_content(code, node, preserve_indentation=True)
+        raw = cls._get_content(code, node)
         for child in node.children:
             if child.type == "type_identifier" and class_name is None:
                 class_name = cls._get_content(code, child)
-            elif child.type == "heritage_clause":
+            elif child.type == "class_heritage":
                 for base_child in child.children:
-                    if base_child.type == "expression_with_type_arguments":
+                    if base_child.type == "extends_clause":
                         for expr_child in base_child.children:
                             if expr_child.type == "identifier":
                                 bases.append(cls._get_content(code, expr_child))
@@ -207,24 +206,60 @@ class TypeScriptParser(BaseParser):
     def _process_class_body(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         for child in node.children:
             if child.type == "method_definition":
-                cls._process_method_definition(child, code, codeFile)
+                cls._process_function_definition(child, code, codeFile, is_method=True)
             elif child.type == "public_field_definition":
                 cls._process_class_attribute(child, code, codeFile)
 
     @classmethod
-    def _process_method_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel):
-        method_name = None
+    def _process_class_attribute(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        attribute = None
+        type_hint = None
+        value = None
+        modifiers = []
+        next_is_assignment = False
+        raw = cls._get_content(code, node)
+        for child in node.children:
+            if child.type == "property_identifier" and attribute is None:
+                attribute = cls._get_content(code, child)
+            elif child.type == "type_annotation":
+                type_hint = cls._get_content(code, child).replace(": ", "")
+            elif child.type == "accessibility_modifier":
+                modifiers.append(cls._get_content(code, child))
+            elif child.type == "=":
+                next_is_assignment = True
+            elif next_is_assignment:
+                value = cls._get_content(code, child)
+                next_is_assignment = False
+            elif child.type == "assignment_expression":
+                for assign_child in child.children:
+                    if assign_child.type == "expression":
+                        value = cls._get_content(code, assign_child)
+        codeFile.classes[-1].add_attribute(ClassAttribute(
+            name=attribute,
+            type_hint=type_hint,
+            modifiers=modifiers,
+            value=value,
+            raw=raw
+        ))
+
+    @classmethod
+    def _process_function_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_method :bool=False):
+        definition = None
         signature = FunctionSignature()
         modifiers = []
         decorators = []
-        raw = cls._get_content(code, node, preserve_indentation=True)
+        raw = cls._get_content(code, node)
         for child in node.children:
-            if child.type == "property_identifier" and method_name is None:
-                method_name = cls._get_content(code, child)
+            if child.type == "identifier" and definition is None:
+                definition = cls._get_content(code, child)
+            elif child.type == "property_identifier" and definition is None:
+                definition = cls._get_content(code, child)
             elif child.type == "formal_parameters":
                 signature.parameters = cls._process_parameters(child, code)
             elif child.type == "type_annotation":
-                signature.return_type = cls._get_content(code, child)
+                signature.return_type = cls._get_content(code, child).replace(": ", "")
+            elif child.type == "async":
+                modifiers.append("async")
             elif child.type == "decorator":
                 decorators.append(cls._get_content(code, child))
             elif child.type == "public":
@@ -237,60 +272,23 @@ class TypeScriptParser(BaseParser):
                 modifiers.append("static")
             elif child.type == "async":
                 modifiers.append("async")
-        codeFile.classes[-1].add_method(MethodDefinition(
-            name=method_name,
-            signature=signature,
-            decorators=decorators,
-            modifiers=modifiers,
-            raw=raw
-        ))
+        if not is_method: 
+            codeFile.add_function(FunctionDefinition(
+                name=definition,
+                signature=signature,
+                decorators=decorators,
+                modifiers=modifiers,
+                raw=raw
+            ))
+        else:
+            codeFile.classes[-1].add_method(MethodDefinition(
+                name=definition,
+                signature=signature,
+                decorators=decorators,
+                modifiers=modifiers,
+                raw=raw
+            ))
 
-    @classmethod
-    def _process_class_attribute(cls, node: Node, code: bytes, codeFile: CodeFileModel):
-        attribute = None
-        type_hint = None
-        value = None
-        raw = cls._get_content(code, node, preserve_indentation=True)
-        for child in node.children:
-            if child.type == "property_identifier" and attribute is None:
-                attribute = cls._get_content(code, child)
-            elif child.type == "type_annotation":
-                type_hint = cls._get_content(code, child)
-            elif child.type == "assignment_expression":
-                for assign_child in child.children:
-                    if assign_child.type == "expression":
-                        value = cls._get_content(code, assign_child)
-        codeFile.classes[-1].add_attribute(ClassAttribute(
-            name=attribute,
-            type_hint=type_hint,
-            value=value,
-            raw=raw
-        ))
-
-    @classmethod
-    def _process_function_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel):
-        definition = None
-        signature = FunctionSignature()
-        modifiers = []
-        decorators = []
-        raw = cls._get_content(code, node, preserve_indentation=True)
-        for child in node.children:
-            print(f"{child.type=}, {cls._get_content(code, child)}")
-            if child.type == "identifier" and definition is None:
-                definition = cls._get_content(code, child)
-            elif child.type == "formal_parameters":
-                signature.parameters = cls._process_parameters(child, code)
-            elif child.type == "type_annotation":
-                signature.return_type = cls._get_content(code, child)
-            elif child.type == "async":
-                modifiers.append("async")
-        codeFile.add_function(FunctionDefinition(
-            name=definition,
-            signature=signature,
-            decorators=decorators,
-            modifiers=modifiers,
-            raw=raw
-        ))
 
     @classmethod
     def _process_variable_declaration(cls, node: Node, code: bytes, codeFile: CodeFileModel):
