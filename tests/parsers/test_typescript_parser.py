@@ -61,7 +61,7 @@ class TestTypeScriptParser:
         print(f"{code_file_model=}")
         assert code_file_model.file_path == str(file_path.absolute())
         assert len(code_file_model.imports) == 1
-        assert code_file_model.imports[0].source == "mod"
+        assert code_file_model.imports[0].source == "'mod'"
         assert code_file_model.imports[0].name == "A"
         assert len(code_file_model.variables) == 1
         assert code_file_model.variables[0].name == "x"
@@ -83,10 +83,10 @@ class TestTypeScriptParser:
 class TestTypeScriptParserDetailed:
 
     @pytest.mark.parametrize("code, expected_imports", [
-        ("import { A } from 'mod';", [ImportStatement(source='mod', name='A')]),
-        ("import B from 'lib';", [ImportStatement(source='lib', name='B')]),
-        ("import { X as Y } from 'pkg';", [ImportStatement(source='pkg', name='X', alias='Y')]),
-        ("import 'side-effect';", [ImportStatement(source='side-effect')]),
+        ("import { A } from 'mod';", [ImportStatement(source="'mod'", name='A')]),
+        ("import B from 'lib';", [ImportStatement(source="'lib'", name='B')]),
+        ("import { X as Y } from 'pkg';", [ImportStatement(source="'pkg'", name='X', alias='Y')]),
+        ("import 'side-effect';", [ImportStatement(source="'side-effect'")]),
     ])
     def test_parse_imports(self, parser: TypeScriptParser, code, expected_imports):
         """Tests various import statement formats."""
