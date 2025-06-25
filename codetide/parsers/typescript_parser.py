@@ -282,14 +282,18 @@ class TypeScriptParser(BaseParser):
         name = None
         type_hint = None
         value = None
-        raw = cls._get_content(code, node, preserve_indentation=True)
+        next_is_value = False
+        raw = cls._get_content(code, node)
         for child in node.children:
             if child.type == "identifier" and name is None:
                 name = cls._get_content(code, child)
             elif child.type == "type_annotation":
                 type_hint = cls._get_content(code, child)
-            elif child.type == "expression":
+            elif child.type == "=":
+                next_is_value = True
+            elif next_is_value:
                 value = cls._get_content(code, child)
+                next_is_value = False
         codeFile.add_variable(VariableDeclaration(
             name=name,
             type_hint=type_hint,
