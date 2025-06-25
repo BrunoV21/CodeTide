@@ -389,7 +389,7 @@ Instead, it uses:
 Here’s what’s next for CodeTide:
 
 - 🧩 **Support more languages** already integrated with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/)  
-  → **TypeScript** is the top priority.
+  → **TypeScript** is the top priority. **Now available in Beta**
   
 ~~- 🧭 **Handle relative imports** in Python projects  
   → Improve resolution for intra-package navigation.~~
