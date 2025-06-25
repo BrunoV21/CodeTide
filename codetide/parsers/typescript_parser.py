@@ -6,8 +6,8 @@ from ..core.models import (
     FunctionSignature, Parameter, CodeBase, CodeReference
 )
 
+from typing import Optional, Tuple, Union, List, Literal
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, Union, List, Literal
 from tree_sitter import Parser, Language, Node
 import tree_sitter_typescript as tsts
 from pydantic import model_validator
@@ -115,22 +115,39 @@ class TypeScriptParser(BaseParser):
                 cls._process_expression_statement(child, code, codeFile)
 
     @classmethod
-    def _process_import_clause_node(cls, node: Node, code: bytes)->str:
+    def _process_import_clause_node(cls, node: Node, code: bytes)->Tuple[Optional[str], Optional[str]]:
+        alias = None
+        next_is_alias = False
         for child in node.children:
             if child.type == "named_imports":
                 for import_child in child.children:
                     if import_child.type == "import_specifier":
+                        for alias_child in import_child.children:
+                            if alias_child.type == "identifier" and not next_is_alias:
+                                name = cls._get_content(code, alias_child)
+                            elif alias_child.type == "as":
+                                next_is_alias = True
+                            elif alias_child.type == "identifier" and next_is_alias:
+                                alias = cls._get_content(code, alias_child)
+                                next_is_alias = False
+
+                            if name and alias:
+                                return name, alias
+
                         name = cls._get_content(code, import_child)
-                        return name
-        return
-        #                 print(f"{import_child.type=}, {cls._get_content(code, import_child)}")
-        # print("outside import clause")
+                        return name, alias
+                    
+            elif child.type == "identifier":
+                name = cls._get_content(code, child)
+                return name, alias
+            
+        return None, None
 
     @classmethod
     def _process_import_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         source = None
         name = None
-        # alias = None
+        alias = None
         # is_relative = False
         next_is_from_import = False
         next_is_import = False
@@ -139,7 +156,7 @@ class TypeScriptParser(BaseParser):
             if child.type == "import":
                 next_is_import = True
             elif child.type == "import_clause" and next_is_import:
-                name = cls._process_import_clause_node(child, code)
+                name, alias = cls._process_import_clause_node(child, code)
                 next_is_import = False
             elif child.type == "from":
                 next_is_from_import = True
@@ -153,7 +170,8 @@ class TypeScriptParser(BaseParser):
         if source:
             importStatement = ImportStatement(
                 source=source,
-                name=name
+                name=name,
+                alias=alias
             )
             print(f"{importStatement=}")
 
