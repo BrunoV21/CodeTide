@@ -368,6 +368,12 @@ if __name__ == "__main__":
 ```
 </details>
 
+## 🧠 Philosophy
+
+CodeTide is about giving developers structure-aware tools that are **fast, predictable, and private**. Your code is parsed, navigated, and queried as a symbolic graph - not treated as a black box of tokens. Whether you’re building, refactoring, or feeding context into an LLM - **you stay in control**.
+
+> Like a tide, your codebase evolves - and CodeTide helps you move with it, intelligently.
+
 ## ❌ What CodeTide *Does Not* Use
 
 To be clear, CodeTide **does not rely on**:
@@ -397,8 +403,6 @@ Here’s what’s next for CodeTide:
   → Seamless, intelligent context resolution directly integrated into the CodeTide core.  
   → Unlock **clinical issue detection**, **guided refactors**, and **agent-level navigation**.
 
-Stay tuned - or contribute to shape the tide. 🌊
-
 ---
 
 ## 📄 License
@@ -407,8 +411,7 @@ CodeTide is licensed under the **Apache 2.0 License**.
 
 ---
 
-## 🧠 Philosophy
+## 🧑‍💻 Contributing
+Interested in contributing to CodeTide? We welcome contributions of all kinds - especially new language parsers!
 
-CodeTide is about giving developers structure-aware tools that are **fast, predictable, and private**. Your code is parsed, navigated, and queried as a symbolic graph - not treated as a black box of tokens. Whether you’re building, refactoring, or feeding context into an LLM - **you stay in control**.
-
-> Like a tide, your codebase evolves - and CodeTide helps you move with it, intelligently.
+If you'd like to add support for a new language (e.g., Rust, Java, Go), see our [CONTRIBUTING.md](./CONTRIBUTING.md) guide. You'll implement your parser by extending our BaseParser interface and providing robust test coverage. Reference implementations are available for Python and TypeScript in the tests/parsers directory.
