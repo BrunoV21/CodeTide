@@ -48,7 +48,7 @@ class CodeReference(BaseModel):
     """Reference to another code element"""
     unique_id :Optional[str]=None
     name: str
-    # type: Literal["import", "variable", "function", "class", "method", "inheritance"]
+    type: Optional[Literal["import", "variable", "function", "class", "attribute", "method", "inheritance", "type_hint"]]=None
 
 class ImportStatement(BaseCodeElement):
     """Generic representation of an import statement"""
@@ -87,6 +87,12 @@ class FunctionSignature(BaseModel):
     """Function signature with parameters and return type"""
     parameters: List[Parameter] = []
     return_type: Optional[str] = None
+
+    @property
+    def type_hints(self)->List[str]:
+        return [
+            param.type_hint for param in self.parameters
+        ] + [self.return_type]
 
 class FunctionDefinition(BaseCodeElement):
     """Representation of a function definition"""
