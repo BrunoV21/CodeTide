@@ -574,25 +574,36 @@ class PythonParser(BaseParser):
         matches_found = 0
         for _id, raw_content in zip(non_import_ids, raw_contents):
             if reference_name in raw_content:
+                ref_type = None
                 codeElement = codeFile.get(_id)
                 ### TODO check why getting counts occurence in codeElement.raw is resulting in misfilling
                 counts = 1 #self.count_occurences_in_code(codeElement.raw, reference_name)
                 if isinstance(codeElement, (VariableDeclaration, FunctionDefinition)):
+                    if isinstance(codeElement, FunctionDefinition) and reference_name in codeElement.signature.type_hints:
+                        ref_type = "type_hint"
+                    elif isinstance(codeElement, VariableDeclaration) and reference_name == codeElement.type_hint:
+                        ref_type = "type_hint"
+
                     codeElement.references.append(
                         CodeReference(
                             unique_id=unique_id,
-                            name=reference_name
+                            name=reference_name,
+                            type=ref_type
                         )
                     )
                     matches_found += counts
 
                 elif isinstance(codeElement, (ClassDefinition)):
                     for method in codeElement.methods:
+                        ref_type = None
                         if reference_name in method.raw:
+                            if reference_name in method.signature.type_hints:
+                                ref_type = "type_hint"
                             method.references.append(
                                 CodeReference(
                                     unique_id=unique_id,
-                                    name=reference_name
+                                    name=reference_name,
+                                    type=ref_type
                                 )
                             )
                             matches_found += counts
@@ -600,11 +611,15 @@ class PythonParser(BaseParser):
                                 break
                     
                     for attribute in codeElement.attributes:
+                        ref_type = None
                         if reference_name in attribute.raw:
+                            if reference_name == attribute.type_hint:
+                                ref_type = "type_hint"
                             attribute.references.append(
                                 CodeReference(
                                     unique_id=unique_id,
-                                    name=reference_name
+                                    name=reference_name,
+                                    type=ref_type
                                 )
                             )
                             matches_found += counts
@@ -615,7 +630,8 @@ class PythonParser(BaseParser):
                         codeElement.bases_references.append(
                             CodeReference(
                                 unique_id=unique_id,
-                                name=reference_name
+                                name=reference_name,
+                                type="inheritance"
                             )
                         )
                 
