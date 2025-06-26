@@ -345,9 +345,9 @@ class TestCodeContextStructure:
             MethodDefinition(name="my_method", stored_unique_id="main.MyClass.my_method", class_id="main.MyClass"),
             VariableDeclaration(name="MY_VAR", stored_unique_id="main.MY_VAR"),
         ]
+        elements_reference_type = [None for _ in elements]
         
-        context = CodeContextStructure.from_list_of_elements(elements, requested_element_index=[2])
-        print(f"{context=}")
+        context = CodeContextStructure.from_list_of_elements(elements, elements_reference_type, requested_element_index=[2])
         
         assert len(context.requested_elements) == 1
         assert context.requested_elements.get("main.MyClass.my_method").name == "my_method"
