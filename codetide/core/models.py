@@ -280,8 +280,19 @@ class CodeContextStructure(BaseModel):
     _unique_class_elements_ids :List[str] = list()
 
     @staticmethod
-    def trim(raw :str, top_lines :int=50)->str:
-       return "\n".join(raw.splitlines()[:top_lines]+["\n..."])
+    def trim(raw: str, top_lines: int = 15) -> str:
+        lines = raw.splitlines()
+        if len(lines) <= top_lines:
+            return "\n".join(lines)
+        
+        trimmed = lines[:top_lines]
+        
+        # Determine indentation from the last line
+        last_line = trimmed[-1]
+        indent = len(last_line) - len(last_line.lstrip())
+        ellipsis_line = " " * indent + "..."
+        
+        return "\n".join(trimmed + [ellipsis_line])
 
     def add_requested_element(self, element :Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition, ClassAttribute, MethodDefinition]):
         if isinstance(element, (ClassDefinition, ClassAttribute, MethodDefinition)):
