@@ -391,7 +391,7 @@ class CodeContextStructure(BaseModel):
         return wrapped_list
 
     @classmethod
-    def from_list_of_elements(cls, elements: list, requested_element_index :List[int]=[0], preloaded_files :Optional[List[Dict[str, str]]]=None) -> 'CodeContextStructure':
+    def from_list_of_elements(cls, elements: list, retrieved_elements_reference_type :List[Optional[str]]=None, requested_element_index :List[int]=[0], preloaded_files :Optional[List[Dict[str, str]]]=None) -> 'CodeContextStructure':
         instance = cls()
         # Normalize negative indices to positive
         normalized_indices = [
@@ -405,7 +405,7 @@ class CodeContextStructure(BaseModel):
             if 0 <= idx < len(elements)
         ]
 
-        for i, element in enumerate(elements):
+        for i, (element, reference_type) in enumerate(zip(elements, retrieved_elements_reference_type)):
             if i in requested_element_index:
                 instance.add_requested_element(element)
             elif isinstance(element, ImportStatement):
@@ -686,7 +686,7 @@ class CodeBase(BaseModel):
             
             lines.append(f"{prefix}{current_prefix}{name}")
 
-    def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
+    def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, slim :Optional[bool]=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
         if not self._cached_elements:
             logger.debug("Building cached elements for the first time")
             self._build_cached_elements()
@@ -695,16 +695,29 @@ class CodeBase(BaseModel):
             unique_id = [unique_id]
 
         references_ids = unique_id
+        references_types = [None for _ in unique_id]
         retrieved_elements = []
+        retrieved_elements_reference_type = []
         retrieved_ids = []
         first_swipe = True
 
         while True:
             new_references_ids = []
+            new_references_types = []
             logger.debug(f"Current degree level: {degree}, processing {len(references_ids)} references")
             
-            for reference in references_ids:
+            for i, reference in enumerate(references_ids):
                 element = self._cached_elements.get(reference)
+                processed = False
+                if (
+                    element is not None and
+                    element.unique_id in retrieved_ids and not first_swipe and references_types[i] and slim
+                ):
+                    el_index = retrieved_elements.index(element)
+                    if not retrieved_elements_reference_type[el_index]:
+                        retrieved_elements_reference_type[el_index] = references_types[i]
+                        processed = True
+
                 if (
                     element is not None and
                     element.unique_id not in retrieved_ids and
@@ -712,32 +725,44 @@ class CodeBase(BaseModel):
                 ):
                     retrieved_elements.append(element)
                     retrieved_ids.append(element.unique_id)
+                    if not processed:
+                        retrieved_elements_reference_type.append(references_types[i])
                     logger.debug(f"Added element: {element.unique_id} ({element.__class__.__name__})")
 
-                    if hasattr(element, "references") and degree > 0:
+                    if hasattr(element, "references") and degree >= 0:
                         new_refs = [
-                            _reference.unique_id for _reference in element.references 
+                            _reference for _reference in element.references
                             if _reference.unique_id and _reference.unique_id not in references_ids
                         ]
 
+                        new_references_types.extend([ref.type if slim else None for ref in new_refs])
+
                         ### TODO need a way to distinguish between references that are used in code and references that are functionsignature
                         ### in the case of function signature only the methods that are used in the requested elements [methods / attr if class] should be present
-                        new_references_ids.extend(new_refs)
+                        new_references_ids.extend([ref.unique_id for ref in new_refs])
                         if new_refs:
                             logger.debug(f"Found {len(new_refs)} new references from {element.unique_id}")
+
 
             if degree == 0:
                 logger.debug("Reached maximum degree depth")
                 break
 
             references_ids = new_references_ids.copy()
+            references_types = new_references_types.copy()
             first_swipe = False
             degree -= 1
 
         logger.info(f"Retrieved {len(retrieved_elements)} total elements")
 
+        # for _id, _type in zip(retrieved_ids, retrieved_elements_reference_type):
+        #     if _type:
+        #         print(f"{_id} -> {_type}")
+        
+        assert len(retrieved_elements_reference_type) == len(retrieved_elements), "Mismatch between retrieved elements and retrieved reference types"
         codeContext = CodeContextStructure.from_list_of_elements(
             retrieved_elements, 
+            retrieved_elements_reference_type,
             requested_element_index=[i for i in range(len(unique_id)-len(preloaded_files or []))], 
             preloaded_files=preloaded_files
         )
