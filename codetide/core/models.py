@@ -270,6 +270,7 @@ class CodeContextStructure(BaseModel):
     variables :Dict[str, VariableDeclaration] = Field(default_factory=dict)
     functions :Dict[str, ClassDefinition] = Field(default_factory=dict)
     classes :Dict[str, ClassDefinition] = Field(default_factory=dict)
+    classes_headers :Dict[str, ClassDefinition] = Field(default_factory=dict)
     class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
     class_methods :Dict[str, MethodDefinition] = Field(default_factory=dict)
     requested_elements :Optional[Dict[str, Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]] = Field(default_factory=dict)
@@ -277,6 +278,10 @@ class CodeContextStructure(BaseModel):
 
     _cached_elements :Dict[str, Any] = dict()
     _unique_class_elements_ids :List[str] = list()
+
+    @staticmethod
+    def trim(raw :str, top_lines :int=50)->str:
+       return "\n".join(raw.splitlines()[:top_lines]+["\n..."])
 
     def add_requested_element(self, element :Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition, ClassAttribute, MethodDefinition]):
         if isinstance(element, (ClassDefinition, ClassAttribute, MethodDefinition)):
@@ -324,6 +329,11 @@ class CodeContextStructure(BaseModel):
             return
         self.classes[cls.unique_id] = cls
 
+    def add_class_header(self, cls: ClassDefinition):
+        if cls.unique_id in self.classes or cls.unique_id in self.requested_elements:
+            return
+        self.classes_headers[cls.unique_id] = cls
+
     def add_preloaded(self, preloaded :Dict[str, str]):
         self.preloaded.update(preloaded)
 
@@ -346,7 +356,11 @@ class CodeContextStructure(BaseModel):
         for entry in self.classes.values():
             raw_elements_by_file[entry.file_path].append(entry.raw)
 
-        unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys()) - set(self.requested_elements)
+        for entry in self.classes_headers.values():
+            # TODO fix place holder with class definition +attributes
+            raw_elements_by_file[entry.file_path].append(self.trim(entry.raw))
+
+        unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys()) - set(self.classes_headers.keys()) - set(self.requested_elements)
             
         for target_class in unique_class_elements_not_in_classes:
             classObj :ClassDefinition = self._cached_elements.get(target_class)
@@ -410,7 +424,10 @@ class CodeContextStructure(BaseModel):
                 instance.add_requested_element(element)
             elif isinstance(element, ImportStatement):
                 instance.add_import(element)
-            elif isinstance(element, ClassDefinition) :
+            elif isinstance(element, ClassDefinition):
+                if reference_type == "type_hint":
+                    instance.add_class_header(element)
+                    continue
                 instance.add_class(element)
             elif isinstance(element, MethodDefinition):
                 instance.add_class_method(element)
