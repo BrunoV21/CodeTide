@@ -359,17 +359,15 @@ class CodeContextStructure(BaseModel):
             raw_elements_by_file["PACKAGES"].append(entry.raw)
 
         for entry in self.variables.values():
-            raw_elements_by_file[entry.file_path].append(entry.raw)
+            raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
 
         for entry in self.functions.values():
-            raw_elements_by_file[entry.file_path].append(entry.raw)
+            raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
 
         for entry in self.classes.values():
-            raw_elements_by_file[entry.file_path].append(entry.raw)
-
+            raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
         for entry in self.classes_headers.values():
-            # TODO fix place holder with class definition +attributes
-            raw_elements_by_file[entry.file_path].append(self.trim(entry.raw))
+            raw_elements_by_file[entry.file_path].append(f"\n{self.trim(entry.raw)}")
 
         unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys()) - set(self.classes_headers.keys()) - set(self.requested_elements)
             
@@ -402,7 +400,7 @@ class CodeContextStructure(BaseModel):
 
         wrapped_list = [
             [
-                wrap_content(content="\n\n".join(elements), filepath=filepath)
+                wrap_content(content="\n".join(elements), filepath=filepath)
                 for filepath, elements in raw_elements_by_file.items()
             ], [
                 wrap_content(content=content, filepath=filepath)
