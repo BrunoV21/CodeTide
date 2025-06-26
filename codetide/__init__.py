@@ -485,7 +485,7 @@ class CodeTide(BaseModel):
             if self.rootpath / unique_id in self.files
         }
 
-    def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=True, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+    def get(self, unique_id :Union[str, List[str]], degree :int=1, slim :bool=False, as_string :bool=True, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
         """
         Retrieve context around code by unique ID(s).
 
@@ -513,6 +513,7 @@ class CodeTide(BaseModel):
         return self.codebase.get(
             unique_id=unique_id,
             degree=degree,
+            slim=slim,
             as_string=as_string,
             as_list_str=as_list_str,
             preloaded_files=requestedFiles
