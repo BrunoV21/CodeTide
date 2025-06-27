@@ -1,4 +1,4 @@
-from codetide.core.models import ImportStatement
+from codetide.core.models import CodeBase, ImportStatement
 from codetide.parsers.python_parser import PythonParser
 
 from tree_sitter import Parser
@@ -204,7 +204,7 @@ var = process_data([])
 """
         file_path = Path("test.py")
         code_file = parser.parse_code(code.encode('utf-8'), file_path)
-        parser.resolve_intra_file_dependencies([code_file])
+        parser.resolve_intra_file_dependencies(CodeBase(root=[code_file]))
         
         # process_data should reference List and Helper
         process_func = code_file.get("test.process_data")
