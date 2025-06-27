@@ -366,6 +366,7 @@ class CodeContextStructure(BaseModel):
 
         for entry in self.classes.values():
             raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
+            
         for entry in self.classes_headers.values():
             raw_elements_by_file[entry.file_path].append(f"\n{self.trim(entry.raw)}")
 
@@ -713,6 +714,8 @@ class CodeBase(BaseModel):
             lines.append(f"{prefix}{current_prefix}{name}")
 
     def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, slim :Optional[bool]=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
+        # TODO slim mode is still not perfect as in codecontext it should still heck for individual methods / dependencies which it does not do so far
+        # need to refine it further
         if not self._cached_elements:
             logger.debug("Building cached elements for the first time")
             self._build_cached_elements()

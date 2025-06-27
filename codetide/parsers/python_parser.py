@@ -468,8 +468,8 @@ class PythonParser(BaseParser):
         matches = re.findall(pattern, code)
         return len(matches)
 
-    def resolve_intra_file_dependencies(self, codeFiles: List[CodeFileModel]) -> None:
-        for codeFile in codeFiles:
+    def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
+        for codeFile in codeBase.root:
             if not codeFile.file_path.endswith(self.extension):
                 continue
             

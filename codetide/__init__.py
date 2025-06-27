@@ -356,7 +356,7 @@ class CodeTide(BaseModel):
     def _resolve_files_dependencies(self):
         for _, parser in self._instantiated_parsers.items():
             parser.resolve_inter_files_dependencies(self.codebase)
-            parser.resolve_intra_file_dependencies(self.codebase.root)
+            parser.resolve_intra_file_dependencies(self.codebase)
 
     def _get_changed_files(self) -> Tuple[List[Path], bool]:
         """
