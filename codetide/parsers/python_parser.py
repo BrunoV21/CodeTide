@@ -41,6 +41,18 @@ class PythonParser(BaseParser):
         self._filepath = filepath
 
     @staticmethod
+    def is_docstring(content :str)->bool:
+        if not content:
+            return False
+        
+        stripped = content.strip()
+        if stripped.startswith('"""') and stripped.endswith('"""'):
+            return True
+        elif stripped.startswith("'''") and stripped.endswith("'''"):
+            return True
+        return False
+
+    @staticmethod
     def import_statement_template(importSatement :ImportStatement)->str:
         statement = f"import {importSatement.source or importSatement.name}"
         if importSatement.source and importSatement.name:
@@ -312,11 +324,22 @@ class PythonParser(BaseParser):
                 decorators.append(cls._get_content(code, child))
             elif child.type == "function_definition":
                 cls._process_function_definition(child, code, codeFile, is_class_method=is_class_method, decorators=decorators, raw=raw)
+    
+    @classmethod
+    def _get_docstring_from_block(cls, node: Node, code: bytes)->Optional[str]:
+        for child in node.children:
+            if child.type == "expression_statement":
+                candidate = cls._get_content(code, child, preserve_indentation=True)
+                if cls.is_docstring(candidate):
+                    return candidate
+        return None
+
 
     @classmethod
     def _process_function_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_method :bool=False, decorators :Optional[List[str]]=None, raw :Optional[str]=None):
         # print(node.type, cls._get_content(code, node))
         definition = None
+        docstring = None
         signature = FunctionSignature()
         modifiers = []
         
@@ -324,7 +347,6 @@ class PythonParser(BaseParser):
         if decorators is None:
             decorators = []
 
-        ### TODO add logic to extract modifiers i.e. async
         for child in node.children:
             if child.type == "identifier":
                 definition = cls._get_content(code, child)
@@ -335,6 +357,8 @@ class PythonParser(BaseParser):
                 signature.parameters = cls._process_parameters(child, code)
             elif child.type == "type":
                 signature.return_type = cls._get_content(code, child)
+            elif child.type == "block":
+                docstring = cls._get_docstring_from_block(child, code)
         
         if is_class_method:
             if raw is None:
@@ -345,6 +369,7 @@ class PythonParser(BaseParser):
                     signature=signature,
                     decorators=decorators,
                     modifiers=modifiers,
+                    docstring=docstring,
                     raw=raw
                 )
             )
@@ -361,6 +386,7 @@ class PythonParser(BaseParser):
                     signature=signature,
                     decorators=decorators,
                     modifiers=modifiers,
+                    docstring=docstring,
                     raw=raw
                 )
             )

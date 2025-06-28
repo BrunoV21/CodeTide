@@ -100,6 +100,7 @@ class FunctionDefinition(BaseCodeElement):
     signature: Optional[FunctionSignature]=None
     modifiers: List[str] = Field(default_factory=list)  # e.g., "async", "generator", etc.
     decorators: List[str] = Field(default_factory=list)
+    docstring: Optional[str]=None
     references: List[CodeReference] = Field(default_factory=list)
 
 class MethodDefinition(FunctionDefinition):
