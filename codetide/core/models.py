@@ -2,7 +2,7 @@ from .common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
 from .defaults import BREAKLINE
 from .logs import logger
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, RootModel, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union
 from collections import defaultdict
 import json
@@ -269,7 +269,7 @@ class PartialClasses(BaseModel):
 class CodeContextStructure(BaseModel):
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
     variables :Dict[str, VariableDeclaration] = Field(default_factory=dict)
-    functions :Dict[str, ClassDefinition] = Field(default_factory=dict)
+    functions :Dict[str, FunctionDefinition] = Field(default_factory=dict)
     classes :Dict[str, ClassDefinition] = Field(default_factory=dict)
     classes_headers :Dict[str, ClassDefinition] = Field(default_factory=dict)
     class_attributes :Dict[str, ClassAttribute] = Field(default_factory=dict)
@@ -349,7 +349,7 @@ class CodeContextStructure(BaseModel):
     def add_preloaded(self, preloaded :Dict[str, str]):
         self.preloaded.update(preloaded)
 
-    def as_list_str(self)->List[List[str]]:
+    def as_list_str(self, slim :Optional[bool]=True)->List[List[str]]:
 
         partially_filled_classes :Dict[str, PartialClasses]= {}
 
@@ -363,13 +363,18 @@ class CodeContextStructure(BaseModel):
             raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
 
         for entry in self.functions.values():
-            raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
+            if slim and entry.docstring:
+                content = entry.docstring
+            else:
+                content = entry.raw
+                
+            raw_elements_by_file[entry.file_path].append(f"\n{content}")
 
         for entry in self.classes.values():
             raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
             
         for entry in self.classes_headers.values():
-            raw_elements_by_file[entry.file_path].append(f"\n{self.trim(entry.raw)}")
+            raw_elements_by_file[entry.file_path].append(f"\n{self.trim(entry.raw) if slim else entry.raw}")
 
         unique_class_elements_not_in_classes = set(self._unique_class_elements_ids) - set(self.classes.keys()) - set(self.classes_headers.keys()) - set(self.requested_elements)
             
@@ -384,16 +389,22 @@ class CodeContextStructure(BaseModel):
 
         for class_attribute in self.class_attributes.values():
             if class_attribute.class_id in unique_class_elements_not_in_classes:
-                partially_filled_classes[classObj.unique_id].attributes.append(class_attribute.raw)
+                partially_filled_classes[classObj.unique_id].attributes.append(f"\n{class_attribute.raw}")
 
         for class_method in self.class_methods.values():
             if class_method.class_id in unique_class_elements_not_in_classes:
                 if not partially_filled_classes[classObj.unique_id].methods:
-                    partially_filled_classes[classObj.unique_id].methods.append("\n    ...\n")
-                partially_filled_classes[classObj.unique_id].methods.append(class_method.raw)
+                    partially_filled_classes[classObj.unique_id].methods.append("    ...")
+                
+                if slim and class_method.docstring:
+                    content = class_method.docstring
+                else:
+                    content = class_method.raw
+
+                partially_filled_classes[classObj.unique_id].methods.append(content)
 
         for partial in partially_filled_classes.values():
-            raw_elements_by_file[partial.filepath].append(partial.raw)
+            raw_elements_by_file[partial.filepath].append(f"\n{partial.raw}")
 
         for requested_elemtent in self.requested_elements.values():
             if isinstance(requested_elemtent, (ClassAttribute, MethodDefinition)):
@@ -416,7 +427,12 @@ class CodeContextStructure(BaseModel):
         return wrapped_list
 
     @classmethod
-    def from_list_of_elements(cls, elements: list, retrieved_elements_reference_type :List[Optional[str]]=None, requested_element_index :List[int]=[0], preloaded_files :Optional[List[Dict[str, str]]]=None) -> 'CodeContextStructure':
+    def from_list_of_elements(cls,
+        elements: list,
+        retrieved_elements_reference_type :List[Optional[str]]=None,
+        requested_element_index :List[int]=[0],
+        preloaded_files :Optional[List[Dict[str, str]]]=None) -> 'CodeContextStructure':
+
         instance = cls()
         # Normalize negative indices to positive
         normalized_indices = [
@@ -429,6 +445,11 @@ class CodeContextStructure(BaseModel):
             idx for idx in normalized_indices
             if 0 <= idx < len(elements)
         ]
+
+        if not retrieved_elements_reference_type:
+            retrieved_elements_reference_type = [
+                None for _ in elements
+            ]
 
         for i, (element, reference_type) in enumerate(zip(elements, retrieved_elements_reference_type)):
             if i in requested_element_index:
@@ -456,7 +477,7 @@ class CodeContextStructure(BaseModel):
 
         return instance
 
-class CodeBase(BaseModel):
+class CodeBase(RootModel):
     """Root model representing a complete codebase"""
     root: List[CodeFileModel] = Field(default_factory=list)
     _cached_elements :Dict[str, Any] = dict()
@@ -715,8 +736,6 @@ class CodeBase(BaseModel):
             lines.append(f"{prefix}{current_prefix}{name}")
 
     def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, slim :Optional[bool]=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
-        # TODO slim mode is still not perfect as in codecontext it should still heck for individual methods / dependencies which it does not do so far
-        # need to refine it further
         if not self._cached_elements:
             logger.debug("Building cached elements for the first time")
             self._build_cached_elements()
@@ -737,6 +756,7 @@ class CodeBase(BaseModel):
             logger.debug(f"Current degree level: {degree}, processing {len(references_ids)} references")
             
             for i, reference in enumerate(references_ids):
+                # print(reference)
                 element = self._cached_elements.get(reference)
                 processed = False
                 if (
@@ -799,7 +819,7 @@ class CodeBase(BaseModel):
         codeContext._cached_elements = self._cached_elements
 
         if as_string:
-            context = codeContext.as_list_str()
+            context = codeContext.as_list_str(slim)
             if context[0]:
                 context.insert(0, [CONTEXT_INTRUCTION])
                 context.insert(-1, [TARGET_INSTRUCTION])
