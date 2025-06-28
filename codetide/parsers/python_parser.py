@@ -6,7 +6,7 @@ from ..core.models import (
     CodeFileModel, MethodDefinition, Parameter, VariableDeclaration
 )
 
-from typing import List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 from concurrent.futures import ThreadPoolExecutor
 from tree_sitter import Language, Parser, Node
 import tree_sitter_python as tspython
@@ -118,7 +118,7 @@ class PythonParser(BaseParser):
         return codeFile
     
     @classmethod
-    def _process_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):    
+    def _process_node(cls, node: Node, code: bytes, codeFile :CodeFileModel):
         for child in node.children:
             if child.type.startswith("import"):
                 cls._process_import_node(child, code, codeFile)
@@ -469,6 +469,7 @@ class PythonParser(BaseParser):
         return len(matches)
 
     def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
+        codeBase._build_cached_elements()
         for codeFile in codeBase.root:
             if not codeFile.file_path.endswith(self.extension):
                 continue
@@ -490,7 +491,8 @@ class PythonParser(BaseParser):
                     matches_count=importCounts,
                     codeFile=codeFile,
                     unique_id=importStatement.unique_id,
-                    reference_name=importAsDependency
+                    reference_name=importAsDependency,
+                    imported_element=codeBase._cached_elements.get(importStatement.unique_id)
                 )
             
             for elemen_type in ["variables", "functions", "classes"]:
@@ -563,13 +565,38 @@ class PythonParser(BaseParser):
         return elementCounts
 
     @staticmethod
+    def _check_for_typehint_class_methods_attr_references(
+        imported_element :Union[ClassDefinition, Any],
+        element_to_check :Union[VariableDeclaration, FunctionDefinition, ClassAttribute, ClassDefinition],
+        ref_type :str="type_hint")->bool:
+
+        if not isinstance(imported_element, ClassDefinition):
+            return False
+        
+        reference_found = False
+        for imported_element_method in imported_element.methods:
+            if imported_element_method.name in element_to_check.raw:
+                element_to_check.references.append(
+                    CodeReference(
+                        unique_id=imported_element_method.unique_id,
+                        name=imported_element_method.name,
+                        type=ref_type
+                    )
+                )
+                reference_found = True
+
+        return reference_found
+
+    @classmethod
     def _find_references(
+        cls,
         non_import_ids :List[str],
         raw_contents :List[str],
         matches_count :int,
         codeFile :CodeFileModel,
         unique_id :str,
-        reference_name :str):
+        reference_name :str,
+        imported_element :Optional[Union[ClassDefinition, VariableDeclaration, FunctionDefinition]]=None):
         
         matches_found = 0
         for _id, raw_content in zip(non_import_ids, raw_contents):
@@ -579,10 +606,19 @@ class PythonParser(BaseParser):
                 ### TODO check why getting counts occurence in codeElement.raw is resulting in misfilling
                 counts = 1 #self.count_occurences_in_code(codeElement.raw, reference_name)
                 if isinstance(codeElement, (VariableDeclaration, FunctionDefinition)):
+                    matches_found += counts
                     if isinstance(codeElement, FunctionDefinition) and reference_name in codeElement.signature.type_hints:
                         ref_type = "type_hint"
+
                     elif isinstance(codeElement, VariableDeclaration) and reference_name == codeElement.type_hint:
                         ref_type = "type_hint"
+
+                    if cls._check_for_typehint_class_methods_attr_references(
+                            imported_element=imported_element,
+                            element_to_check=codeElement,
+                            ref_type=ref_type
+                        ):
+                            continue
 
                     codeElement.references.append(
                         CodeReference(
@@ -591,14 +627,25 @@ class PythonParser(BaseParser):
                             type=ref_type
                         )
                     )
-                    matches_found += counts
 
                 elif isinstance(codeElement, (ClassDefinition)):
                     for method in codeElement.methods:
                         ref_type = None
+                        matches_found += counts
                         if reference_name in method.raw:
+
                             if reference_name in method.signature.type_hints:
                                 ref_type = "type_hint"
+
+                                if cls._check_for_typehint_class_methods_attr_references(
+                                    imported_element=imported_element,
+                                    element_to_check=method,
+                                    ref_type=ref_type
+                                ):
+                                    if matches_found >= matches_count:
+                                        break
+                                    continue
+
                             method.references.append(
                                 CodeReference(
                                     unique_id=unique_id,
@@ -606,15 +653,25 @@ class PythonParser(BaseParser):
                                     type=ref_type
                                 )
                             )
-                            matches_found += counts
                             if matches_found >= matches_count:
                                 break
                     
                     for attribute in codeElement.attributes:
                         ref_type = None
                         if reference_name in attribute.raw:
+                            matches_found += counts
                             if reference_name == attribute.type_hint:
                                 ref_type = "type_hint"
+
+                                if cls._check_for_typehint_class_methods_attr_references(
+                                    imported_element=imported_element,
+                                    element_to_check=method,
+                                    ref_type=ref_type
+                                ):
+                                    if matches_found >= matches_count:
+                                        break
+                                    continue
+
                             attribute.references.append(
                                 CodeReference(
                                     unique_id=unique_id,
@@ -622,7 +679,6 @@ class PythonParser(BaseParser):
                                     type=ref_type
                                 )
                             )
-                            matches_found += counts
                             if matches_found >= matches_count:
                                 break
 
