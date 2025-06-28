@@ -51,6 +51,14 @@ class PythonParser(BaseParser):
         elif stripped.startswith("'''") and stripped.endswith("'''"):
             return True
         return False
+    
+    @staticmethod
+    def compile_docstring(raw :str, doctring :Optional[str]=None)->Optional[str]:
+        if not doctring:
+            return None
+
+        raw = raw.split(doctring)
+        return f"{raw[0]}{doctring}"
 
     @staticmethod
     def import_statement_template(importSatement :ImportStatement)->str:
@@ -369,7 +377,7 @@ class PythonParser(BaseParser):
                     signature=signature,
                     decorators=decorators,
                     modifiers=modifiers,
-                    docstring=docstring,
+                    docstring=cls.compile_docstring(raw, docstring),
                     raw=raw
                 )
             )
@@ -380,13 +388,14 @@ class PythonParser(BaseParser):
         else:
             if raw is None:
                 raw = cls._get_content(code, node)
+            
             codeFile.add_function(
                 FunctionDefinition(
                     name=definition,
                     signature=signature,
                     decorators=decorators,
                     modifiers=modifiers,
-                    docstring=docstring,
+                    docstring=cls.compile_docstring(raw, docstring),
                     raw=raw
                 )
             )
