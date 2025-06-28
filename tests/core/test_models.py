@@ -418,7 +418,7 @@ class TestCodeContextStructure:
         assert 'wrapped(import numpy as np, PACKAGES)' in context_list
         assert 'wrapped(\nclass FullClass:\n    ..., file1.py)' in context_list
         # Check that the partial class was constructed correctly
-        assert 'wrapped(class PartialClass(Base):\n\n\n    ...\n\n\ndef partial_method(self):\n        pass, file2.py)' in context_list
+        assert 'wrapped(\nclass PartialClass(Base):\n\n    ...\n\ndef partial_method(self):\n        pass, file2.py)' in context_list
         
         # Assertions for target list
         assert len(target_list) == 2 # 1 preloaded + 1 requested
