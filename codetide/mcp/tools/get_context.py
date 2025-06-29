@@ -62,5 +62,5 @@ async def getContext(
     """
 
     tide = await initCodeTide()
-    context = await tide.get(code_identifiers, context_depth, as_string=True)
+    context = tide.get(code_identifiers, context_depth, as_string=True)
     return context
