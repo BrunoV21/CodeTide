@@ -1,11 +1,11 @@
-from typing import List, Optional, Union
+from typing import List, Union
 from ..server import codeTideMCPServer
 from ..utils import initCodeTide
 
 @codeTideMCPServer.tool
 async def getContext(
     code_identifiers: Union[str, List[str]],
-    context_depth: int = 1) -> Optional[str]:
+    context_depth: int = 1) -> str:
     """
     Retrieves relevant code context for the given code element identifiers.
     Returns None if identifiers are invalid.
@@ -63,4 +63,4 @@ async def getContext(
 
     tide = await initCodeTide()
     context = tide.get(code_identifiers, context_depth, as_string=True)
-    return context
+    return context if context else f"{code_identifiers} are not valid code_identifiers, refer to the getRepoTree tool to get a sense of the correct identifiers"

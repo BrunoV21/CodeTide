@@ -10,7 +10,7 @@ async def getRepoTree(
     Useful for understanding the project layout and navigating between files.
 
     Args:
-        show_contents: When True, includes classes/functions/variables within files (default: False)
+        show_contents: When True, includes classes/functions/variables within files
         show_types: When True, prefixes items with type codes:
                    (F=function, V=variable, C=class, A=attribute, M=method) (default: False)
 
