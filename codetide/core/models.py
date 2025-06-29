@@ -2,7 +2,7 @@ from .common import CONTEXT_INTRUCTION, TARGET_INSTRUCTION, wrap_content
 from .defaults import BREAKLINE
 from .logs import logger
 
-from pydantic import BaseModel, Field, RootModel, computed_field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union
 from collections import defaultdict
 import json
@@ -536,7 +536,7 @@ class CodeContextStructure(BaseModel):
 
         return instance
 
-class CodeBase(RootModel):
+class CodeBase(BaseModel):
     """Root model representing complete codebase with file hierarchy and caching."""
     root: List[CodeFileModel] = Field(default_factory=list)
     _cached_elements :Dict[str, Any] = dict()
