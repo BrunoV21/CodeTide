@@ -8,6 +8,7 @@ from collections import defaultdict
 import json
 
 class BaseCodeElement(BaseModel):
+    """Base class representing any code element with file path and raw content handling."""
     file_path: str = ""
     raw :Optional[str] = ""
     stored_unique_id :Optional[str]=None
@@ -15,6 +16,8 @@ class BaseCodeElement(BaseModel):
     @field_validator("raw")
     @classmethod
     def apply_second_line_indent_to_first(cls, value):
+        """Normalizes raw content by ensuring consistent line indentation."""
+
         if not value:
             return value
 
@@ -23,6 +26,8 @@ class BaseCodeElement(BaseModel):
 
     @property
     def file_path_without_suffix(self)->str:
+        """Returns file path without extension, with path separators converted to dots."""
+
         split_file_path = self.file_path.split(".")[:-1]
         if not split_file_path:
             split_file_path = [self.file_path]
@@ -30,7 +35,8 @@ class BaseCodeElement(BaseModel):
     
     @computed_field
     def unique_id(self) -> str:
-        """Generate a unique ID for the function definition"""
+        """Generates unique identifier combining file path and element name."""
+
         if self.stored_unique_id is not None:
             return self.stored_unique_id
         
@@ -45,13 +51,13 @@ class BaseCodeElement(BaseModel):
         self.stored_unique_id = value 
 
 class CodeReference(BaseModel):
-    """Reference to another code element"""
+    """Represents a reference to another code element with type information."""
     unique_id :Optional[str]=None
     name: str
     type: Optional[Literal["import", "variable", "function", "class", "attribute", "method", "inheritance", "type_hint"]]=None
 
 class ImportStatement(BaseCodeElement):
-    """Generic representation of an import statement"""
+    """Represents an import statement with source, alias, and import type details."""
     source: Optional[str] = None  # The module/package being imported from
     name :Optional[str] = None  # The alias for the import
     alias: Optional[str] = None  # The alias for the import
@@ -64,7 +70,7 @@ class ImportStatement(BaseCodeElement):
         return self.alias or self.name or self.source
 
 class VariableDeclaration(BaseCodeElement):
-    """Representation of a variable declaration"""
+    """Represents a variable declaration with type hints, value, and modifiers."""
     name: str
     type_hint: Optional[str] = None
     value: Optional[str] = None    
@@ -73,7 +79,7 @@ class VariableDeclaration(BaseCodeElement):
     raw :Optional[str] = ""
 
 class Parameter(BaseModel):
-    """Function parameter representation"""
+    """Represents a function parameter with type hint and default value."""
     name: str
     type_hint: Optional[str] = None
     default_value: Optional[str] = None
@@ -84,18 +90,19 @@ class Parameter(BaseModel):
 
 
 class FunctionSignature(BaseModel):
-    """Function signature with parameters and return type"""
+    """Contains function signature information including parameters and return type."""
     parameters: List[Parameter] = []
     return_type: Optional[str] = None
 
     @property
     def type_hints(self)->List[str]:
+        """Returns list of all type hints including parameters and return type."""
         return [
             param.type_hint for param in self.parameters
         ] + [self.return_type]
 
 class FunctionDefinition(BaseCodeElement):
-    """Representation of a function definition"""
+    """Represents a function definition with signature, modifiers, and references."""
     name: str
     signature: Optional[FunctionSignature]=None
     modifiers: List[str] = Field(default_factory=list)  # e.g., "async", "generator", etc.
@@ -104,31 +111,33 @@ class FunctionDefinition(BaseCodeElement):
     references: List[CodeReference] = Field(default_factory=list)
 
 class MethodDefinition(FunctionDefinition):
-    """Class method representation"""
+    """Represents a class method with association to its containing class."""
     class_id :str=""
 
 class ClassAttribute(VariableDeclaration):
-    """Class attribute representation"""
-    # unique_id: str
+    """Represents a class attribute with visibility modifiers."""
     class_id :str=""
     visibility: Literal["public", "protected", "private"] = "public"
 
 class ClassDefinition(BaseCodeElement):
-    """Representation of a class definition"""
-    # unique_id: str
+    """Represents a class definition with bases, attributes, methods, and references."""
     name: str
     bases: List[str] = Field(default_factory=list)
     attributes: List[ClassAttribute] = Field(default_factory=list)
     methods: List[MethodDefinition] = Field(default_factory=list)
     bases_references: List[CodeReference] = Field(default_factory=list)
     
-    def add_method(self, method :MethodDefinition):
+    def add_method(self, method :MethodDefinition):        
+        """Adds method to class while setting proper file path and unique ID."""
+
         method.file_path = self.file_path
         method.unique_id = f"{self.unique_id}.{method.name}"
         method.class_id = self.unique_id
         self.methods.append(method)
 
     def add_attribute(self, attribute :ClassAttribute):
+        """Adds attribute to class while setting proper file path and unique ID."""
+
         attribute.file_path = self.file_path
         attribute.unique_id = f"{self.unique_id}.{attribute.name}"
         attribute.class_id = self.unique_id
@@ -136,6 +145,8 @@ class ClassDefinition(BaseCodeElement):
 
     @property
     def references(self)->List[CodeReference]:
+        """Aggregates all references from bases, attributes, and methods."""
+
         all_references = []
         all_references.extend(self.bases_references)
         all_references.extend(
@@ -153,7 +164,7 @@ class ClassDefinition(BaseCodeElement):
         ]
 
 class CodeFileModel(BaseModel):
-    """Representation of a single code file"""
+    """Represents a code file with imports, variables, functions, and classes."""
     file_path: str
     imports: List[ImportStatement] = Field(default_factory=list)
     variables: List[VariableDeclaration] = Field(default_factory=list)
@@ -198,7 +209,8 @@ class CodeFileModel(BaseModel):
         self.classes.append(class_definition)
 
     def get(self, unique_id: str) -> Optional[Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition]]:
-        """Get any code element by its unique_id"""
+        """Retrieves any code element in file by its unique_id through exhaustive search."""
+
         # Check imports
         for imp in self.imports:
             if imp.unique_id == unique_id:
@@ -235,6 +247,8 @@ class CodeFileModel(BaseModel):
         return None
 
     def get_import(self, unique_id :str)->Optional[ImportStatement]:
+        """Finds import statement in file by unique_id through direct lookup."""
+
         for importStatement in self.imports:
             if unique_id == importStatement.unique_id:
                 return importStatement
@@ -242,6 +256,8 @@ class CodeFileModel(BaseModel):
     
     @property
     def list_raw_contents(self)->List[str]:
+        """Returns list of raw contents for all classes, functions, and variables."""
+
         raw :List[str] = []
 
         for classDefintion in self.classes:
@@ -256,6 +272,7 @@ class CodeFileModel(BaseModel):
         return raw
     
 class PartialClasses(BaseModel):
+    """Represents partially defined classes with headers, attributes, and methods."""
     class_id :str
     class_header :str
     filepath :str
@@ -267,6 +284,7 @@ class PartialClasses(BaseModel):
         return f"{self.class_header}{BREAKLINE}{BREAKLINE.join(self.attributes)}{BREAKLINE}{(2*BREAKLINE).join(self.methods)}" # noqa: E999
     
 class CodeContextStructure(BaseModel):
+    """Structured collection of code elements for context with request tracking."""
     imports :Dict[str, ImportStatement] = Field(default_factory=dict)
     variables :Dict[str, VariableDeclaration] = Field(default_factory=dict)
     functions :Dict[str, FunctionDefinition] = Field(default_factory=dict)
@@ -282,6 +300,8 @@ class CodeContextStructure(BaseModel):
 
     @staticmethod
     def trim(raw: str, top_lines: int = 15) -> str:
+        """Trims content to specified lines with ellipsis while preserving indentation."""
+
         lines = raw.splitlines()
         if len(lines) <= top_lines:
             return "\n".join(lines)
@@ -296,6 +316,8 @@ class CodeContextStructure(BaseModel):
         return "\n".join(trimmed + [ellipsis_line])
 
     def add_requested_element(self, element :Union[ImportStatement, VariableDeclaration, FunctionDefinition, ClassDefinition, ClassAttribute, MethodDefinition]):
+        """Adds element to requested collection and tracks class associations."""
+
         if isinstance(element, (ClassDefinition, ClassAttribute, MethodDefinition)):
             element_class_id = element.unique_id if isinstance(element, ClassDefinition) else element.class_id
             if element_class_id not in self._unique_class_elements_ids:
@@ -304,11 +326,15 @@ class CodeContextStructure(BaseModel):
         self.requested_elements[element.unique_id ] = element
 
     def add_import(self, import_statement :ImportStatement):
+        """Adds import to context if not already present in requested elements."""
+
         if import_statement.unique_id in self.imports or import_statement.unique_id in self.requested_elements:
             return
         self.imports[import_statement.unique_id] = import_statement
 
     def add_class_method(self, method :MethodDefinition):
+        """Adds method to context if its class isn't in requested elements."""
+
         if method.class_id in self.requested_elements:
             return
 
@@ -318,6 +344,8 @@ class CodeContextStructure(BaseModel):
         self.class_methods[method.unique_id] = method
 
     def add_class_attribute(self, attribute :ClassAttribute):
+        """Adds attribute to context if its class isn't in requested elements."""
+
         if attribute.class_id in self.requested_elements:
             return
 
@@ -327,29 +355,40 @@ class CodeContextStructure(BaseModel):
         self.class_attributes[attribute.unique_id] = attribute
 
     def add_variable(self, variable: VariableDeclaration):
+        """Adds variable to context if not already present in requested elements."""
+
         if variable.unique_id in self.variables or variable.unique_id in self.requested_elements:
             return
         self.variables[variable.unique_id] = variable
 
     def add_function(self, function: ClassDefinition):
+        """Adds function to context if not already present in requested elements."""
+
         if function.unique_id in self.functions or function.unique_id in self.requested_elements:
             return
         self.functions[function.unique_id] = function
 
     def add_class(self, cls: ClassDefinition):
+        """Adds class to context if not already present in requested elements."""
+
         if cls.unique_id in self.classes or cls.unique_id in self.requested_elements:
             return
         self.classes[cls.unique_id] = cls
 
     def add_class_header(self, cls: ClassDefinition):
+        """Adds class header to context if not already present in requested elements."""
+        
         if cls.unique_id in self.classes or cls.unique_id in self.requested_elements:
             return
         self.classes_headers[cls.unique_id] = cls
 
     def add_preloaded(self, preloaded :Dict[str, str]):
+        """Merges preloaded file contents into the context."""
+
         self.preloaded.update(preloaded)
 
     def as_list_str(self, slim :Optional[bool]=True)->List[List[str]]:
+        """Organizes elements by file path and wraps content with filepath metadata."""
 
         partially_filled_classes :Dict[str, PartialClasses]= {}
 
@@ -432,6 +471,7 @@ class CodeContextStructure(BaseModel):
         retrieved_elements_reference_type :List[Optional[str]]=None,
         requested_element_index :List[int]=[0],
         preloaded_files :Optional[List[Dict[str, str]]]=None) -> 'CodeContextStructure':
+        """Creates context structure from elements list with request tracking."""
 
         instance = cls()
         # Normalize negative indices to positive
@@ -478,11 +518,13 @@ class CodeContextStructure(BaseModel):
         return instance
 
 class CodeBase(RootModel):
-    """Root model representing a complete codebase"""
+    """Root model representing complete codebase with file hierarchy and caching."""
     root: List[CodeFileModel] = Field(default_factory=list)
     _cached_elements :Dict[str, Any] = dict()
 
     def _build_cached_elements(self, force_update :bool=False):
+        """Builds cache of all elements with unique IDs across entire codebase."""
+        
         if not self._cached_elements or force_update:
             for codeFile in self.root:
                 for unique_id, element in codeFile.all_classes(as_dict=True).items():
@@ -530,6 +572,8 @@ class CodeBase(RootModel):
                 
 
     def _list_all_unique_ids_for_property(self, property :Literal["classes", "functions", "variables", "imports"])->List[str]:
+        """Aggregates unique IDs for specified element type across all files."""
+        
         return sum([
             getattr(entry, f"all_{property}")() for entry in self.root
         ], [])
@@ -551,6 +595,8 @@ class CodeBase(RootModel):
         return self._list_all_unique_ids_for_property("imports")
     
     def get_import(self, unique_id :str)->Optional[ImportStatement]:
+        """Finds import statement in codebase by unique_id through file search."""
+
         match = None
         for codeFile in self.root:
             match = codeFile.get_import(unique_id)
@@ -559,16 +605,8 @@ class CodeBase(RootModel):
         return match
 
     def get_tree_view(self, include_modules: bool = False, include_types: bool = False) -> str:
-        """
-        Generate a bash-style tree view of the codebase structure.
-        
-        Args:
-            include_modules: If True, include classes, functions, and variables within each file
-            include_types: If True, prefix each entry with its type (F/V/C/A/M)
-        
-        Returns:
-            str: ASCII tree representation of the codebase structure
-        """
+        """Generates ASCII tree view of codebase structure with optional details."""
+       
         # Build the nested structure first
         tree_dict = self._build_tree_dict()
         
@@ -579,7 +617,8 @@ class CodeBase(RootModel):
         return "\n".join(lines)
 
     def _build_tree_dict(self) -> dict:
-        """Build a nested dictionary representing the directory structure."""
+        """Creates nested dictionary representing codebase directory structure."""
+
         tree = {}
         
         for code_file in self.root:
@@ -601,20 +640,9 @@ class CodeBase(RootModel):
         
         return tree
 
-    def _render_tree_node(self, node: dict, prefix: str, is_last: bool, lines: list, 
-                        include_modules: bool, include_types: bool, depth: int = 0):
-        """
-        Recursively render a tree node with ASCII art.
+    def _render_tree_node(self, node: dict, prefix: str, is_last: bool, lines: list, include_modules: bool, include_types: bool, depth: int = 0):
+        """Recursively renders tree node with ASCII art and optional type prefixes."""
         
-        Args:
-            node: Dictionary node to render
-            prefix: Current line prefix for ASCII art
-            is_last: Whether this is the last item at current level
-            lines: List to append rendered lines to
-            include_modules: Whether to include module contents
-            include_types: Whether to include type prefixes
-            depth: Current depth in the tree
-        """
         items = [(k, v) for k, v in node.items() if not k.startswith("_")]
         items.sort(key=lambda x: (x[1].get("_type", "directory") == "file", x[0]))
         
@@ -648,17 +676,9 @@ class CodeBase(RootModel):
                 self._render_tree_node(data, next_prefix, is_last_item, lines, 
                                     include_modules, include_types, depth + 1)
 
-    def _render_file_contents(self, code_file: 'CodeFileModel', prefix: str, 
-                            lines: list, include_types: bool):
-        """
-        Render the contents of a file in the tree.
-        
-        Args:
-            code_file: The CodeFileModel to render
-            prefix: Current line prefix
-            lines: List to append lines to
-            include_types: Whether to include type prefixes
-        """
+    def _render_file_contents(self, code_file: CodeFileModel, prefix: str, lines: list, include_types: bool):
+        """Renders file contents in tree view with variables, functions, and classes."""
+
         contents = []
         
         # Collect all file-level items
@@ -698,15 +718,8 @@ class CodeBase(RootModel):
 
     def _render_class_contents(self, class_def: 'ClassDefinition', prefix: str, 
                             lines: list, include_types: bool):
-        """
-        Render the contents of a class in the tree.
-        
-        Args:
-            class_def: The ClassDefinition to render
-            prefix: Current line prefix
-            lines: List to append lines to
-            include_types: Whether to include type prefixes
-        """
+        """Renders class contents in tree view with attributes and methods."""
+
         class_contents = []
         
         # Collect class attributes
@@ -735,7 +748,15 @@ class CodeBase(RootModel):
             
             lines.append(f"{prefix}{current_prefix}{name}")
 
-    def get(self, unique_id :Union[str, List[str]], degree :int=1, as_string :bool=False, as_list_str :bool=False, slim :Optional[bool]=False, preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
+    def get(self,
+            unique_id :Union[str, List[str]],
+            degree :int=1,
+            as_string :bool=False,
+            as_list_str :bool=False,
+            slim :Optional[bool]=False,
+            preloaded_files :Optional[Dict[str, str]]=None)->Union[CodeContextStructure, str, List[str]]:
+        """Retrieves code context with specified elements and their references."""
+
         if not self._cached_elements:
             logger.debug("Building cached elements for the first time")
             self._build_cached_elements()
@@ -836,6 +857,8 @@ class CodeBase(RootModel):
             return codeContext
         
     def serialize_cache_elements(self, indent :int=4)->str:
+        """Serializes cached elements to JSON for storage."""
+        
         return json.dumps(
             {
                 key: value.model_dump()
