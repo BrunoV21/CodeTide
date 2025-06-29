@@ -485,36 +485,47 @@ class CodeTide(BaseModel):
             if self.rootpath / unique_id in self.files
         }
 
-    def get(self, unique_id :Union[str, List[str]], degree :int=1, slim :bool=False, as_string :bool=True, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+    def get(
+        self,
+        code_identifiers: Union[str, List[str]],
+        context_depth: int = 1,
+        concise_mode: bool = False,
+        as_string: bool = True,
+        as_string_list: bool = False
+    ) -> Union[CodeContextStructure, str, List[str]]:
         """
-        Retrieve context around code by unique ID(s).
+        Retrieves code context for given identifiers with flexible return formats.
+        Returns None if no matching identifiers are found.
 
         Args:
-            unique_id: Single or list of unique IDs for code entities.
-            degree: Depth of context to fetch.
-            as_string: Whether to return as a single string.
-            as_list_str: Whether to return as list of strings.
+            code_identifiers: One or more code element IDs or file paths to analyze.
+                            Examples: 'package.ClassName', 'dir/module.py:function', ['file.py', 'module.var']
+            context_depth: Number of reference levels to include (1=direct references only)
+            concise_mode: If True, returns minimal docstrings instead of full code (slim=True)
+            as_string: Return as single formatted string (default)
+            as_string_list: Return as list of strings (overrides as_string if True)
 
         Returns:
-            Code context in the requested format.
+            - CodeContextStructure if both format flags are False
+            - Single concatenated string if as_string=True
+            - List of context strings if as_string_list=True
+            - None if no matching identifiers exist
         """
-        if isinstance(unique_id, str):
-            unique_id = [unique_id]
+        if isinstance(code_identifiers, str):
+            code_identifiers = [code_identifiers]
 
-        # Log the incoming request
         logger.info(
-            f"Getting code context - IDs: {unique_id}, "
-            f"degree: {degree}, "
-            f"as_string: {as_string}, "
-            f"as_list_str: {as_list_str}"
+            f"Context request - IDs: {code_identifiers}, "
+            f"Depth: {context_depth}, "
+            f"Formats: string={as_string}, list={as_string_list}"
         )
 
-        requestedFiles = self._precheck_id_is_file(unique_id)
+        requested_files = self._precheck_id_is_file(code_identifiers)
         return self.codebase.get(
-            unique_id=unique_id,
-            degree=degree,
-            slim=slim,
+            unique_id=code_identifiers,
+            degree=context_depth,
+            slim=concise_mode,
             as_string=as_string,
-            as_list_str=as_list_str,
-            preloaded_files=requestedFiles
+            as_list_str=as_string_list,
+            preloaded_files=requested_files
         )
