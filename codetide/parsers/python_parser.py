@@ -265,6 +265,10 @@ class PythonParser(BaseParser):
                     base = cls._get_content(code, block_child)
                     codeFile.classes[-1].bases.append(base)
                 elif block_child.type == "expression_statement":
+                    docstring_candidate = cls._get_content(code, block_child, preserve_indentation=True)
+                    if cls.is_docstring(docstring_candidate):
+                        codeFile.classes[-1].docstring = cls.compile_docstring(codeFile.classes[-1].raw, docstring_candidate)
+                        continue
                     cls._process_expression_statement(block_child, code, codeFile, is_class_attribute=True)
                 elif block_child.type == "decorated_definition":
                     """process decorated definiion"""
@@ -279,8 +283,6 @@ class PythonParser(BaseParser):
         for child in node.children:
             if child.type == "assignment": # <- class attribute
                 cls._process_assignment(child, code, codeFile, is_class_attribute)
-            elif child.type == "string": # <- docstring
-                ...
 
     @classmethod
     def _process_assignment(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_class_attribute :bool=False):

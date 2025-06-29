@@ -126,6 +126,7 @@ class ClassDefinition(BaseCodeElement):
     attributes: List[ClassAttribute] = Field(default_factory=list)
     methods: List[MethodDefinition] = Field(default_factory=list)
     bases_references: List[CodeReference] = Field(default_factory=list)
+    docstring: Optional[str] = None
     
     def add_method(self, method :MethodDefinition):        
         """Adds method to class while setting proper file path and unique ID."""
