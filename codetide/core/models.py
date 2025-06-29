@@ -127,6 +127,13 @@ class ClassDefinition(BaseCodeElement):
     methods: List[MethodDefinition] = Field(default_factory=list)
     bases_references: List[CodeReference] = Field(default_factory=list)
     docstring: Optional[str] = None
+
+    @property
+    def header(self)->Optional[str]:
+        if not self.docstring:
+            return None
+        
+        return f"{self.docstring}{BREAKLINE}{BREAKLINE.join([attr.raw for attr in self.attributes])}"
     
     def add_method(self, method :MethodDefinition):        
         """Adds method to class while setting proper file path and unique ID."""
@@ -163,6 +170,12 @@ class ClassDefinition(BaseCodeElement):
         return [
             method.unique_id for method in self.methods
         ]
+    
+    def get_slim_raw(self)->str:
+        if not self.docstring:
+            return self.raw
+        
+        return self.header
 
 class CodeFileModel(BaseModel):
     """Represents a code file with imports, variables, functions, and classes."""
@@ -411,7 +424,12 @@ class CodeContextStructure(BaseModel):
             raw_elements_by_file[entry.file_path].append(f"\n{content}")
 
         for entry in self.classes.values():
-            raw_elements_by_file[entry.file_path].append(f"\n{entry.raw}")
+            if slim:
+                content = entry.get_slim_raw()
+            else:
+                content = entry.raw
+
+            raw_elements_by_file[entry.file_path].append(f"\n{content}")
             
         for entry in self.classes_headers.values():
             raw_elements_by_file[entry.file_path].append(f"\n{self.trim(entry.raw) if slim else entry.raw}")
@@ -424,7 +442,7 @@ class CodeContextStructure(BaseModel):
                 partially_filled_classes[classObj.unique_id] = PartialClasses(
                     filepath=classObj.file_path,
                     class_id=classObj.unique_id,
-                    class_header=classObj.raw.split("\n")[0]
+                    class_header= classObj.header or classObj.raw.split("\n")[0]
                 )
 
         for class_attribute in self.class_attributes.values():
@@ -883,3 +901,5 @@ class CodeBase(RootModel):
             self._build_cached_elements()
 
         return list(self._cached_elements.keys())
+
+# TODO add mcp support for agent -> leverage CodeFile pydantic model to apply changes via unique_ids and generate file from there
