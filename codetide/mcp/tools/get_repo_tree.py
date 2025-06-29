@@ -3,7 +3,7 @@ from ..utils import initCodeTide
 
 @codeTideMCPServer.tool
 async def getRepoTree(
-    show_contents: bool = False,
+    show_contents: bool,
     show_types: bool = False) -> str:
     """
     Generates a visual tree representation of the entire code repository structure.
