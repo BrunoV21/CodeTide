@@ -458,7 +458,7 @@ class CodeTide(BaseModel):
                     if self.rootpath / newFile.file_path in filepaths
                 ]
                 parser.resolve_inter_files_dependencies(self.codebase, filteredNewFiles)
-                parser.resolve_intra_file_dependencies(filteredNewFiles)
+                parser.resolve_intra_file_dependencies(self.codebase, filteredNewFiles)
 
                 for codeFile in filteredNewFiles:
                     i = changedPaths.get(codeFile.file_path)
