@@ -7,58 +7,36 @@ async def getContext(
     code_identifiers: Union[str, List[str]],
     context_depth: int = 1) -> str:
     """
-    Retrieves relevant code context for the given code element identifiers.
-    Returns None if identifiers are invalid.
+    Retrieves code context for one or more identifiers. Returns None if invalid.
 
     Args:
-        code_identifiers: One or more identifiers in dot notation representing:
-                         - Test classes: 'tests.module.test_class.TestClass'
-                         - Test methods: 'tests.module.test_class.TestClass.test_method'
-                         - Core classes: 'package.module.ClassName'
-                         - Class attributes: 'package.module.ClassName.attribute'
-                         - Methods: 'package.module.ClassName.method'
-                         - Setters: 'package.module.ClassName.property@property.setter'
-                         - Services: 'package.services.ServiceName'
-                         - Service methods: 'package.services.ServiceName.execute'
-                         - File paths: 'package/module.py' (forward slashes)
-                         
-                         Common patterns:
-                         - Package.Class: 'package.module.ClassName'
-                         - Package.Class.method: 'package.module.ClassName.method_name'
-                         - Package.Class.attribute: 'package.module.ClassName.attribute_name'
-                         - TestPackage.TestClass.test_method: 'tests.module.TestClass.test_feature'
-                         - ServicePackage.Service.method: 'services.backend.Service.process'
+        code_identifiers: Dot- or slash-notated identifiers, such as:
+            - 'tests.module.TestClass.test_method'
+            - 'package.module.Class.method_or_attr'
+            - 'services.backend.Service.execute'
+            - 'package/module.py'
+            - Or a list of such identifiers
 
-                         Examples:
-                         - Single test method: 'tests.parser.test_parser.TestParser.test_file_processing'
-                         - Class with attributes: 'core.models.ImportStatement'
-                         - Multiple elements: [
-                             'core.models.FunctionDefinition',
-                             'tests.parser.test_parser.TestParser.test_imports'
-                           ]
-
-        context_depth: How many reference levels to include:
-                      0 = Only the requested element(s) (no references)
-                      1 = Direct references only (default)
-                      2 = References of references
-                      n = n-level deep reference chain
+        context_depth: Reference depth to include:
+            0 – Only the requested element(s)
+            1 – Direct references (default)
+            2+ – Recursive reference levels
 
     Returns:
-        Formatted string containing:
-        - The requested code elements
-        - Their declarations
-        - Related imports
-        - Reference implementations
-        - Syntax-highlighted source code
-        or None if identifiers don't exist.
+        A formatted string with:
+            - Declarations
+            - Imports
+            - Related references
+            - Syntax-highlighted code
+        Returns None if identifiers are not found.
 
     Notes:
-        - For test classes/methods: Use full test path including 'test_' prefix
-        - For setters: Use @property.setter notation
-        - Private methods: Include underscore prefix (e.g., '_internal_method')
-        - File paths must use forward slashes and be relative to repo root
-        - Case sensitive matching
-        - When unsure, use getRepoTree() first to discover available identifiers
+        - Identifiers are case-sensitive
+        - Use full paths for test elements and include 'test_' prefix
+        - Setters: Use @property.setter format
+        - Private methods: Include leading underscore
+        - File paths must be forward slashes, repo-relative
+        - Use getRepoTree() to explore available identifiers
     """
 
     tide = await initCodeTide()
