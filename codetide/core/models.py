@@ -842,12 +842,9 @@ class CodeBase(BaseModel):
             references_types = new_references_types.copy()
             first_swipe = False
             degree -= 1
-
-        logger.info(f"Retrieved {len(retrieved_elements)} total elements")
-
-        # for _id, _type in zip(retrieved_ids, retrieved_elements_reference_type):
-        #     if _type:
-        #         print(f"{_id} -> {_type}")
+        
+        if retrieved_elements:
+            logger.info(f"Retrieved {len(retrieved_elements)} total elements")
         
         assert len(retrieved_elements_reference_type) == len(retrieved_elements), "Mismatch between retrieved elements and retrieved reference types"
         codeContext = CodeContextStructure.from_list_of_elements(
