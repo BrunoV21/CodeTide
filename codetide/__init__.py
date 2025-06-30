@@ -1,5 +1,5 @@
 from codetide.core.defaults import (
-    DEFAULT_SERIALIZATION_PATH, DEFAULT_MAX_CONCURRENT_TASKS,
+    CODETIDE_ASCII_ART, DEFAULT_SERIALIZATION_PATH, DEFAULT_MAX_CONCURRENT_TASKS,
     DEFAULT_BATCH_SIZE, DEFAULT_CACHED_ELEMENTS_FILE, DEFAULT_CACHED_IDS_FILE,
     LANGUAGE_EXTENSIONS
 )
@@ -80,7 +80,7 @@ class CodeTide(BaseModel):
 
         codeTide._add_results_to_codebase(results)
         codeTide._resolve_files_dependencies()
-        logger.info(f"CodeTide initialized with {len(results)} files processed in {time.time() - st:.2f}s")
+        logger.info(f"\n{CODETIDE_ASCII_ART}\nInitialized with {len(results)} files processed in {time.time() - st:.2f}s")
 
         return codeTide
     

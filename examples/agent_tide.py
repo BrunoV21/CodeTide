@@ -9,6 +9,17 @@ from codetide.mcp import codeTideMCPServer
 from typing import Optional
 import os
 
+AGENT_TIDE_ASCII_ART = """
+
+█████╗  ██████╗ ███████╗███╗   ██╗████████╗    ████████╗██╗██████╗ ███████╗
+██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝    ╚══██╔══╝██║██╔══██╗██╔════╝
+███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║          ██║   ██║██║  ██║█████╗  
+██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║          ██║   ██║██║  ██║██╔══╝  
+██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║          ██║   ██║██████╔╝███████╗
+╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝          ╚═╝   ╚═╝╚═════╝ ╚══════╝
+
+"""
+
 def init_llm()->Llm:
     llm = Llm.from_config(
         LlmConfig(
@@ -35,7 +46,7 @@ async def main(max_tokens :int=48000):
     llm = init_llm()
     history = []
 
-    _logger.logger.info("Agent is ready. Press ESC to exit.\n")
+    _logger.logger.info(F"\n{AGENT_TIDE_ASCII_ART}\nReady to surf. Press ESC to exit.\n")
     try:
         while True:
             try:
