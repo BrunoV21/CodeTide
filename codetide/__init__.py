@@ -17,7 +17,7 @@ from pathlib import Path
 import asyncio
 import pygit2
 import time
-import json
+import orjson
 import os
 
 class CodeTide(BaseModel):
@@ -138,7 +138,7 @@ class CodeTide(BaseModel):
 
         if include_cached_ids:
             cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
-            writeFile(json.dumps(self.codebase.unique_ids+self.relative_filepaths, indent=4), cached_ids_path)
+            writeFile(orjson.dumps(self.codebase.unique_ids+self.relative_filepaths, option=orjson.OPT_INDENT_2), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, rootpath :Optional[Union[str, Path]] = None)->"CodeTide":
@@ -158,7 +158,7 @@ class CodeTide(BaseModel):
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"{filepath} is not a valid path")
         
-        kwargs = json.loads(readFile(filepath))
+        kwargs = orjson.loads(readFile(filepath))
         tideInstance = cls(**kwargs)
         
         # dir_path = Path(os.path.split(filepath))[0]

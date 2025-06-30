@@ -5,7 +5,7 @@ from .logs import logger
 from pydantic import BaseModel, Field, computed_field, field_validator
 from typing import Any, Dict, List, Optional, Literal, Union
 from collections import defaultdict
-import json
+import orjson
 
 class BaseCodeElement(BaseModel):
     """Base class representing any code element with file path and raw content handling."""
@@ -875,15 +875,15 @@ class CodeBase(BaseModel):
     def serialize_cache_elements(self, indent :int=4)->str:
         """Serializes cached elements to JSON for storage."""
         
-        return json.dumps(
+        return orjson.dumps(
             {
                 key: value.model_dump()
                 for key, value in self._cached_elements
-            }
+            }, option=orjson.OPT_INDENT_2
         )
 
     def deserialize_cache_elements(self, contents :str):
-        self._cached_elements = json.loads(contents)
+        self._cached_elements = orjson.loads(contents)
         ### TODO need to handle model validates and so on
         # return json.dumps(
         #     {
