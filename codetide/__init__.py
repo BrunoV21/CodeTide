@@ -90,6 +90,10 @@ class CodeTide(BaseModel):
             str(filepath.relative_to(self.rootpath)).replace("\\", "/") for filepath in self.files
         ]
     
+    @property
+    def cached_ids(self)->List[str]:
+        return self.codebase.unique_ids+self.relative_filepaths
+    
     async def _reset(self):
         self = await self.from_path(self.rootpath)
     
@@ -138,7 +142,7 @@ class CodeTide(BaseModel):
 
         if include_cached_ids:
             cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
-            writeFile(orjson.dumps(self.codebase.unique_ids+self.relative_filepaths, option=orjson.OPT_INDENT_2), cached_ids_path)
+            writeFile(str(orjson.dumps(self.cached_ids, option=orjson.OPT_INDENT_2)), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, rootpath :Optional[Union[str, Path]] = None)->"CodeTide":

@@ -875,12 +875,12 @@ class CodeBase(BaseModel):
     def serialize_cache_elements(self, indent :int=4)->str:
         """Serializes cached elements to JSON for storage."""
         
-        return orjson.dumps(
+        return str(orjson.dumps(
             {
                 key: value.model_dump()
                 for key, value in self._cached_elements
             }, option=orjson.OPT_INDENT_2
-        )
+        ))
 
     def deserialize_cache_elements(self, contents :str):
         self._cached_elements = orjson.loads(contents)
