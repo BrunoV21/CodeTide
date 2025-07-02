@@ -52,7 +52,7 @@ class BaseParser(ABC, BaseModel):
         pass
     
     @abstractmethod
-    def resolve_intra_file_dependencies(self,  codeBase: CodeBase, codeFiles: List[CodeFileModel], ) -> None:
+    def resolve_intra_file_dependencies(self,  codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         pass
 
     # @abstractmethod

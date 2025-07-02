@@ -62,5 +62,5 @@ class GenericParser(BaseParser):
     def resolve_inter_files_dependencies(self, codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         pass
     
-    def resolve_intra_file_dependencies(self,  codeBase: CodeBase, codeFiles: List[CodeFileModel]) -> None:
+    def resolve_intra_file_dependencies(self,  codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         pass
