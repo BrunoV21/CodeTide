@@ -1,42 +1,47 @@
-from typing import List, Union
 from ..server import codeTideMCPServer
 from ..utils import initCodeTide
 
+from typing import List
+
 @codeTideMCPServer.tool
 async def getContext(
-    code_identifiers: Union[str, List[str]],
+    code_identifiers: List[str],
     context_depth: int = 1) -> str:
     """
-    Retrieves code context for one or more identifiers. Returns None if invalid.
+    Retrieve code context for one or more identifiers.
 
     Args:
-        code_identifiers: Dot- or slash-notated identifiers, such as:
+        code_identifiers: List of dot- or slash-form identifiers, e.g.:
+            - 'package.module.Class.method'
             - 'tests.module.TestClass.test_method'
-            - 'package.module.Class.method_or_attr'
-            - 'services.backend.Service.execute'
             - 'package/module.py'
-            - Or a list of such identifiers
+        Prefer batching multiple identifiers in a single call for better
+        cross-referencing and performance.
 
-        context_depth: Reference depth to include:
-            0 – Only the requested element(s)
-            1 – Direct references (default)
-            2+ – Recursive reference levels
+        context_depth (int): Reference depth:
+            0 – Only requested elements
+            1 – + Direct references (default)
+            2+ – + Recursive references
 
     Returns:
-        A formatted string with:
+        str: Formatted context including:
             - Declarations
             - Imports
             - Related references
             - Syntax-highlighted code
-        Returns None if identifiers are not found.
+        Returns None if no matching identifiers found.
 
-    Notes:
+    Guidelines:
         - Identifiers are case-sensitive
-        - Use full paths for test elements and include 'test_' prefix
-        - Setters: Use @property.setter format
-        - Private methods: Include leading underscore
-        - File paths must be forward slashes, repo-relative
-        - Use getRepoTree() to explore available identifiers
+        - Use full test paths with `test_` prefix
+        - For setters: use @property.setter format
+        - Include underscores for private members
+        - File paths must use forward slashes, repo-relative
+        - Use getRepoTree() to discover valid identifiers
+
+    Note:
+        To analyze related code, retrieve all needed identifiers in a single call to
+        getContext. This ensures better performance and richer, linked context.
     """
 
     tide = await initCodeTide()
