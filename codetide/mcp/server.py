@@ -1,8 +1,7 @@
+from .agent_tide_system import AGENT_TIDE_SYSTEM_PROMPT
 from fastmcp import FastMCP
-
-MCP_USE_INSTRUCTIONS = """"""
 
 codeTideMCPServer = FastMCP(
     name="CodeTide",
-    # instructions=MCP_USE_INSTRUCTIONS,
+    instructions=AGENT_TIDE_SYSTEM_PROMPT,
 )
