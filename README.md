@@ -36,6 +36,53 @@ CodeTide is available as a native [**Visual Studio Code extension**](https://mar
 
 ---
 
+## 🖧 CodeTide as an MCP Server
+
+CodeTide now supports acting as an **MCP (Multi-Codebase Processing) Server**, enabling seamless integration with AI agents and tools. This feature allows agents to dynamically interact with your codebase, retrieve context, and apply changes efficiently.
+
+#### Why This Helps Agents
+Agents working with codebases often need:
+- **Contextual Understanding**: Retrieve declarations, imports, and references for any part of the code.
+- **Tool Integration**: Use built-in tools to navigate, modify, and validate code.
+- **Atomic Operations**: Apply patches or updates without manual intervention.
+
+#### Available Tools
+CodeTide provides the following tools for agents:
+1. **`applyPatch`**: Apply structured patches to files.
+2. **`getContext`**: Retrieve code context for identifiers (e.g., functions, classes).
+3. **`getRepoTree`**: Explore the repository structure.
+4. **`checkCodeIdentifiers`**: Validate and suggest corrections for code identifiers.
+
+#### Example: Initializing an LLM with CodeTide
+Here’s a snippet from `agent_tide.py` demonstrating how to initialize an LLM with CodeTide as an MCP server:
+
+```python
+from aicore.llm import Llm, LlmConfig
+from codetide.mcp import codeTideMCPServer
+import os
+
+def init_llm() -> Llm:
+    llm = Llm.from_config(
+        LlmConfig(
+            model="deepseek-chat",
+            provider="deepseek",
+            temperature=0,
+            api_key=os.getenv("DEEPSEEK-API-KEY")
+        )
+    )
+    llm.provider.mcp.add_server(name=codeTideMCPServer.name, parameters=codeTideMCPServer)
+    return llm
+```
+
+This setup allows the LLM to leverage CodeTide’s tools for codebase interactions.
+
+CodeTide can now be used as an MCP (Multi-Code Processor) Server! This allows seamless integration with AI tools and workflows. Below are the tools available:
+
+- **applyPatch**: Apply structured patches to the filesystem.
+- **getContext**: Retrieve code context for identifiers.
+- **getRepoTree**: Generate a visual tree representation of the repository.
+- **checkCodeIdentifiers**: Validate code identifiers and suggest corrections.
+
 ## ⚙️ Installation
 
 ### 📦 From PyPI
