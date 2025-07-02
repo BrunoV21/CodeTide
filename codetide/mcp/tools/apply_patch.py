@@ -1,67 +1,88 @@
-from .openai_appy_patch import process_patch, open_file, write_file, remove_file
+from .patch_code import DiffError, file_exists, open_file, process_patch, remove_file, write_file
 from ..server import codeTideMCPServer
 from ..utils import initCodeTide
 
 @codeTideMCPServer.tool
-async def applyPatch(input :str)->str:
+async def applyPatch(patch_text: str) -> str:
     """
-    This is a custom utility that makes it more convenient to add, remove, move, or edit code files.
-    `applyPatch` effectively allows you to execute a diff/patch against a file, but the format of the diff specification is unique to this task, so pay careful attention to these instructions.
-    To use the `applyPatch` command, you should pass a message of the following structure as "input":
+    Apply structured patches to the filesystem.
 
-    %%bash
-    applyPatch <<"EOF"
+    Patch Format:
+    - Wrap in: *** Begin Patch ... *** End Patch
+    - Supports: Add, Update, Delete, Move (via Update + Move to)
+
+    Syntax:
+    - Context lines: ' '
+    - Removed lines: '-'
+    - Added lines: '+'
+    - Change blocks: start with '@@'
+    - Use '*** End of File' to update file endings
+    - Relative paths only
+
+    Key Features:
+    - Fuzzy matching, CRLF normalization
+    - Multiple hunks per file
+    - Atomic: all or nothing
+    - Validates file existence (no overwrites on Add)
+
+    Errors:
+    - FileNotFoundError: missing file for Update/Delete
+    - DiffError: bad format, context mismatch, or conflict
+    - DiffError: Add/Move to already-existing file
+
+    LLM Tips:
+    1. Include 2-3 context lines around changes
+    2. Preserve indentation/whitespace
+    3. Prefer small, isolated patches
+    4. Add full content for new files (with imports/defs)
+    5. Ensure move destinations exist or are creatable
+
+    Examples:
+    # Add file
     *** Begin Patch
-    [YOUR_PATCH]
+    *** Add File: new.py
+    +print("Hello")
     *** End Patch
-    EOF
 
-    Where [YOUR_PATCH] is the actual content of your patch, specified in the following V4A diff format.
-
-    *** [ACTION] File: [path/to/file] -> ACTION can be one of Add, Update, or Delete.
-    For each snippet of code that needs to be changed, repeat the following:
-    [context_before] -> See below for further instructions on context.
-    - [old_code] -> Precede the old code with a minus sign.
-    + [new_code] -> Precede the new, replacement code with a plus sign.
-    [context_after] -> See below for further instructions on context.
-
-    For instructions on [context_before] and [context_after]:
-    - By default, show 3 lines of code immediately above and 3 lines immediately below each change. If a change is within 3 lines of a previous change, do NOT duplicate the first change’s [context_after] lines in the second change’s [context_before] lines.
-    - If 3 lines of context is insufficient to uniquely identify the snippet of code within the file, use the @@ operator to indicate the class or function to which the snippet belongs. For instance, we might have:
-    @@ class BaseClass
-    [3 lines of pre-context]
-    - [old_code]
-    + [new_code]
-    [3 lines of post-context]
-
-    - If a code block is repeated so many times in a class or function such that even a single @@ statement and 3 lines of context cannot uniquely identify the snippet of code, you can use multiple `@@` statements to jump to the right context. For instance:
-
-    @@ class BaseClass
-    @@ 	def method():
-    [3 lines of pre-context]
-    - [old_code]
-    + [new_code]
-    [3 lines of post-context]
-
-    Note, then, that we do not use line numbers in this diff format, as the context is enough to uniquely identify code. An example of a message that you might pass as "input" to this function, in order to apply a patch, is shown below.
-
-    %%bash
-    applyPatch <<"EOF"
+    # Update file
     *** Begin Patch
-    *** Update File: pygorithm/searching/binary_search.py
-    @@ class BaseClass
-    @@     def search():
-    -          pass
-    +          raise NotImplementedError()
-
-    @@ class Subclass
-    @@     def search():
-    -          pass
-    +          raise NotImplementedError()
-
+    *** Update File: main.py
+    @@ def greet():
+    -print("Hi")
+    +print("Hello")
     *** End Patch
-    EOF
+
+    # Delete file
+    *** Begin Patch
+    *** Delete File: old.py
+    *** End Patch
+
+    # Move with update
+    *** Begin Patch
+    *** Update File: a.py
+    *** Move to: b.py
+    @@ def f():
+    -print("x")
+    +print("y")
+    *** End of File
+    *** End Patch
     """
-    result = process_patch(input, open_file, write_file, remove_file)
-    _ = await initCodeTide()
+
+    try:
+        print(f"{patch_text=}")
+        result = process_patch(patch_text, open_file, write_file, remove_file, file_exists)
+        _ = await initCodeTide()
+
+    except DiffError as exc:
+        result = f"Error applying patch:\n{exc}"
+        raise exc
+
+    except FileNotFoundError as exc:
+        result = f"Error: File not found - {exc}"
+        raise exc
+
+    except Exception as exc:
+        result = f"An unexpected error occurred: {exc}"
+        raise exc
+
     return result
