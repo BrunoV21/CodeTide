@@ -3,10 +3,12 @@ install aicore - pip install core-for-ai
 Make sure to set `CODETIDE_WORKSPACE` env var which will be requried for the MCP server to work
 """
 
+from codetide.mcp.agent_tide_system import AGENT_TIDE_SYSTEM_PROMPT
+from codetide.mcp import codeTideMCPServer
 from aicore.llm import Llm, LlmConfig
 from aicore.logger import _logger
-from codetide.mcp import codeTideMCPServer
 from typing import Optional
+import keyboard
 import os
 
 AGENT_TIDE_ASCII_ART = """
@@ -38,10 +40,6 @@ def trim_messages(messages, tokenizer_fn, max_tokens :Optional[int]=None):
     while messages and sum(len(tokenizer_fn(msg)) for msg in messages) > max_tokens:
         messages.pop(0)  # Remove from the beginning
 
-AGENT_TIDE_SYSTEM_PROMPT = """
-You are a software engineer with tool calling capabilities who will help the user navigate his codebase
-"""
-
 async def main(max_tokens :int=48000):
     llm = init_llm()
     history = []
@@ -53,8 +51,14 @@ async def main(max_tokens :int=48000):
                 message = input("You: ").strip()
                 if not message:
                     continue
+
+                if keyboard.is_pressed('esc'):
+                    _logger.warning("Escape key pressed — exiting...")
+                    break
+
             except EOFError:
-                break  # Ctrl+D on Unix, Ctrl+Z on Windows
+                break
+             
             except KeyboardInterrupt:
                 _logger.logger.warning("\nExiting...")
                 break
