@@ -7,6 +7,8 @@ from typing import Dict
 import pytest
 import re
 
+from codetide.mcp.tools.patch_code.parser import peek_next_section
+
 class MockFileSystem:
     """Mock filesystem for testing."""
     
@@ -146,6 +148,8 @@ def test_update_end_of_file_marker(mock_fs):
 
 
 def test_rename_file(mock_fs):
+    # The original file has "line1\nline2\nline3\n"
+    # We need to match this content exactly
     patch = """*** Begin Patch
 *** Update File: data/old_data.txt
 *** Move to: data/new_data.txt
@@ -178,6 +182,119 @@ def test_crlf_handling(mock_fs):
     mock_fs.apply_patch(patch)
     assert mock_fs.fs['crlf.txt'] == "line one\nline 2\nline three\n"
 
+def test_peek_next_section_basic():
+    """Test the basic functionality of peek_next_section"""
+    lines = [
+        " line1",         # keep (note: single space prefix)
+        "-line2",         # delete  
+        "+line_two",      # add
+        " line3",         # keep
+        "*** End of File"
+    ]
+    
+    context_lines, chunks, index, is_eof = peek_next_section(lines, 0)
+    
+    # context_lines should contain the original content (keep + delete lines)
+    # The content is the part after the prefix character
+    assert context_lines == ["line1", "line2"]
+    
+    # Should have one chunk with the change
+    assert len(chunks) == 1
+    chunk = chunks[0]
+    assert chunk.del_lines == ["line2"]
+    assert chunk.ins_lines == ["line_two"]
+    assert chunk.orig_index == 1  # Position where the change occurs
+    
+    assert is_eof is True
+    assert index == 5  # Should point past the "*** End of File" line
+
+
+def test_peek_next_section_multiple_changes():
+    """Test peek_next_section with multiple change blocks"""
+    lines = [
+        " line1",         # keep
+        "-line2",         # delete  
+        "+line_two",      # add
+        " line3",         # keep
+        "-line4",         # delete
+        "+line_four",     # add
+        " line5",         # keep
+        "*** End of File"
+    ]
+    
+    context_lines, chunks, index, is_eof = peek_next_section(lines, 0)
+    
+    # context_lines should contain original content (keep + delete lines)
+    assert context_lines == ["line1", "line2", "line3", "line4"]
+    
+    # Should have two chunks
+    assert len(chunks) == 2
+    
+    # First chunk
+    assert chunks[0].del_lines == ["line2"]
+    assert chunks[0].ins_lines == ["line_two"]
+    assert chunks[0].orig_index == 1
+    
+    # Second chunk  
+    assert chunks[1].del_lines == ["line4"]
+    assert chunks[1].ins_lines == ["line_four"]
+    assert chunks[1].orig_index == 3  # Position in original content
+
+
+def test_peek_next_section_trailing_keep_lines():
+    """Test that trailing keep lines are handled correctly"""
+    lines = [
+        "-line1",         # delete  
+        "+line_one",      # add
+        " line2",         # keep
+        " line3",         # keep - these are trailing
+        " line4",         # keep - these are trailing
+        "*** End of File"
+    ]
+    
+    context_lines, chunks, index, is_eof = peek_next_section(lines, 0)
+    
+    # All lines should be in context_lines (original content)
+    assert context_lines == ["line1"]
+    
+    # Should have one chunk
+    assert len(chunks) == 1
+    assert chunks[0].del_lines == ["line1"]
+    assert chunks[0].ins_lines == ["line_one"]
+    assert chunks[0].orig_index == 0
+
+
+def test_peek_next_section_only_keep_lines():
+    """Test what happens with only keep lines (no changes)"""
+    lines = [
+        " line1",         # keep
+        " line2",         # keep
+        " line3",         # keep
+        "*** End of File"
+    ]
+    
+    context_lines, chunks, index, is_eof = peek_next_section(lines, 0)
+    
+    # All lines should be in context_lines
+    assert context_lines == ["line1", "line2", "line3"]
+    
+    # Should have no chunks since there are no changes
+    assert len(chunks) == 0
+    
+    assert is_eof is True
+
+
+def test_peek_next_section_empty():
+    """Test with empty input"""
+    lines = [
+        "*** End of File"
+    ]
+    
+    context_lines, chunks, index, is_eof = peek_next_section(lines, 0)
+    
+    assert context_lines == []
+    assert len(chunks) == 0
+    assert is_eof is True
 
 def test_fuzzy_matching_whitespace(mock_fs):
     # The patch context has different surrounding whitespace than the original file
