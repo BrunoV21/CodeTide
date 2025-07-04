@@ -20,23 +20,25 @@ async def applyPatch(patch_text: str) -> str:
     ### YOU MUST:
     - Use only the **original file content** to construct the patch (` ` context lines, `-` deletions, `+` additions).
     - Match all context and deleted lines **exactly**, including:
-    - leading modifiers (e.g., `async`, `@staticmethod`, etc.)
+    - modifiers (e.g., `async`, `@staticmethod`, `@classmethod`, etc.)
     - indentation and whitespace
     - line endings
-    - Include **only what changed**, and minimal surrounding context to anchor the diff.
-    - Use **complete `@@` hunk headers**, exactly matching the **entire first line** of the block being changed.
-    - If the block is a function or method, the `@@` header must include all modifiers (e.g., `async def`, `@classmethod def`, etc.) and match the original line exactly.
+    - Include only the minimal context needed around your change.
+    - Use **complete and exact `@@` hunk headers** that match the **first line** of the block being edited — no truncation, no guessing, no partial lines.
+    - The `@@` line must be a **verbatim copy** of the first line of the affected block.
+    - If the function is `async def`, the `@@` must start with `@@ async def ...`.
+    - If a classmethod or staticmethod, copy the exact function line, modifiers and all.
 
     ### YOU MUST NOT:
-    - Truncate or invent function headers in `@@` lines.
-    - Include extra unchanged code beyond the diff area.
-    - Guess or partially reconstruct lines — **copy the original exactly**.
-    - Leave `@@` headers incomplete (this will cause the patch to fail).
-    - Include unrelated changes in the same patch block.
+    - Include numeric line indicators inside the `@@` header (e.g., `@@ -42,7 +42,8 @@`). This is **not supported**. Only the code line is allowed.
+    - Truncate or invent function headers in the `@@` line.
+    - Include extra unchanged lines after or before the patch hunk.
+    - Include unrelated code or changes in the same patch.
+    - Add unchanged lines beyond the immediate context.
 
     ---
 
-    ## GOOD PATCH EXAMPLE
+    ## GOOD PATCH EXAMPLE (SINGLE-LINE CHANGE)
 
     ```diff
     *** Begin Patch
@@ -48,23 +50,40 @@ async def applyPatch(patch_text: str) -> str:
     *** End Patch
     ````
 
-    This is correct because:
+    ---
 
-    * The `@@` header includes the full original line, including the `async` modifier.
-    * Only the changed line is included.
-    * No extra or unrelated code is added.
+    ## GOOD PATCH EXAMPLE (MULTI-LINE CHANGE)
+
+    ```diff
+    *** Begin Patch
+    *** Update File: services/engine.py
+    @@ def process_data(data: list[str]) -> dict[str, int]:
+    def process_data(data: list[str]) -> dict[str, int]:
+    -    counts = {}
+    -    for item in data:
+    -        if item in counts:
+    -            counts[item] += 1
+    -        else:
+    -            counts[item] = 1
+    -    return counts
+    +    from collections import Counter
+    +    return dict(Counter(data))
+    *** End Patch
+    ```
+
+    This is valid and encouraged when simplifying or replacing logic.
 
     ---
 
     ## BAD PATCH EXAMPLES
 
-    ### Missing modifier in `@@` header
+    ### 1. Missing modifier in `@@` header
 
     ```diff
     @@ def fetch_data(session, url):
     ```
 
-    Incorrect — the original line starts with `async def`. The `@@` header must match exactly:
+    Incorrect — the original function is `async`, so this must be:
 
     ```diff
     @@ async def fetch_data(session, url):
@@ -72,13 +91,13 @@ async def applyPatch(patch_text: str) -> str:
 
     ---
 
-    ### Truncated `@@` header
+    ### 2. Truncated function signature
 
     ```diff
     @@ def process_node(cls, node):
     ```
 
-    Incorrect — this is only part of the signature. You must include the full original line:
+    Incorrect — the full original signature must be used:
 
     ```diff
     @@ def process_node(cls, node: Node, code: bytes, file: CodeFileModel, flag: bool=False):
@@ -86,7 +105,21 @@ async def applyPatch(patch_text: str) -> str:
 
     ---
 
-    ### Extra unchanged lines
+    ### 3. `@@` header with line numbers (not supported)
+
+    ```diff
+    @@ -42,7 +42,8 @@
+    ```
+
+    Invalid — we do **not** support numeric line-based hunk headers. Use a code-based header that matches the first line of the block, like:
+
+    ```diff
+    @@ def handle_response(response: Response) -> Result:
+    ```
+
+    ---
+
+    ### 4. Including unchanged lines after the patch
 
     ```diff
     @@ def run():
@@ -96,7 +129,7 @@ async def applyPatch(patch_text: str) -> str:
         return result
     ```
 
-    Incorrect — `return result` is unchanged and should not appear. Correct:
+    Incorrect — `return result` is unchanged and should be excluded:
 
     ```diff
     @@ def run():
@@ -112,25 +145,28 @@ async def applyPatch(patch_text: str) -> str:
     ```diff
     *** Begin Patch
     *** Update File: path/to/file.py
-    @@ full, original line from code block
+    @@ exact first line from original block
     context line (unchanged, prefix: space)
-    - line being deleted
-    + line being added
+    - line being deleted (must match exactly)
+    + line being added (your change)
     *** End Patch
     ```
 
-    * The `@@` line must match the **entire first line of the block**, including any modifiers like `async`.
-    * Do not shorten, guess, or reformat the line — copy it exactly from the original.
+    ### The `@@` header must:
+
+    * Contain **only the original line of code** (no line numbers)
+    * Be an **exact, one-to-one match**
+    * Include any relevant modifiers (e.g., `async`, decorators, etc.)
 
     ---
 
     ## FINAL REMINDERS
 
-    * Only generate diffs against the file's original content.
-    * Avoid including unrelated or unchanged code.
-    * Match indentation, whitespace, and modifiers exactly.
-    * Keep each patch as small, accurate, and focused as possible.
-    * One logical change per patch.
+    * Generate patches against the original file only.
+    * Do not include full file contents — only the relevant diffs.
+    * Avoid unrelated edits — one logical change per hunk.
+    * Use clean, minimal, verifiable diffs.
+    * Always match formatting, indentation, and block structure precisely.
     """
 
     patch_path = f"./storage/{ulid()}.txt"
