@@ -19,9 +19,9 @@ async def getContext(
         cross-referencing and performance.
 
         context_depth (int): Reference depth:
-            0 – Only requested elements
-            1 – + Direct references (default)
-            2+ – + Recursive references
+            0 : Only requested elements
+            1 : + Direct references (default)
+            2+: + Recursive references
 
     Returns:
         str: Formatted context including:
