@@ -37,13 +37,13 @@ def find_context(
     lines: List[str], context: List[str], start: int, eof: bool
 ) -> Tuple[int, int]:
     """Finds the location of a context block, allowing for fuzziness."""
-    if eof and context:
-        end_start_idx = len(lines) - len(context)
-        if end_start_idx >= 0:
-            new_index, fuzz = find_context_core(lines, context, end_start_idx)
-            if new_index == end_start_idx:
-                return new_index, fuzz
-        return -1, 0
+    # if eof and context:
+    #     end_start_idx = len(lines) - len(context)
+    #     if end_start_idx >= 0:
+    #         new_index, fuzz = find_context_core(lines, context, end_start_idx)
+    #         if new_index == end_start_idx:
+    #             return new_index, fuzz
+    #     return -1, 0
         
     return find_context_core(lines, context, start)
 
@@ -59,6 +59,8 @@ def peek_next_section(
     ins_lines: List[str] = []
     chunks: List[Chunk] = []
     mode = "keep"
+    pending_keep_lines: List[str] = []  # Buffer for keep lines that might be at the end
+    has_had_changes = False  # Track if we've seen any add/delete operations
 
     while index < len(lines):
         norm_s = Parser._norm(lines[index])
@@ -103,14 +105,37 @@ def peek_next_section(
             del_lines, ins_lines = [], []
 
         if mode == "delete":
+            has_had_changes = True
+            # Add any pending keep lines before processing delete lines
+            if pending_keep_lines:
+                context_lines.extend(pending_keep_lines)
+                pending_keep_lines = []
+            
             del_lines.append(content)
             context_lines.append(content)
         elif mode == "add":
+            has_had_changes = True
+            # Add any pending keep lines before processing add lines
+            if pending_keep_lines:
+                context_lines.extend(pending_keep_lines)
+                pending_keep_lines = []
+            
             ins_lines.append(content)
         elif mode == "keep":
-            context_lines.append(content)
+            if has_had_changes:
+                # We've seen changes, so these keep lines could be trailing context
+                # Buffer them in case they're the final block
+                pending_keep_lines.append(content)
+            else:
+                # No changes seen yet, so these are leading context - add them directly
+                context_lines.append(content)
 
     if ins_lines or del_lines:
+        # There are pending changes, so add any pending keep lines as they're part of the context
+        if pending_keep_lines:
+            context_lines.extend(pending_keep_lines)
+            pending_keep_lines = []
+        
         chunks.append(
             Chunk(
                 orig_index=len(context_lines) - len(del_lines),
@@ -123,9 +148,7 @@ def peek_next_section(
     if index < len(lines) and Parser._norm(lines[index]) == "*** End of File":
         index += 1
         is_eof = True
-
     return context_lines, chunks, index, is_eof
-
 
 # --------------------------------------------------------------------------- #
 #  Patch → Commit and Commit application
@@ -310,7 +333,7 @@ class Parser:
                 ):
                     break
                 continue
-
+            print(f"{orig_lines=}")
             new_index, fuzz = find_context(orig_lines, next_ctx, search_start_idx, eof)
             if new_index == -1:
                 ctx_txt = "\n".join(next_ctx)
