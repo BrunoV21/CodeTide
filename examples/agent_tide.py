@@ -78,9 +78,9 @@ async def main(max_tokens: int = 48000):
             trim_messages(history, llm.tokenizer, max_tokens)
 
             print("Agent: Thinking...")
-            response = await llm.acomplete(history, system_prompt=[AGENT_TIDE_SYSTEM_PROMPT])
+            response = await llm.acomplete(history, system_prompt=[AGENT_TIDE_SYSTEM_PROMPT], as_message_records=True)
             print(f"Agent: {response}")
-            history.append(response)
+            history.extend(response)
 
     except asyncio.CancelledError:
         # This can happen if the event loop is shut down

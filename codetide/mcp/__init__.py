@@ -1,9 +1,9 @@
 from .server import codeTideMCPServer
-from .tools import getContext, getRepoTree, checkCodeIdentifiers, applyPatch
+from .tools import getCodeContext, getRepoTree, checkCodeIdentifiers, applyPatch
 
 __all__ = [
     "codeTideMCPServer",
-    "getContext",
+    "getCodeContext",
     "getRepoTree",
     "checkCodeIdentifiers",
     "applyPatch"
