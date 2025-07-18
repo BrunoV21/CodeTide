@@ -8,3 +8,4 @@ tree-sitter==0.24.0
 tree-sitter-python==0.23.6
 tree-sitter-typescript==0.23.2
 fastmcp==2.9.2
+ulid==1.1
