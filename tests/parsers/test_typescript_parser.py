@@ -131,7 +131,6 @@ class TestTypeScriptParser:
         """Tests the _get_content method for preserving indentation."""
         code = b"class MyClass {\n    myMethod() {\n        return 1;\n    }\n}"
         codeFile = parser.parse_code(code, file_path="myMethod.ts")
-        print(f"{codeFile=}")
         assert "myMethod" in codeFile.raw
         assert codeFile.raw.startswith("class MyClass")
 
@@ -142,7 +141,6 @@ class TestTypeScriptParser:
         code_content = "import { A } from 'mod';\nlet x = 10;"
         file_path.write_text(code_content, encoding="utf-8")
         code_file_model = await parser.parse_file(file_path)
-        print(f"{code_file_model=}")
         assert code_file_model.file_path == str(file_path.absolute())
         assert len(code_file_model.imports) == 1
         assert code_file_model.imports[0].source == "'mod'"
