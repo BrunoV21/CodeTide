@@ -419,7 +419,9 @@ class TypeScriptParser(BaseParser):
         matches = re.findall(pattern, code)
         return len(matches)
 
-    def resolve_intra_file_dependencies(self, codeFiles: List[CodeFileModel]) -> None:
+    def resolve_intra_file_dependencies(self, codeBase, codeFiles: Optional[List[CodeFileModel]] = None) -> None:
+        if codeFiles is None:
+            codeFiles = codeBase.root
         for codeFile in codeFiles:
             if not codeFile.file_path.endswith(self.extension):
                 continue
@@ -437,7 +439,8 @@ class TypeScriptParser(BaseParser):
                     matches_count=importCounts,
                     codeFile=codeFile,
                     unique_id=importStatement.unique_id,
-                    reference_name=importAsDependency
+                    reference_name=importAsDependency,
+                    imported_element=codeBase._cached_elements.get(importStatement.unique_id) if hasattr(codeBase, "_cached_elements") else None
                 )
             for elemen_type in ["variables", "functions", "classes"]:
                 self._find_elements_references(
@@ -499,44 +502,107 @@ class TypeScriptParser(BaseParser):
         return elementCounts
 
     @staticmethod
+    def _check_for_typehint_class_methods_attr_references(
+        imported_element,
+        element_to_check,
+        ref_type="type_hint"
+    ) -> bool:
+        from codetide.core.models import ClassDefinition
+        if not isinstance(imported_element, ClassDefinition):
+            return False
+        reference_found = False
+        for imported_element_method in imported_element.methods:
+            if imported_element_method.name in getattr(element_to_check, "raw", ""):
+                element_to_check.references.append(
+                    CodeReference(
+                        unique_id=imported_element_method.unique_id,
+                        name=imported_element_method.name,
+                        type=ref_type
+                    )
+                )
+                reference_found = True
+        return reference_found
+
+    @classmethod
     def _find_references(
+        cls,
         non_import_ids: List[str],
         raw_contents: List[str],
         matches_count: int,
         codeFile: CodeFileModel,
         unique_id: str,
-        reference_name: str):
+        reference_name: str,
+        imported_element=None
+    ):
         matches_found = 0
         for _id, raw_content in zip(non_import_ids, raw_contents):
             if reference_name in raw_content:
+                ref_type = None
                 codeElement = codeFile.get(_id)
                 counts = 1
+                from codetide.core.models import VariableDeclaration, FunctionDefinition, ClassDefinition
                 if isinstance(codeElement, (VariableDeclaration, FunctionDefinition)):
+                    if hasattr(codeElement, "signature") and hasattr(codeElement.signature, "type_hints"):
+                        if reference_name in getattr(codeElement.signature, "type_hints", []):
+                            ref_type = "type_hint"
+                    elif hasattr(codeElement, "type_hint") and reference_name == getattr(codeElement, "type_hint", None):
+                        ref_type = "type_hint"
+                    if cls._check_for_typehint_class_methods_attr_references(
+                        imported_element=imported_element,
+                        element_to_check=codeElement,
+                        ref_type=ref_type
+                    ):
+                        continue
                     codeElement.references.append(
                         CodeReference(
                             unique_id=unique_id,
-                            name=reference_name
+                            name=reference_name,
+                            type=ref_type
                         )
                     )
                     matches_found += counts
-                elif isinstance(codeElement, (ClassDefinition)):
+                elif isinstance(codeElement, ClassDefinition):
                     for method in codeElement.methods:
+                        ref_type = None
                         if reference_name in method.raw:
+                            if hasattr(method.signature, "type_hints") and reference_name in getattr(method.signature, "type_hints", []):
+                                ref_type = "type_hint"
+                                if cls._check_for_typehint_class_methods_attr_references(
+                                    imported_element=imported_element,
+                                    element_to_check=method,
+                                    ref_type=ref_type
+                                ):
+                                    if matches_found >= matches_count:
+                                        break
+                                    continue
                             method.references.append(
                                 CodeReference(
                                     unique_id=unique_id,
-                                    name=reference_name
+                                    name=reference_name,
+                                    type=ref_type
                                 )
                             )
                             matches_found += counts
                             if matches_found >= matches_count:
                                 break
                     for attribute in codeElement.attributes:
+                        ref_type = None
                         if reference_name in attribute.raw:
+                            if reference_name == getattr(attribute, "type_hint", None):
+                                ref_type = "type_hint"
+                                if cls._check_for_typehint_class_methods_attr_references(
+                                    imported_element=imported_element,
+                                    element_to_check=attribute,
+                                    ref_type=ref_type
+                                ):
+                                    if matches_found >= matches_count:
+                                        break
+                                    continue
                             attribute.references.append(
                                 CodeReference(
                                     unique_id=unique_id,
-                                    name=reference_name
+                                    name=reference_name,
+                                    type=ref_type
                                 )
                             )
                             matches_found += counts
@@ -546,7 +612,8 @@ class TypeScriptParser(BaseParser):
                         codeElement.bases_references.append(
                             CodeReference(
                                 unique_id=unique_id,
-                                name=reference_name
+                                name=reference_name,
+                                type="inheritance"
                             )
                         )
                 if matches_found > matches_count:
