@@ -10,12 +10,16 @@ requirements_agents = (here / "requirements-agents.txt").read_text(encoding="utf
 setup(
     name="codetide",
     version="0.0.21",
+    author="Bruno V.",
+    author_email="bruno.vitorino@tecnico.ulisboa.pt",
+    description="CodeTide is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.",
     packages=find_packages(),
     long_description=long_description,
     long_description_content_type="text/markdown",
+    url="https://github.com/BrunoV21/CodeTide",
     install_requires=requirements,
     extras_require={
-        "visualization": requirements_visualization,        
+        "visualization": requirements_visualization,
         "agents": requirements_agents
     },
     entry_points={
