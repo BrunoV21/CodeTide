@@ -6,8 +6,14 @@ from .prompts import (
 from .consts import AGENT_TIDE_ASCII_ART
 from .utils import parse_xml_content
 
-from aicore.llm import Llm
-from aicore.logger import _logger
+try:
+    from aicore.llm import Llm
+    from aicore.logger import _logger
+except ImportError as e:
+    raise ImportError(
+        "The 'codetide.agents' module requires the 'aicore' package. "
+        "Install it with: pip install codetide[agents]"
+    ) from e
 
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession

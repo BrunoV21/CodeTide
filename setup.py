@@ -5,6 +5,7 @@ here = Path(__file__).resolve().parent
 long_description = (here / "README.md").read_text(encoding="utf-8")
 requirements = (here / "requirements.txt").read_text(encoding="utf-8").splitlines()
 requirements_visualization = (here / "requirements-visualization.txt").read_text(encoding="utf-8").splitlines()
+requirements_agents = (here / "requirements-agents.txt").read_text(encoding="utf-8").splitlines()
 
 setup(
     name="codetide",
@@ -14,7 +15,8 @@ setup(
     long_description_content_type="text/markdown",
     install_requires=requirements,
     extras_require={
-        "visualization": requirements_visualization
+        "visualization": requirements_visualization,        
+        "agents": requirements_agents
     },
     entry_points={
         "console_scripts": [
