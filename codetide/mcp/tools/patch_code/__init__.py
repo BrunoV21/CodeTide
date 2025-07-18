@@ -3,6 +3,9 @@ from .parser import Parser, patch_to_commit
 
 from typing import Dict, Tuple, List, Callable
 import pathlib
+import re
+
+BREAKLINE_TOKEN = "<n>"
 
 # --------------------------------------------------------------------------- #
 #  User-facing API
@@ -81,6 +84,29 @@ def apply_commit(
             if change.move_path and target_path != path:
                 remove_fn(path)
 
+def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
+    pattern = r'''
+        (?<!['"])      # Negative lookbehind: avoid triple quotes
+        (['"])         # Group 1: single or double quote
+        (              # Group 2: content inside the quote
+            (?:        # non-capturing group
+                \\\1   # escaped quote like \' or \"
+                |      # or
+                (?!\1).  # any char that's not the same quote
+            )*?
+        )
+        \1             # Closing quote, must match opening
+        (?!\1)         # Negative lookahead: avoid triple quotes
+    '''
+
+    def replacer(match):
+        quote = match.group(1)
+        content = match.group(2)
+        # Replace both literal \n and actual newlines
+        replaced = content.replace(r'\n', token).replace('\n', token)
+        return f'{quote}{replaced}{quote}'
+
+    return re.sub(pattern, replacer, text, flags=re.VERBOSE | re.DOTALL)
 
 def process_patch(
     text: str,
@@ -93,6 +119,7 @@ def process_patch(
     if not text.strip():
         raise DiffError("Patch text is empty.")
     
+    text = replace_newline_in_quotes(text)
     # FIX: Check for existence of files to be added before parsing.
     paths_to_add = identify_files_added(text)
     for p in paths_to_add:
@@ -108,20 +135,19 @@ def process_patch(
     apply_commit(commit, write_fn, remove_fn, exists_fn)
     return "Patch applied successfully."
 
-
 # --------------------------------------------------------------------------- #
 #  Default FS wrappers
 # --------------------------------------------------------------------------- #
 def open_file(path: str) -> str:
     with open(path, "rt", encoding="utf-8") as fh:
-        return fh.read()
+        return replace_newline_in_quotes(fh.read())
 
 
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("wt", encoding="utf-8", newline="\n") as fh:
-        fh.write(content)
+        fh.write(content.replace(BREAKLINE_TOKEN, "\\n"))
 
 
 def remove_file(path: str) -> None:
