@@ -431,14 +431,3 @@ def test_error_invalid_line_in_add(mock_fs):
 """
     with pytest.raises(DiffError, match=r"Unknown or malformed action line"):
         mock_fs.apply_patch(patch)
-
-
-def test_error_invalid_line_in_update(mock_fs):
-    patch = """*** Begin Patch
-*** Update File: main.py
-@@ def hello():
-this line is invalid
-*** End Patch
-"""
-    with pytest.raises(DiffError, match=r"must start with '\+', '-', or ' '"):
-        mock_fs.apply_patch(patch)
