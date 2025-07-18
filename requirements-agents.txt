@@ -1,1 +1,1 @@
-core-for-ai
+core-for-ai>=0.1.97
