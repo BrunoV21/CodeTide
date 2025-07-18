@@ -4,7 +4,7 @@ from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .consts import AGENT_TIDE_ASCII_ART
-from .utils import parse_xml_content
+from .utils import parse_patch_blocks
 
 try:
     from aicore.llm import Llm
@@ -20,7 +20,6 @@ from prompt_toolkit import PromptSession
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date
-from tqdm import tqdm
 import asyncio
 import os
 
@@ -66,24 +65,15 @@ class AgentTide(BaseModel):
             prefix_prompt=codeContext
         )
         
-        diffPatches = parse_xml_content(response, multiple=True)
+        diffPatches = parse_patch_blocks(response, multiple=True)
         if diffPatches:
-            diffPatches = [diffPatch.replace("\'", "'") for diffPatch in diffPatches]
-            diffPatches = [diffPatch.replace('\"', '"') for diffPatch in diffPatches]
-            for diffPatch in tqdm(diffPatches):
-                process_patch(diffPatch, open_file, write_file, remove_file, file_exists)
+
+            for patch in diffPatches:
+                patch = patch.replace("\'", "'").replace('\"', '"')
+                process_patch(patch, open_file, write_file, remove_file, file_exists)
+
             
             await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
-
-        # else:
-        #     response = await self.llm.acomplete(
-        #     self.history,
-        #     system_prompt=[
-        #         AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
-        #         ASSISTANT_SYSTEM_PROMPT.format(DATE=TODAY)
-        #     ],
-        #     prefix_prompt=repo_tree
-        # )
         
         self.history.append(response)
 
