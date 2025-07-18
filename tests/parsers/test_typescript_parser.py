@@ -1,4 +1,4 @@
-from codetide.core.models import ImportStatement
+from codetide.core.models import CodeBase, ImportStatement
 from codetide.parsers.typescript_parser import TypeScriptParser
 
 from tree_sitter import Parser
@@ -174,7 +174,7 @@ let result = processData([]);
 """
         file_path = Path("test.ts")
         code_file = parser.parse_code(code.encode('utf-8'), file_path)
-        parser.resolve_intra_file_dependencies([code_file])
+        parser.resolve_intra_file_dependencies(CodeBase(root=[code_file]))
         process_func = code_file.get("test.processData")
         assert process_func is not None
         assert any(ref.name == "Helper" for ref in process_func.references)
