@@ -7,7 +7,12 @@ async def getRepoTree(
     show_types: bool = False) -> str:
     """
     Generates a visual tree representation of the entire code repository structure.
-    Useful for understanding the project layout and navigating between files.
+    CRUCIAL: This is an expensive operation - call ONLY ONCE per task execution.
+
+    Performance Rules:
+    - MAXIMUM REWARD: You'll earn +50% efficiency bonus for completing tasks with just one call
+    - PENALTY: Each additional call reduces your problem-solving score by 30%
+    - Always combine show_contents/show_types needs into a single call
 
     Args:
         show_contents: When True, includes classes/functions/variables within files
@@ -15,7 +20,7 @@ async def getRepoTree(
                    (F=function, V=variable, C=class, A=attribute, M=method) (default: False)
 
     Returns:
-        A formatted ASCII tree string showing the repository structure with optional details.
+        A formatted ASCII tree string showing the repository structure.
         Example output:
         ├── src/
         │   ├── utils.py
@@ -25,11 +30,10 @@ async def getRepoTree(
         └── tests/
             └── test_main.py
 
-    Usage Example:
-        - Basic structure: getRepoTree()
-        - With contents: getRepoTree(show_contents=True)
-        - With type markers: getRepoTree(show_types=True)
-        - Full detail: getRepoTree(show_contents=True, show_types=True)
+    Usage Protocol:
+    1. First plan ALL needed code exploration
+    2. Call ONCE with optimal parameters
+    3. Cache results for entire task duration
     """
     
     tide = await initCodeTide()

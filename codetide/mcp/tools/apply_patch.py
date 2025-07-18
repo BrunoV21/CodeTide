@@ -188,8 +188,9 @@ async def applyPatch(patch_text: str) -> str:
         result = f"An unexpected error occurred: {exc}"
         raise exc
 
-    if "exc" not in locals():
-        writeFile(patch_text, patch_path)
+    finally:
+        if "exc" in locals():
+            writeFile(patch_text, patch_path)
 
     return result
 

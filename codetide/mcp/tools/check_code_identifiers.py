@@ -10,6 +10,15 @@ async def checkCodeIdentifiers(code_identifiers: List[str]) -> str:
     """
     Validates code identifiers against cached repository entries and suggests corrections.
 
+    ---
+
+    STRICT USAGE FLOW:
+        1. getRepoTree(show_contents=True, show_types=True)
+        2. check_code_identifiers() [REQUIRED GATE]
+        3. getCodeContext() ← Only after green validation
+
+    ---
+
     Args:
         code_identifiers: List of identifiers in dot or slash notation, such as:
             - 'tests.module.TestClass.test_method'
