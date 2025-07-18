@@ -1,21 +1,21 @@
 from typing import List, Union
 import re
 
-def parse_xml_content(text: str, tag: str = "diff", multiple: bool = False) -> Union[str, List[str], None]:
+def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
     """
-    Extract content between <tag>...</tag> markers.
-    
+    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
+    ensuring that both markers are at zero indentation (start of line, no leading spaces).
+
     Args:
-        text: Full input text.
-        tag: The tag name to extract content from (default: 'diff').
-        multiple: If True, return all matching blocks. If False, return only the first one.
-    
+        text: Full input text containing one or more patch blocks.
+        multiple: If True, return a list of all patch blocks. If False, return the first match.
+
     Returns:
-        The extracted content as a string (if one block), list of strings (if multiple),
-        or None if no blocks found.
+        A string (single patch), list of strings (multiple patches), or None if not found.
     """
-    pattern = fr"<{tag}>\s*(.*?)\s*</{tag}>"
-    matches = re.findall(pattern, text, re.DOTALL)
+    
+    pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
+    matches = re.findall(pattern, text)
 
     if not matches:
         return None

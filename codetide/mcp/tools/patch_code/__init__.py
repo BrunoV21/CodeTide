@@ -4,8 +4,14 @@ from .parser import Parser, patch_to_commit
 from typing import Dict, Tuple, List, Callable
 import pathlib
 import re
+import os
 
 BREAKLINE_TOKEN = "<n>"
+
+BREAKLINE_PER_FILE_TYPE = {
+    ".md": "\n",
+    ".py": r"\n"
+}
 
 # --------------------------------------------------------------------------- #
 #  User-facing API
@@ -13,6 +19,15 @@ BREAKLINE_TOKEN = "<n>"
 def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
     """High-level function to parse patch text against original file content."""
     lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith(("@", "***")):
+            continue
+
+        elif line.startswith("---") or not line.startswith(("+", "-", " ")):
+            lines[i] = f" {line}"
+    
+    # print(f"\n\n{lines[-2:]=}")
+
     if not lines or not Parser._norm(lines[0]).startswith("*** Begin Patch"):
         raise DiffError("Invalid patch text - must start with '*** Begin Patch'.")
     if not Parser._norm(lines[-1]) == "*** End Patch":
@@ -146,8 +161,9 @@ def open_file(path: str) -> str:
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
+    _, ext = os.path.splitext(target)
     with target.open("wt", encoding="utf-8", newline="\n") as fh:
-        fh.write(content.replace(BREAKLINE_TOKEN, "\\n"))
+        fh.write(content.replace(BREAKLINE_TOKEN, BREAKLINE_PER_FILE_TYPE.get(ext, r"\n")))
 
 
 def remove_file(path: str) -> None:
