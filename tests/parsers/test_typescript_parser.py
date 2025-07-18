@@ -43,6 +43,90 @@ class TestTypeScriptParser:
         """Tests the regex-based word occurrence counter."""
         assert TypeScriptParser.count_occurences_in_code(code, substring) == count
 
+    def test_count_occurences_in_code_edge_cases(self):
+        """Test word boundary and substring edge cases."""
+        assert TypeScriptParser.count_occurences_in_code("foofoobar foo", "foo") == 1
+        assert TypeScriptParser.count_occurences_in_code("foo_bar foo", "foo") == 1
+        assert TypeScriptParser.count_occurences_in_code("foo1 foo", "foo") == 1
+        assert TypeScriptParser.count_occurences_in_code("foofoo foo", "foo") == 1
+        assert TypeScriptParser.count_occurences_in_code("foo", "foo") == 1
+        assert TypeScriptParser.count_occurences_in_code("bar", "foo") == 0
+
+    def test_variable_declaration_with_type_and_value(self, parser: TypeScriptParser):
+        code = "let x: number = 42;"
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert len(code_file.variables) == 1
+        var = code_file.variables[0]
+        assert var.name == "x"
+        assert var.type_hint == ": number"
+        assert var.value == "42"
+
+    def test_class_with_multiple_attributes_and_methods(self, parser: TypeScriptParser):
+        code = """
+    class Multi {
+    public a: string = "A";
+    public b: number = 2;
+    foo(): void {}
+    bar(): number { return 1; }
+    }
+    """
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert len(code_file.classes) == 1
+        cls = code_file.classes[0]
+        assert len(cls.attributes) == 2
+        assert set(a.name for a in cls.attributes) == {"a", "b"}
+        assert len(cls.methods) == 2
+        assert set(m.name for m in cls.methods) == {"foo", "bar"}
+
+    def test_function_with_typehint_reference(self, parser: TypeScriptParser):
+        code = """
+    class RefType {}
+    function useType(x: RefType): RefType {
+    return x;
+    }
+    """
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # Simulate codeBase for dependency resolution
+        class DummyCodeBase:
+            def __init__(self, root):
+                self.root = root
+                self._cached_elements = {}
+                for cf in root:
+                    for c in cf.classes:
+                        self._cached_elements[c.unique_id] = c
+                    for f in cf.functions:
+                        self._cached_elements[f.unique_id] = f
+                    for v in cf.variables:
+                        self._cached_elements[v.unique_id] = v
+        codeBase = DummyCodeBase([code_file])
+        parser.resolve_intra_file_dependencies(codeBase, [code_file])
+        func = code_file.get("test.useType")
+        assert func is not None
+        assert any(ref.type_hint == "RefType" for ref in func.signature.parameters)
+
+    def test_class_inheritance_reference(self, parser: TypeScriptParser):
+        code = """
+    class Base {}
+    class Derived extends Base {}
+    """
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        class DummyCodeBase:
+            def __init__(self, root):
+                self.root = root
+                self._cached_elements = {}
+                for cf in root:
+                    for c in cf.classes:
+                        self._cached_elements[c.unique_id] = c
+        codeBase = DummyCodeBase([code_file])
+        parser.resolve_intra_file_dependencies(codeBase, [code_file])
+        derived = code_file.get("test.Derived")
+        assert derived is not None
+        assert any(ref == "Base" for ref in derived.bases)
+
     def test_get_content_indentation(self, parser: TypeScriptParser):
         """Tests the _get_content method for preserving indentation."""
         code = b"class MyClass {\n    myMethod() {\n        return 1;\n    }\n}"
