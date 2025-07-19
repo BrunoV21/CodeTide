@@ -102,9 +102,29 @@ def apply_commit(
                 remove_fn(path)
 
 def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
+    """
+    Replace newlines with a special token only within single/double quoted strings,
+    but NOT within triple-quoted strings.
+    """
+    
+    # First, let's handle triple-quoted strings by temporarily replacing them
+    # with placeholders to avoid processing them
+    triple_quote_placeholders = []
+    
+    # Find all triple-quoted strings (both ''' and """)
+    triple_pattern = r'(""".*?"""|\'\'\'.*?\'\'\')'
+    
+    def store_triple_quote(match):
+        placeholder = f"__TRIPLE_QUOTE_{len(triple_quote_placeholders)}__"
+        triple_quote_placeholders.append(match.group(1))
+        return placeholder
+    
+    # Temporarily replace triple quotes with placeholders
+    text_with_placeholders = re.sub(triple_pattern, store_triple_quote, text, flags=re.DOTALL)
+    
+    # Now process single/double quoted strings (excluding triple quotes)
     pattern = r'''
-        (?<!['"])      # Negative lookbehind: avoid triple quotes
-        (['"])         # Group 1: single or double quote
+        (['"])         # Group 1: single or double quote (opening)
         (              # Group 2: content inside the quote
             (?:        # non-capturing group
                 \\\1   # escaped quote like \' or \"
@@ -113,7 +133,7 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
             )*?
         )
         \1             # Closing quote, must match opening
-        (?!\1)         # Negative lookahead: avoid triple quotes
+        (?!\1{2})      # Negative lookahead: ensure it's not followed by two more of same quote (triple quote)
     '''
 
     def replacer(match):
@@ -123,7 +143,15 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
         replaced = content.replace(r'\n', token).replace('\n', token)
         return f'{quote}{replaced}{quote}'
 
-    return re.sub(pattern, replacer, text, flags=re.VERBOSE | re.DOTALL)
+    # Apply the replacement to single/double quoted strings only
+    result = re.sub(pattern, replacer, text_with_placeholders, flags=re.VERBOSE | re.DOTALL)
+    
+    # Restore the triple-quoted strings
+    for i, triple_quote in enumerate(triple_quote_placeholders):
+        placeholder = f"__TRIPLE_QUOTE_{i}__"
+        result = result.replace(placeholder, triple_quote)
+    
+    return result
 
 def process_patch(
     text: str,
