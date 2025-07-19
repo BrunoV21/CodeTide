@@ -13,6 +13,88 @@ def parser() -> TypeScriptParser:
 
 class TestTypeScriptParser:
 
+    def test_simple_interface(self, parser: TypeScriptParser):
+        code = """
+interface Person {
+    name: string;
+    age: number;
+}
+const user: Person = {
+    name: 'Alice',
+    age: 30
+};
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # Assert that the interface is stored as a class
+        assert any(cls.name == "Person" for cls in code_file.classes)
+        person_cls = next(cls for cls in code_file.classes if cls.name == "Person")
+        attr_names = {a.name for a in person_cls.attributes}
+        assert "name" in attr_names
+        assert "age" in attr_names
+
+
+    def test_interface_with_method(self, parser: TypeScriptParser):
+        code = """
+interface Greeter {
+    greet(): void;
+}
+const bot: Greeter = {
+    greet() {
+        console.log("Hello!");
+    }
+};
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # Assert that the interface is stored as a class
+        assert any(cls.name == "Greeter" for cls in code_file.classes)
+        greeter_cls = next(cls for cls in code_file.classes if cls.name == "Greeter")
+        method_names = {m.name for m in greeter_cls.methods}
+        assert "greet" in method_names
+
+    def test_interface_with_methods(self, parser: TypeScriptParser):
+        code = """
+interface Greeter {
+    greet(message: string): void;
+    getName(): string;
+}
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # Assert that the interface is stored as a class
+        assert any(cls.name == "Greeter" for cls in code_file.classes)
+        greeter_cls = next(cls for cls in code_file.classes if cls.name == "Greeter")
+        method_names = {m.name for m in greeter_cls.methods}
+        assert "greet" in method_names
+        assert "getName" in method_names
+
+    def test_interface_with_index_signature(self, parser: TypeScriptParser):
+        code = """
+interface StringArray {
+    [index: number]: string;
+}
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # Assert that the interface is stored as a class
+        assert any(cls.name == "StringArray" for cls in code_file.classes)
+        sa_cls = next(cls for cls in code_file.classes if cls.name == "StringArray")
+        # Should have at least one attribute for the index signature
+        assert any("index" in a.name or "[" in getattr(a, "raw", "") for a in sa_cls.attributes)
+
+    def test_interface_extends(self, parser: TypeScriptParser):
+        code = """
+interface A { a: number; }
+interface B extends A { b: string; }
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # Assert that the interface is stored as a class
+        assert any(cls.name == "B" for cls in code_file.classes)
+        b_cls = next(cls for cls in code_file.classes if cls.name == "B")
+        assert "A" in b_cls.bases
+
     def test_function_with_decorators_and_modifiers(self, parser: TypeScriptParser):
         code = """
 @decorator1
