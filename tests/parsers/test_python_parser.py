@@ -14,6 +14,146 @@ def parser() -> PythonParser:
 
 class TestPythonParser:
 
+    @pytest.mark.parametrize("content,expected", [
+        ('"""This is a docstring"""', True),
+        ("'''This is a docstring'''", True),
+        ('"""Multiline\ndocstring"""', True),
+        ("'''Multiline\ndocstring'''", True),
+        ('"Not a docstring"', False),
+        ("'Not a docstring'", False),
+        ("", False),
+        (None, False),
+        ('"""Unclosed docstring', False),
+        ("'''Unclosed docstring", False),
+        ('"""   """', True),
+        ("'''   '''", True),
+        ('"""', False),
+        ("'''", False),
+    ])
+    def test_is_docstring(self, content, expected):
+        assert PythonParser.is_docstring(content) == expected
+
+    @pytest.mark.parametrize("raw,docstring,expected", [
+        ("def f():\n    pass", None, None),
+        ("def f():\n    \"\"\"Docstring\"\"\"", '"""Docstring"""', "def f():\n    \"\"\"Docstring\"\"\""),
+        ("def f():\n    '''Docstring'''", "'''Docstring'''", "def f():\n    '''Docstring'''"),
+        ("def f():\n    pass", "", None),
+        ("def f():\n    not a docstring", "not a docstring", "def f():\n    not a docstring"),
+        ("def f():\n    \"\"\"Multi\nLine\"\"\"", '"""Multi\nLine"""', "def f():\n    \"\"\"Multi\nLine\"\"\""),
+    ])
+    def test_compile_docstring(self, raw, docstring, expected):
+        assert PythonParser.compile_docstring(raw, docstring) == expected
+        
+    @pytest.mark.parametrize("code, expected_docstring", [
+        (
+            '''
+def foo():
+    """This is a function docstring."""
+    return 1
+''',
+            '"""This is a function docstring."""'
+        ),
+        (
+            """
+def bar():
+    '''
+    Multiline
+    docstring
+    '''
+    return 2
+""",
+            "'''\n    Multiline\n    docstring\n    '''"
+        ),
+        (
+            '''
+def no_doc():
+    return 3
+''',
+            None
+        ),
+        (
+            '''
+def empty_doc():
+    """   """
+    return 4
+''',
+            '"""   """'
+        ),
+    ])
+    def test_parse_function_docstring(self, parser: PythonParser, code, expected_docstring):
+        file_path = Path("test.py")
+        code_file = parser.parse_code(code.encode("utf-8"), file_path)
+        func = code_file.functions[0]
+        if expected_docstring is None:
+            assert func.docstring is None
+        else:
+            assert expected_docstring in func.docstring
+
+    @pytest.mark.parametrize("code, expected_docstring", [
+        (
+            '''
+class Foo:
+    """Class docstring."""
+    x = 1
+''',
+            '"""Class docstring."""'
+        ),
+        (
+            """
+class Bar:
+    '''
+    Multiline
+    class docstring
+    '''
+    y = 2
+""",
+            "'''\n    Multiline\n    class docstring\n    '''"
+        ),
+        (
+            '''
+class NoDoc:
+    z = 3
+''',
+            None
+        ),
+        (
+            '''
+class EmptyDoc:
+    """   """
+    a = 4
+''',
+            '"""   """'
+        ),
+    ])
+    def test_parse_class_docstring(self, parser: PythonParser, code, expected_docstring):
+        file_path = Path("test.py")
+        code_file = parser.parse_code(code.encode("utf-8"), file_path)
+        cls = code_file.classes[0]
+        if expected_docstring is None:
+            assert cls.docstring is None
+        else:
+            assert expected_docstring in cls.docstring
+
+    @pytest.mark.parametrize("import_stmt, expected", [
+        (ImportStatement(source="os"), "import os"),
+        (ImportStatement(name="numpy", alias="np"), "import numpy as np"),
+        (ImportStatement(source="pathlib", name="Path"), "from pathlib import Path"),
+        (ImportStatement(source="collections", name="deque", alias="dq"), "from collections import deque as dq"),
+        (ImportStatement(source="typing"), "import typing"),
+    ])
+    def test_import_statement_template(self, import_stmt, expected):
+        assert PythonParser.import_statement_template(import_stmt) == expected
+
+    def test_relative_import_parsing(self, parser: PythonParser):
+        code = "from .submodule import foo"
+        file_path = Path("pkg/__init__.py")
+        code_file = parser.parse_code(code.encode("utf-8"), file_path)
+        assert len(code_file.imports) == 1
+        imp = code_file.imports[0]
+        assert imp.import_type == "relative"
+        assert imp.source is not None
+        assert "submodule" in imp.source
+
     def test_initialization(self, parser: PythonParser):
         """Tests the basic properties and initialization of the parser."""
         assert parser.language == "python"
