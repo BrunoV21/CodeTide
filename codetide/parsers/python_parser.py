@@ -46,9 +46,9 @@ class PythonParser(BaseParser):
             return False
         
         stripped = content.strip()
-        if stripped.startswith('"""') and stripped.endswith('"""'):
+        if stripped.startswith('"""') and stripped.endswith('"""') and len(stripped) > 3:
             return True
-        elif stripped.startswith("'''") and stripped.endswith("'''"):
+        elif stripped.startswith("'''") and stripped.endswith("'''") and len(stripped) > 3:
             return True
         return False
     
