@@ -99,12 +99,41 @@ class TypeScriptParser(BaseParser):
                 file_path = file_path.relative_to(Path(root_path))
             codeFile = await loop.run_in_executor(pool, self.parse_code, code, file_path)
         return codeFile
+    
+    @staticmethod
+    def _is_type(node: Node, child_type :str)->bool:
+        for child in node.children:
+            if child.type == child_type:
+                return True
+        return False
+    
+    @classmethod
+    def _process_export_statement(cls, node: Node, code: bytes, codeFile: CodeFileModel)->Tuple[List[str], List[str]]:
+        decorators = []
+        modifiers = []
+        for child in node.children:
+            if child.type == "decorator":
+                decorators.append(cls._get_content(code, child))
+
+            elif child.type == "export":
+                modifiers.append(cls._get_content(code, child))
+
+            elif child.type == "function_declaration":
+                cls._process_function_definition(child, code, codeFile, modifiers=modifiers, decorators=decorators)
+
+            elif child.type == "class_declaration":
+                cls._process_class_node(child, code, codeFile)
+
+            elif child.type == "expression_statement":
+                cls._process_expression_statement(child, code, codeFile)
 
     @classmethod
     def _process_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         for child in node.children:
             if child.type == "import_statement":
                 cls._process_import_node(child, code, codeFile)
+            elif child.type == "export_statement":
+                cls._process_export_statement(child, code, codeFile)
             elif child.type == "class_declaration":
                 cls._process_class_node(child, code, codeFile)
             elif child.type == "function_declaration":
@@ -177,10 +206,11 @@ class TypeScriptParser(BaseParser):
             )
 
             codeFile.add_import(importStatement)
-            cls._generate_unique_import_id(codeFile.imports[-1])        
+            cls._generate_unique_import_id(codeFile.imports[-1])
 
     @classmethod
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        # TODO add support for modifiers at variables, classes
         class_name = None
         bases = []
         raw = cls._get_content(code, node)
@@ -243,11 +273,13 @@ class TypeScriptParser(BaseParser):
         ))
 
     @classmethod
-    def _process_function_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_method :bool=False):
+    def _process_function_definition(cls, node: Node, code: bytes, codeFile: CodeFileModel, is_method :bool=False, modifiers :Optional[List[str]]=None, decorators :Optional[List[str]]=None):
         definition = None
         signature = FunctionSignature()
-        modifiers = []
-        decorators = []
+        if modifiers is None:
+            modifiers = []
+        if decorators is None:
+            decorators = []
         raw = cls._get_content(code, node)
         for child in node.children:
             if child.type == "identifier" and definition is None:
@@ -270,8 +302,7 @@ class TypeScriptParser(BaseParser):
                 modifiers.append("protected")
             elif child.type == "static":
                 modifiers.append("static")
-            elif child.type == "async":
-                modifiers.append("async")
+        
         if not is_method: 
             codeFile.add_function(FunctionDefinition(
                 name=definition,
