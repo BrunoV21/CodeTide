@@ -25,7 +25,7 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
                 lines.insert(i+1, line.replace("@@", ""))
             continue
 
-        elif line.startswith("---") or not line.startswith(("+", "-", " ")):
+        elif (line.startswith("---") and len(line)==3) or not line.startswith(("+", "-", " ")):
             lines[i] = f" {line}"
     
     # print(f"\n\n{lines[-2:]=}")
