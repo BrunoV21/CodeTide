@@ -128,6 +128,27 @@ class TypeScriptParser(BaseParser):
                 cls._process_expression_statement(child, code, codeFile)
 
     @classmethod
+    def _process_interface_declaration(cls, node: Node, code: bytes, codeFile: CodeFileModel)->Tuple[List[str], List[str]]:
+        # for child in node.children:
+        #     print(f"{child.type=}, {cls._get_content(code, child)}")
+            
+        cls._process_class_node(node, code, codeFile, "interface")
+            # if child.type == "decorator":
+            #     decorators.append(cls._get_content(code, child))
+
+            # elif child.type == "export":
+            #     modifiers.append(cls._get_content(code, child))
+
+            # elif child.type == "function_declaration":
+            #     cls._process_function_definition(child, code, codeFile, modifiers=modifiers, decorators=decorators)
+
+            # elif child.type == "class_declaration":
+            #     cls._process_class_node(child, code, codeFile)
+
+            # elif child.type == "expression_statement":
+            #     cls._process_expression_statement(child, code, codeFile)
+
+    @classmethod
     def _process_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         for child in node.children:
             if child.type == "import_statement":
@@ -144,6 +165,8 @@ class TypeScriptParser(BaseParser):
                 cls._process_expression_statement(child, code, codeFile)
             elif child.type == "interface_declaration":
                 cls._process_class_node(child, code, codeFile, "interface")
+            elif child.type == "type_alias_declaration":
+                cls._process_class_node(child, code, codeFile, "type")
 
     @classmethod
     def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[Optional[str]]]:
@@ -234,18 +257,32 @@ class TypeScriptParser(BaseParser):
         for child in node.children:
             if child.type == "type_identifier" and class_name is None:
                 class_name = cls._get_content(code, child)
-            elif child.type == f"{node_type}_heritage":
+            elif child.type == f"{node_type}_heritage" or child.type == "intersection_type":
                 for base_child in child.children:
                     if base_child.type == "extends_clause":
                         for expr_child in base_child.children:
                             if expr_child.type == "identifier":
                                 bases.append(cls._get_content(code, expr_child))
+
+                    if base_child.type == "type_identifier":
+                        bases.append(cls._get_content(code, base_child))
+
+                    elif base_child.type == "object_type":
+                        class_def = ClassDefinition(
+                            name=class_name,
+                            bases=bases,
+                            raw=raw
+                        )
+                        codeFile.add_class(class_def)
+                        cls._process_class_body(base_child, code, codeFile)
+            
             elif child.type == "extends_type_clause":
                 for base_child in child.children:
                     if base_child.type == "type_identifier":
                         bases.append(cls._get_content(code, base_child))
 
-            elif child.type == f"{node_type}_body":
+
+            elif child.type == f"{node_type}_body" or child.type == "object_type":
                 class_def = ClassDefinition(
                     name=class_name,
                     bases=bases,
