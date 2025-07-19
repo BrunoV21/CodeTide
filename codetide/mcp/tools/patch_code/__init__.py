@@ -21,6 +21,8 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
     lines = text.splitlines()
     for i, line in enumerate(lines):
         if line.startswith(("@", "***")):
+            if  line.startswith("@@") and lines[i+1].startswith("+"):
+                lines.insert(i+1, line.replace("@@", ""))
             continue
 
         elif line.startswith("---") or not line.startswith(("+", "-", " ")):
