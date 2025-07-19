@@ -143,7 +143,7 @@ class TypeScriptParser(BaseParser):
             elif child.type == "expression_statement":
                 cls._process_expression_statement(child, code, codeFile)
             elif child.type == "interface_declaration":
-                cls._process_class_node(node, code, codeFile, "interface")
+                cls._process_class_node(child, code, codeFile, "interface")
 
     @classmethod
     def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[Optional[str]]]:
