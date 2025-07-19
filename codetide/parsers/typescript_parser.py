@@ -142,6 +142,8 @@ class TypeScriptParser(BaseParser):
                 cls._process_variable_declaration(child, code, codeFile)
             elif child.type == "expression_statement":
                 cls._process_expression_statement(child, code, codeFile)
+            elif child.type == "interface_declaration":
+                cls._process_class_node(node, code, codeFile, "interface")
 
     @classmethod
     def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[Optional[str]]]:
@@ -224,21 +226,26 @@ class TypeScriptParser(BaseParser):
                 cls._generate_unique_import_id(codeFile.imports[-1])
 
     @classmethod
-    def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
-        # TODO add support for modifiers at variables, classes
+    def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel, node_type :Literal["class", "interface", "type"]="class"):
+        # TODO add support for modifiers at variables, classes i.e
         class_name = None
         bases = []
         raw = cls._get_content(code, node)
         for child in node.children:
             if child.type == "type_identifier" and class_name is None:
                 class_name = cls._get_content(code, child)
-            elif child.type == "class_heritage":
+            elif child.type == f"{node_type}_heritage":
                 for base_child in child.children:
                     if base_child.type == "extends_clause":
                         for expr_child in base_child.children:
                             if expr_child.type == "identifier":
                                 bases.append(cls._get_content(code, expr_child))
-            elif child.type == "class_body":
+            elif child.type == "extends_type_clause":
+                for base_child in child.children:
+                    if base_child.type == "type_identifier":
+                        bases.append(cls._get_content(code, base_child))
+
+            elif child.type == f"{node_type}_body":
                 class_def = ClassDefinition(
                     name=class_name,
                     bases=bases,
@@ -250,9 +257,9 @@ class TypeScriptParser(BaseParser):
     @classmethod
     def _process_class_body(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         for child in node.children:
-            if child.type == "method_definition":
+            if child.type == "method_definition" or child.type == "method_signature":
                 cls._process_function_definition(child, code, codeFile, is_method=True)
-            elif child.type == "public_field_definition":
+            elif child.type == "public_field_definition" or child.type == "property_signature" or child.type == "index_signature":
                 cls._process_class_attribute(child, code, codeFile)
 
     @classmethod
@@ -264,7 +271,7 @@ class TypeScriptParser(BaseParser):
         next_is_assignment = False
         raw = cls._get_content(code, node)
         for child in node.children:
-            if child.type == "property_identifier" and attribute is None:
+            if child.type == "property_identifier" or child.type == "identifier" and attribute is None:
                 attribute = cls._get_content(code, child)
             elif child.type == "type_annotation":
                 type_hint = cls._get_content(code, child).replace(": ", "")
