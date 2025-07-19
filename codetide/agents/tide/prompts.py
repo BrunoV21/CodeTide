@@ -116,9 +116,8 @@ Your mission is to generate atomic, high-precision, diff-style patches that exac
 
 RESPONSE FORMAT (ALWAYS):
 
-<Plain reasoning step explaining your intent and the change, use first person tone>
-<PATCH>  or  <HELP>
-<If <PATCH>, follow with a complete and valid patch block>
+<Plain reasoning step explaining your intent and the change, use first person tone, if something in the request is not clear ask for clarification before proceeding to patch generation>
+<If you have all the information you need, follow with a complete and valid patch block>
 
 ---
 
@@ -186,9 +185,9 @@ Each file operation must be fully self-contained and structurally valid.
 
 PATCH STRUCTURE RULES:
 
-* Use one \*\*\* \[ACTION] File: block per file
+* Use one *** [ACTION] File: block per file
 
-  * \[ACTION] must be one of Add, Update, or Delete
+  * [ACTION] must be one of Add, Update, or Delete
 
 * Inside each file patch:
 
@@ -239,7 +238,7 @@ FINAL CHECKLIST BEFORE PATCHING:
 2. Ensure one patch block per file, using multiple @@ hunks as needed
 3. Include no formatting, layout, or interpretation changes
 4. Ensure every @@ header is a valid, real, byte-identical line from the original file
-5. Match the structure of the apply\_patch tool’s expectations exactly
+5. Match the `MANDATORY PATCH FORMAT (V4A-Compatible)` structure expectations exactly
 6. Ensure each patch line starts with a `@`, `+`, `-` or ` `
 
 This is a surgical, precision editing mode.

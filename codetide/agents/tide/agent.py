@@ -1,5 +1,6 @@
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
+from ...autocomplete import AutoComplete
 from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
@@ -41,7 +42,7 @@ class AgentTide(BaseModel):
             include_types=True
         )
 
-        code_identifiers = await self.llm.acomplete(
+        codeIdentifiers = await self.llm.acomplete(
             self.history,
             system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
             prefix_prompt=repo_tree,
@@ -49,12 +50,20 @@ class AgentTide(BaseModel):
             json_output=True
         )
 
-        # diffPatches = None
         codeContext = None
-        if code_identifiers:
-            codeContext = self.tide.get(code_identifiers, as_string=True)
+        if codeIdentifiers:
+            autocomplete = AutoComplete(self.tide.cached_ids)    
+            # Validate each code identifier
+            validatedCodeIdentifiers = []
+            for codeId in codeIdentifiers:
+                result = autocomplete.validate_code_identifier(codeId)
+                if result.get("is_valid"):
+                    validatedCodeIdentifiers.append(codeId)
+                
+                elif result.get("matching_identifiers"):
+                    validatedCodeIdentifiers.append(result.get("matching_identifiers")[0])
 
-        
+            codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
 
         response = await self.llm.acomplete(
             self.history,
