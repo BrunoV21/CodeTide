@@ -1,3 +1,4 @@
+from ...autocomplete import AutoComplete
 from ..server import codeTideMCPServer
 from ..utils import initCodeTide
 
@@ -45,5 +46,17 @@ async def getCodeContext(
     """
 
     tide = await initCodeTide()
-    context = tide.get(code_identifiers, context_depth, as_string=True)
+    if code_identifiers:
+        autocomplete = AutoComplete(tide.cached_ids)    
+        # Validate each code identifier
+        validated_code_indentifiers = []
+        for code_id in code_identifiers:
+            result = autocomplete.validate_code_identifier(code_id)
+            if result.get("is_valid"):
+                validated_code_indentifiers.append(code_id)
+            
+            elif result.get("matching_identifiers"):
+                validated_code_indentifiers.append(result.get("matching_identifiers")[0])
+    
+    context = tide.get(validated_code_indentifiers, context_depth, as_string=True)
     return context if context else f"{code_identifiers} are not valid code_identifiers, refer to the getRepoTree tool to get a sense of the correct identifiers"

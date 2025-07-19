@@ -1,11 +1,12 @@
 from ...autocomplete import AutoComplete
 from ..utils import initCodeTide
-from ..server import codeTideMCPServer
+# from ..server import codeTideMCPServer
 
 from typing import List
 import orjson
 
-@codeTideMCPServer.tool
+# @codeTideMCPServer.tool
+# incorporated into get_code_context tool
 async def checkCodeIdentifiers(code_identifiers: List[str]) -> str:
     """
     Validates code identifiers against cached repository entries and suggests corrections.

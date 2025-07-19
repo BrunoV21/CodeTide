@@ -1,11 +1,12 @@
 from .patch_code import DiffError, file_exists, open_file, process_patch, remove_file, write_file
-from ..server import codeTideMCPServer
+# from ..server import codeTideMCPServer
 from ...core.common import writeFile
 from ..utils import initCodeTide
 
 from ulid import ulid
 
-@codeTideMCPServer.tool
+# @codeTideMCPServer.tool
+# TODO needs to be more stable before reintroducing it
 async def applyPatch(patch_text: str) -> str:
     """
     Call this tool with a diff-like text to make file changes. Whenever you need to write code, this is the tool for you.
@@ -193,14 +194,3 @@ async def applyPatch(patch_text: str) -> str:
             writeFile(patch_text, patch_path)
 
     return result
-
-if __name__ == "__main__":
-    from codetide.core.common import writeFile, readFile
-    from codetide.mcp.tools.patch_code import DiffError, file_exists, open_file, process_patch, remove_file, write_file
-    from codetide.mcp.server import codeTideMCPServer
-    from codetide.mcp.utils import initCodeTide
-
-    import asyncio
-    patch_path = "./storage/01JZ9969DN4A8C98HH2CXVXAFF.txt"
-    patch = readFile(patch_path)
-    asyncio.run(applyPatch(patch))
