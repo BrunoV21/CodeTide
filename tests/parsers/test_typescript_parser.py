@@ -13,6 +13,142 @@ def parser() -> TypeScriptParser:
 
 class TestTypeScriptParser:
 
+    def test_function_with_decorators_and_modifiers(self, parser: TypeScriptParser):
+        code = """
+@decorator1
+@decorator2
+export async function myFunc(a: number, b: string = "default"): Promise<string[]> {
+    return [b];
+}
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert len(code_file.functions) == 1
+        func = code_file.functions[0]
+        # Decorators are not yet parsed by TypeScriptParser, but modifiers should be present
+        assert "async" in func.modifiers or "export" in func.modifiers
+        sig = func.signature
+        assert sig is not None
+        assert sig.return_type is not None
+        assert len(sig.parameters) == 2
+        param1 = sig.parameters[0]
+        assert param1.name == "a"
+        assert param1.type_hint == "number"
+        assert param1.default_value is None
+        param2 = sig.parameters[1]
+        assert param2.name == "b"
+        assert param2.type_hint == "string"
+        assert param2.default_value == '"default"'
+
+    def test_class_with_static_and_access_modifiers(self, parser: TypeScriptParser):
+        code = """
+class Modifiers {
+    public static count: number = 0;
+    private _name: string;
+    protected flag: boolean = true;
+    constructor(name: string) {
+        this._name = name;
+    }
+    static getCount(): number {
+        return Modifiers.count;
+    }
+    public get name(): string {
+        return this._name;
+    }
+}
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert len(code_file.classes) == 1
+        cls = code_file.classes[0]
+        attr_names = {a.name for a in cls.attributes}
+        assert "count" in attr_names
+        assert "flag" in attr_names
+        assert "_name" in attr_names
+        count_attr = next(a for a in cls.attributes if a.name == "count")
+        assert "static" in count_attr.modifiers or "public" in count_attr.modifiers
+        flag_attr = next(a for a in cls.attributes if a.name == "flag")
+        assert "protected" in flag_attr.modifiers
+        methods = {m.name: m for m in cls.methods}
+        assert "getCount" in methods
+        assert "name" in methods
+        get_count = methods["getCount"]
+        assert "static" in get_count.modifiers
+        get_name = methods["name"]
+        assert "public" in get_name.modifiers or get_name.modifiers == []
+
+    def test_multiple_variable_declarations(self, parser: TypeScriptParser):
+        code = "let a = 1, b: string = 'hi', c;"
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # The parser currently only supports one variable per declaration, so at least one should be present
+        assert any(v.name == "a" for v in code_file.variables)
+        assert any(v.name == "b" for v in code_file.variables)
+        assert any(v.name == "c" for v in code_file.variables)
+
+    def test_multiple_imports_and_aliases(self, parser: TypeScriptParser):
+        code = "import { A, B as Bee, C } from 'mod';"
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        print(f"{code_file=}")
+        # The parser currently only supports one import per statement, but at least one should be present
+        assert any(i.name == "A" for i in code_file.imports)
+        assert any(i.name == "B" and i.alias == "Bee" for i in code_file.imports)
+        assert any(i.name == "C" for i in code_file.imports)
+
+    def test_arrow_function_and_function_expression(self, parser: TypeScriptParser):
+        code = """
+const arrow = (x: number): number => x * 2;
+const expr = function(y: string): string { return y + "!"; }
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        # The parser may not yet support arrow/functions as top-level, but should at least parse variables
+        assert any(v.name == "arrow" for v in code_file.variables)
+        assert any(v.name == "expr" for v in code_file.variables)
+
+    def test_parameter_edge_cases(self, parser: TypeScriptParser):
+        code = """
+function edge(a, b?: number, c = 5, d: string = "x", ...rest: any[]) {}
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        func = code_file.functions[0]
+        param_names = [p.name for p in func.signature.parameters]
+        assert "a" in param_names
+        assert "b" in param_names
+        assert "c" in param_names
+        assert "d" in param_names
+        # rest parameter may not be parsed, but at least the others should be present
+        b_param = next(p for p in func.signature.parameters if p.name == "b")
+        assert b_param.type_hint == "number"
+        assert b_param.default_value is None
+        c_param = next(p for p in func.signature.parameters if p.name == "c")
+        assert c_param.default_value == "5"
+        d_param = next(p for p in func.signature.parameters if p.name == "d")
+        assert d_param.type_hint == "string"
+        assert d_param.default_value == '"x"'
+    
+    def test_class_with_method_and_attribute_references(self, parser: TypeScriptParser):
+        code = """
+class Helper {
+    doWork() { return 1; }
+    value: number = 42;
+}
+function useHelper(h: Helper): number {
+    return h.doWork() + h.value;
+}
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        from codetide.core.models import CodeBase
+        parser.resolve_intra_file_dependencies(CodeBase(root=[code_file]))
+        func = code_file.get("test.useHelper")
+        assert func is not None
+        ref_names = {ref.name for ref in func.references}
+        assert "doWork" in ref_names
+        assert "value" in ref_names
+
     def test_initialization(self, parser: TypeScriptParser):
         """Tests the basic properties and initialization of the parser."""
         assert parser.language == "typescript"
