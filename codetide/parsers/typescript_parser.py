@@ -144,47 +144,52 @@ class TypeScriptParser(BaseParser):
                 cls._process_expression_statement(child, code, codeFile)
 
     @classmethod
-    def _process_import_clause_node(cls, node: Node, code: bytes)->Tuple[Optional[str], Optional[str]]:
-        alias = None
-        next_is_alias = False
+    def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[Optional[str]]]:
+        names = []
+        aliases = []
+        
         for child in node.children:
             if child.type == "named_imports":
                 for import_child in child.children:
                     if import_child.type == "import_specifier":
+                        current_name = None
+                        current_alias = None
+                        next_is_alias = False
+                        
                         for alias_child in import_child.children:
                             if alias_child.type == "identifier" and not next_is_alias:
-                                name = cls._get_content(code, alias_child)
+                                current_name = cls._get_content(code, alias_child)
                             elif alias_child.type == "as":
                                 next_is_alias = True
                             elif alias_child.type == "identifier" and next_is_alias:
-                                alias = cls._get_content(code, alias_child)
+                                current_alias = cls._get_content(code, alias_child)
                                 next_is_alias = False
-
-                            if name and alias:
-                                return name, alias
-
-                        name = cls._get_content(code, import_child)
-                        return name, alias
-                    
+                        
+                        if current_name:
+                            names.append(current_name)
+                            aliases.append(current_alias)
+                        
             elif child.type == "identifier":
                 name = cls._get_content(code, child)
-                return name, alias
-            
-        return None, None
+                if name:
+                    names.append(name)
+                    aliases.append(None)
+        
+        return names, aliases
 
     @classmethod
     def _process_import_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
         source = None
-        name = None
-        alias = None
-        # is_relative = False
+        names = []
+        aliases = []
         next_is_from_import = False
         next_is_import = False
+        
         for child in node.children:
             if child.type == "import":
                 next_is_import = True
             elif child.type == "import_clause" and next_is_import:
-                name, alias = cls._process_import_clause_node(child, code)
+                names, aliases = cls._process_import_clause_node(child, code)
                 next_is_import = False
             elif next_is_import:
                 source = cls._get_content(code, child)
@@ -193,20 +198,30 @@ class TypeScriptParser(BaseParser):
                 next_is_from_import = True
             elif child.type == "string" and next_is_from_import:
                 source = cls._get_content(code, child)
-
-        if name and source is None:
-            source = name
-            name = None
+        if names and source is None:
+            source = names[0] if len(names) == 1 else None
+            if source:
+                names = []
+                aliases = []
 
         if source:
-            importStatement = ImportStatement(
-                source=source,
-                name=name,
-                alias=alias
-            )
-
-            codeFile.add_import(importStatement)
-            cls._generate_unique_import_id(codeFile.imports[-1])
+            if names:
+                for name, alias in zip(names, aliases):
+                    importStatement = ImportStatement(
+                        source=source,
+                        name=name,
+                        alias=alias
+                    )
+                    codeFile.add_import(importStatement)
+                    cls._generate_unique_import_id(codeFile.imports[-1])
+            else:
+                importStatement = ImportStatement(
+                    source=source,
+                    name=None,
+                    alias=None
+                )
+                codeFile.add_import(importStatement)
+                cls._generate_unique_import_id(codeFile.imports[-1])
 
     @classmethod
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
