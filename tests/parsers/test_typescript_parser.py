@@ -13,6 +13,51 @@ def parser() -> TypeScriptParser:
 
 class TestTypeScriptParser:
 
+    def test_simple_type_alias(self, parser: TypeScriptParser):
+        code = """
+type User = {
+    id: number;
+    username: string;
+};
+const u: User = { id: 1, username: "bob" };
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert any(cls.name == "User" for cls in code_file.classes)
+        user_cls = next(cls for cls in code_file.classes if cls.name == "User")
+        attr_names = {a.name for a in user_cls.attributes}
+        assert "id" in attr_names
+        assert "username" in attr_names
+
+    def test_type_with_methods(self, parser: TypeScriptParser):
+        code = """
+type Logger = {
+    log(message: string): void;
+    error(msg: string): void;
+};
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert any(cls.name == "Logger" for cls in code_file.classes)
+        logger_cls = next(cls for cls in code_file.classes if cls.name == "Logger")
+        method_names = {m.name for m in logger_cls.methods}
+        assert "log" in method_names
+        assert "error" in method_names
+
+    def test_type_extends_interface(self, parser: TypeScriptParser):
+        code = """
+interface Base { base: number; }
+type Extended = Base & { extra: string; };
+"""
+        file_path = Path("test.ts")
+        code_file = parser.parse_code(code.encode('utf-8'), file_path)
+        assert any(cls.name == "Extended" for cls in code_file.classes)
+        extended_cls = next(cls for cls in code_file.classes if cls.name == "Extended")
+        # Should have "Base" as a base (from intersection)
+        assert any("Base" in b for b in extended_cls.bases)
+        attr_names = {a.name for a in extended_cls.attributes}
+        assert "extra" in attr_names
+
     def test_simple_interface(self, parser: TypeScriptParser):
         code = """
 interface Person {
