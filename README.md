@@ -73,7 +73,7 @@ def init_llm() -> Llm:
 
 This setup allows the LLM to leverage CodeTide’s tools for codebase interactions.
 
-CodeTide can now be used as an MCP (Multi-Code Processor) Server! This allows seamless integration with AI tools and workflows. Below are the tools available:
+CodeTide can now be used as an MCP Server! This allows seamless integration with AI tools and workflows. Below are the tools available:
 The available tools are:
 - **getContext**: Retrieve code context for identifiers.
 - **getRepoTree**: Generate a visual tree representation of the repository.
