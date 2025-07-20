@@ -491,6 +491,9 @@ if __name__ == "__main__":
 
 AgentTide will prompt you for requests, retrieve the relevant code context, and generate precise patches to fulfill your requirements.
 
+**Disclaimer:**
+AgentTide is designed for focused, context-aware code editing, not for generating entire applications from vague ideas. While CodeTide as a platform can support larger workflows, the current version of AgentTide is optimized for making precise, well-scoped changes. For best results, provide one clear request at a time. AgentTide does not yet have access to your terminal or the ability to execute commands, but support for test-based validation is planned in future updates.
+
 For more details, see the [agents module source code](codetide/agents/tide/agent.py).
 
 ---
