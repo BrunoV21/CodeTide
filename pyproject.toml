@@ -48,6 +48,7 @@ visualization = [
 
 [project.scripts]
 codetide-mcp-server = "codetide.mcp.server:serve"
+codetide-cli = "codetide.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/BrunoV21/CodeTide"
