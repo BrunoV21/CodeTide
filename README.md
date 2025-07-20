@@ -2,8 +2,8 @@
 # <img src="./docs/assets/codetide-logo.png" alt="code-tide-logo" width="35" height="auto"/> CodeTide
 [![GitHub Stars](https://img.shields.io/github/stars/BrunoV21/CodeTide?style=social)](https://github.com/BrunoV21/CodeTide/stargazers)
 [![PyPI Downloads](https://static.pepy.tech/badge/CodeTide)](https://pepy.tech/projects/CodeTide)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/CodeTide?style=flat)
-![PyPI - Version](https://img.shields.io/pypi/v/CodeTide?style=flat)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/CodeTide?style=flat)](https://pypi.org/pypi/codetide/)
+[![PyPI - Version](https://img.shields.io/pypi/v/CodeTide?style=flat)](https://pypi.org/pypi/codetide/)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://pydantic.dev)
 --- 
 
