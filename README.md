@@ -40,6 +40,25 @@ CodeTide is available as a native [**Visual Studio Code extension**](https://mar
 
 CodeTide now supports acting as an **MCP Server**, enabling seamless integration with AI agents and tools. This feature allows agents to dynamically interact with your codebase and retrieve context efficiently.
 
+To enable CodeTide as an MCP server in your environment, add the following entry to your servers configuration file:
+```json
+{
+  "mcpServers": {
+    "codetide": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "codetide",
+        "codetide-mcp-server"
+      ],
+      "env": {
+        "CODETIDE_WORKSPACE": "./"
+      }
+    }
+  }
+}
+```
+
 #### Why This Helps Agents
 Agents working with codebases often need:
 - **Contextual Understanding**: Retrieve declarations, imports, and references for any part of the code.
