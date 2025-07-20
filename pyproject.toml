@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codetide"
+dynamic = ["version"]
+description = "CodeTide is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence."
+readme = "README.md"
+
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Bruno V.", email = "bruno.vitorino@tecnico.ulisboa.pt" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastmcp==2.9.2",
+    "loguru==0.7.3",
+    "orjson==3.10.13",
+    "pathspec==0.12.1",
+    "pydantic==2.10.3",
+    "pygit2==1.18.0",
+    "pyyaml==6.0.2",
+    "tree-sitter-python==0.23.6",
+    "tree-sitter-typescript==0.23.2",
+    "tree-sitter==0.24.0",
+    "ulid==1.1",
+]
+
+[project.optional-dependencies]
+agents = [
+    "core-for-ai>=0.1.98",
+    "prompt_toolkit==3.0.50",
+]
+visualization = [
+    "networkx==3.4.2",
+    "numpy==2.2.0",
+    "plotly==5.24.1",
+]
+
+[project.scripts]
+codetide-mcp-server = "codetide.mcp.server:serve"
+
+[project.urls]
+Homepage = "https://github.com/BrunoV21/CodeTide"
+
+[tool.hatch.version]
+path = "codetide/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/codetide",
+]
