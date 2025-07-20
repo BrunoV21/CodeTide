@@ -705,7 +705,7 @@ class PythonParser(BaseParser):
 
                                 if cls._check_for_typehint_class_methods_attr_references(
                                     imported_element=imported_element,
-                                    element_to_check=method,
+                                    element_to_check=attribute,
                                     ref_type=ref_type
                                 ):
                                     if matches_found >= matches_count:
