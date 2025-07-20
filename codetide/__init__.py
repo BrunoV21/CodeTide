@@ -1,5 +1,5 @@
 from codetide.core.defaults import (
-    DEFAULT_SERIALIZATION_PATH, DEFAULT_MAX_CONCURRENT_TASKS,
+    CODETIDE_ASCII_ART, DEFAULT_SERIALIZATION_PATH, DEFAULT_MAX_CONCURRENT_TASKS,
     DEFAULT_BATCH_SIZE, DEFAULT_CACHED_ELEMENTS_FILE, DEFAULT_CACHED_IDS_FILE,
     LANGUAGE_EXTENSIONS
 )
@@ -17,7 +17,7 @@ from pathlib import Path
 import asyncio
 import pygit2
 import time
-import json
+import orjson
 import os
 
 class CodeTide(BaseModel):
@@ -80,7 +80,7 @@ class CodeTide(BaseModel):
 
         codeTide._add_results_to_codebase(results)
         codeTide._resolve_files_dependencies()
-        logger.info(f"CodeTide initialized with {len(results)} files processed in {time.time() - st:.2f}s")
+        logger.info(f"\n{CODETIDE_ASCII_ART}\nInitialized with {len(results)} files processed in {time.time() - st:.2f}s")
 
         return codeTide
     
@@ -89,6 +89,10 @@ class CodeTide(BaseModel):
         return [
             str(filepath.relative_to(self.rootpath)).replace("\\", "/") for filepath in self.files
         ]
+    
+    @property
+    def cached_ids(self)->List[str]:
+        return self.codebase.unique_ids+self.relative_filepaths
     
     async def _reset(self):
         self = await self.from_path(self.rootpath)
@@ -138,7 +142,7 @@ class CodeTide(BaseModel):
 
         if include_cached_ids:
             cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
-            writeFile(json.dumps(self.codebase.unique_ids+self.relative_filepaths, indent=4), cached_ids_path)
+            writeFile(str(orjson.dumps(self.cached_ids, option=orjson.OPT_INDENT_2)), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, rootpath :Optional[Union[str, Path]] = None)->"CodeTide":
@@ -158,7 +162,7 @@ class CodeTide(BaseModel):
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"{filepath} is not a valid path")
         
-        kwargs = json.loads(readFile(filepath))
+        kwargs = orjson.loads(readFile(filepath))
         tideInstance = cls(**kwargs)
         
         # dir_path = Path(os.path.split(filepath))[0]
@@ -458,7 +462,7 @@ class CodeTide(BaseModel):
                     if self.rootpath / newFile.file_path in filepaths
                 ]
                 parser.resolve_inter_files_dependencies(self.codebase, filteredNewFiles)
-                parser.resolve_intra_file_dependencies(filteredNewFiles)
+                parser.resolve_intra_file_dependencies(self.codebase, filteredNewFiles)
 
                 for codeFile in filteredNewFiles:
                     i = changedPaths.get(codeFile.file_path)
@@ -485,36 +489,47 @@ class CodeTide(BaseModel):
             if self.rootpath / unique_id in self.files
         }
 
-    def get(self, unique_id :Union[str, List[str]], degree :int=1, slim :bool=False, as_string :bool=True, as_list_str :bool=False)->Union[CodeContextStructure, str, List[str]]:
+    def get(
+        self,
+        code_identifiers: Union[str, List[str]],
+        context_depth: int = 1,
+        concise_mode: bool = False,
+        as_string: bool = True,
+        as_string_list: bool = False
+    ) -> Union[CodeContextStructure, str, List[str]]:
         """
-        Retrieve context around code by unique ID(s).
+        Retrieves code context for given identifiers with flexible return formats.
+        Returns None if no matching identifiers are found.
 
         Args:
-            unique_id: Single or list of unique IDs for code entities.
-            degree: Depth of context to fetch.
-            as_string: Whether to return as a single string.
-            as_list_str: Whether to return as list of strings.
+            code_identifiers: One or more code element IDs or file paths to analyze.
+                            Examples: 'package.ClassName', 'dir/module.py:function', ['file.py', 'module.var']
+            context_depth: Number of reference levels to include (1=direct references only)
+            concise_mode: If True, returns minimal docstrings instead of full code (slim=True)
+            as_string: Return as single formatted string (default)
+            as_string_list: Return as list of strings (overrides as_string if True)
 
         Returns:
-            Code context in the requested format.
+            - CodeContextStructure if both format flags are False
+            - Single concatenated string if as_string=True
+            - List of context strings if as_string_list=True
+            - None if no matching identifiers exist
         """
-        if isinstance(unique_id, str):
-            unique_id = [unique_id]
+        if isinstance(code_identifiers, str):
+            code_identifiers = [code_identifiers]
 
-        # Log the incoming request
         logger.info(
-            f"Getting code context - IDs: {unique_id}, "
-            f"degree: {degree}, "
-            f"as_string: {as_string}, "
-            f"as_list_str: {as_list_str}"
+            f"Context request - IDs: {code_identifiers}, "
+            f"Depth: {context_depth}, "
+            f"Formats: string={as_string}, list={as_string_list}"
         )
 
-        requestedFiles = self._precheck_id_is_file(unique_id)
+        requested_files = self._precheck_id_is_file(code_identifiers)
         return self.codebase.get(
-            unique_id=unique_id,
-            degree=degree,
-            slim=slim,
+            unique_id=code_identifiers,
+            degree=context_depth,
+            slim=concise_mode,
             as_string=as_string,
-            as_list_str=as_list_str,
-            preloaded_files=requestedFiles
+            as_list_str=as_string_list,
+            preloaded_files=requested_files
         )

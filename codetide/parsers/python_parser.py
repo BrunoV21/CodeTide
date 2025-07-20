@@ -46,9 +46,9 @@ class PythonParser(BaseParser):
             return False
         
         stripped = content.strip()
-        if stripped.startswith('"""') and stripped.endswith('"""'):
+        if stripped.startswith('"""') and stripped.endswith('"""') and len(stripped) > 3:
             return True
-        elif stripped.startswith("'''") and stripped.endswith("'''"):
+        elif stripped.startswith("'''") and stripped.endswith("'''") and len(stripped) > 3:
             return True
         return False
     
@@ -505,9 +505,12 @@ class PythonParser(BaseParser):
         matches = re.findall(pattern, code)
         return len(matches)
 
-    def resolve_intra_file_dependencies(self, codeBase: CodeBase) -> None:
+    def resolve_intra_file_dependencies(self, codeBase: CodeBase, codeFiles :Optional[List[CodeFileModel]]=None) -> None:
         codeBase._build_cached_elements()
-        for codeFile in codeBase.root:
+        if codeFiles is None:
+            codeFiles = codeBase.root
+
+        for codeFile in codeFiles:
             if not codeFile.file_path.endswith(self.extension):
                 continue
             

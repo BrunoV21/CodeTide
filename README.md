@@ -36,6 +36,48 @@ CodeTide is available as a native [**Visual Studio Code extension**](https://mar
 
 ---
 
+## 🖧 CodeTide as an MCP Server
+
+CodeTide now supports acting as an **MCP Server**, enabling seamless integration with AI agents and tools. This feature allows agents to dynamically interact with your codebase and retrieve context efficiently.
+
+#### Why This Helps Agents
+Agents working with codebases often need:
+- **Contextual Understanding**: Retrieve declarations, imports, and references for any part of the code.
+- **Tool Integration**: Use built-in tools to navigate and analyze code.
+
+#### Available Tools
+CodeTide provides the following tools for agents:
+1. **`getContext`**: Retrieve code context for identifiers (e.g., functions, classes).
+2. **`getRepoTree`**: Explore the repository structure.
+
+#### Example: Initializing an LLM with CodeTide
+Here’s a snippet from `agent_tide.py` demonstrating how to initialize an LLM with CodeTide as an MCP server:
+
+```python
+from aicore.llm import Llm, LlmConfig
+from codetide.mcp import codeTideMCPServer
+import os
+
+def init_llm() -> Llm:
+    llm = Llm.from_config(
+        LlmConfig(
+            model="deepseek-chat",
+            provider="deepseek",
+            temperature=0,
+            api_key=os.getenv("DEEPSEEK-API-KEY")
+        )
+    )
+    llm.provider.mcp.add_server(name=codeTideMCPServer.name, parameters=codeTideMCPServer)
+    return llm
+```
+
+This setup allows the LLM to leverage CodeTide’s tools for codebase interactions.
+
+CodeTide can now be used as an MCP (Multi-Code Processor) Server! This allows seamless integration with AI tools and workflows. Below are the tools available:
+The available tools are:
+- **getContext**: Retrieve code context for identifiers.
+- **getRepoTree**: Generate a visual tree representation of the repository.
+
 ## ⚙️ Installation
 
 ### 📦 From PyPI
@@ -399,9 +441,57 @@ Here’s what’s next for CodeTide:
   
 ~~- 🧭 **Handle relative imports** in Python projects  
   → Improve resolution for intra-package navigation.~~
-- 🤖 **Long-term vision**: Release a native **CodeTide Agent**  
-  → Seamless, intelligent context resolution directly integrated into the CodeTide core.  
-  → Unlock **clinical issue detection**, **guided refactors**, and **agent-level navigation**.
+
+---
+
+## 🤖 Agents Module: AgentTide
+
+CodeTide now includes an `agents` module, featuring **AgentTide**—a precision-driven software engineering agent that connects directly to your codebase and executes your requests with full code context.
+
+**AgentTide** leverages CodeTide’s symbolic code understanding to:
+- Retrieve and reason about relevant code context for any request
+- Generate atomic, high-precision patches using strict protocols
+- Apply changes directly to your codebase, with robust validation
+
+### Where to Find It
+- Source: [`codetide/agents/tide/agent.py`](codetide/agents/tide/agent.py)
+
+### What It Does
+AgentTide acts as an autonomous agent that:
+- Connects to your codebase using CodeTide’s parsing and context tools
+- Interacts with users via a conversational interface
+- Identifies relevant files, classes, and functions for any request
+- Generates and applies diff-style patches, ensuring code quality and requirements fidelity
+
+### Example Usage
+To use AgentTide, ensure you have the `aicore` package installed (`pip install codetide[agents]`), then instantiate and run the agent:
+
+```python
+from codetide import CodeTide
+from codetide.agents.tide.agent import AgentTide
+from aicore.llm import Llm, LlmConfig
+import os, asyncio
+
+async def main():
+    tide = await CodeTide.from_path("/path/to/your/repo")
+    llm = Llm.from_config(
+        LlmConfig(
+            model="deepseek-chat",
+            provider="deepseek",
+            temperature=0,
+            api_key=os.getenv("DEEPSEEK-API-KEY")
+        )
+    )
+    agent = AgentTide(llm=llm, tide=tide)
+    await agent.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+AgentTide will prompt you for requests, retrieve the relevant code context, and generate precise patches to fulfill your requirements.
+
+For more details, see the [agents module source code](codetide/agents/tide/agent.py).
 
 ---
 

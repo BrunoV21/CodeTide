@@ -1,0 +1,2 @@
+core-for-ai>=0.1.98
+prompt_toolkit==3.0.50
