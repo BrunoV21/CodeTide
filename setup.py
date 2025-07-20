@@ -18,9 +18,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/BrunoV21/CodeTide",
     install_requires=requirements,
-    package_data={
-        "docs.assets": ["codetide-logo.png"]
-    },
+    include_package_data=True,
     extras_require={
         "visualization": requirements_visualization,
         "agents": requirements_agents
