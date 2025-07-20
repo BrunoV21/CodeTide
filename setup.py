@@ -24,7 +24,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "codetide=codetide.__main__:main",
+            "codetide-mcp-server=codetide.mcp.server:serve"
         ]
     },
     classifiers=[
