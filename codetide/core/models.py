@@ -135,7 +135,7 @@ class ClassDefinition(BaseCodeElement):
         
         return f"{self.docstring}{BREAKLINE}{BREAKLINE.join([attr.raw for attr in self.attributes])}"
     
-    def add_method(self, method :MethodDefinition):        
+    def add_method(self, method :MethodDefinition):
         """Adds method to class while setting proper file path and unique ID."""
 
         method.file_path = self.file_path
