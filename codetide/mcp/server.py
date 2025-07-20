@@ -3,7 +3,7 @@ from fastmcp import FastMCP
 
 codeTideMCPServer = FastMCP(
     name="codetide",
-    # instructions=AGENT_TIDE_SYSTEM_PROMPT,
+    instructions="Use this server to retrieve code context and explore the repository structure using the getContext and getRepoTree tools."
 )
 
 def serve():
