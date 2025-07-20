@@ -9,7 +9,7 @@ requirements_agents = (here / "requirements-agents.txt").read_text(encoding="utf
 
 setup(
     name="codetide",
-    version="0.0.21",
+    version="0.0.22",
     author="Bruno V.",
     author_email="bruno.vitorino@tecnico.ulisboa.pt",
     description="CodeTide is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.",
