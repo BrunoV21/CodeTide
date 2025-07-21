@@ -7,9 +7,13 @@ def readFile(path :Union[str, Path], mode :str="r")->str:
         contents = _file.read()
     return contents
 
-def writeFile(contents :str, path :Union[str, Path], mode :str="w"):
-    with open(path, mode, encoding=DEFAULT_ENCODING) as  _file:
-        _file.write(contents)
+def writeFile(contents: Union[str, bytes], path: Union[str, Path], mode: str = "w"):
+    if isinstance(contents, bytes):
+        with open(path, "wb") as f:
+            f.write(contents)
+    else:
+        with open(path, mode, encoding=DEFAULT_ENCODING) as f:
+            f.write(contents)
 
 def wrap_package_dependencies(content: str) -> str:
     return f"""<PACKAGE_DEPENDENCIES_START>

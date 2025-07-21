@@ -142,7 +142,7 @@ class CodeTide(BaseModel):
 
         if include_cached_ids:
             cached_ids_path = dir_path / DEFAULT_CACHED_IDS_FILE
-            writeFile(str(orjson.dumps(self.cached_ids, option=orjson.OPT_INDENT_2)), cached_ids_path)
+            writeFile(orjson.dumps(self.cached_ids, option=orjson.OPT_INDENT_2), cached_ids_path)
 
     @classmethod
     def deserialize(cls, filepath :Optional[Union[str, Path]]=DEFAULT_SERIALIZATION_PATH, rootpath :Optional[Union[str, Path]] = None)->"CodeTide":
