@@ -26,7 +26,9 @@ setup(
     entry_points={
         "console_scripts": [
             "codetide-mcp-server=codetide.mcp.server:serve",
-            "codetide-cli=codetide.cli:main"
+            "codetide-cli=codetide.cli:main",
+            # agent-tide-step requires the [agents] extra: pip install codetide[agents] or to execute uvx --from codetide[agents] agent-tide-step -h
+            "agent-tide-step=codetide.agents.tide.cli:main"
         ]
     },
     classifiers=[
