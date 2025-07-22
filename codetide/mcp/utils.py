@@ -1,6 +1,7 @@
 from ..core.defaults import DEFAULT_SERIALIZATION_PATH
 from codetide import CodeTide
 
+from typing import Optional
 from pathlib import Path
 import time
 import os
@@ -31,10 +32,12 @@ def safe_print(string :str):
             # Fallback to ASCII-safe output
             print(string.encode('ascii', 'replace').decode('ascii'))
 
-async def initCodeTide(force_build: bool = False, flush: bool = False)->CodeTide:
+async def initCodeTide(force_build: bool = False, flush: bool = False, workspace :Optional[Path]=None)->CodeTide:
     """Initializes CodeTide instance either from cache or fresh parse, with serialization options."""
     
-    workspace = getWorkspace()
+    if not workspace:
+        workspace = getWorkspace()
+    
     storagePath =  workspace / DEFAULT_SERIALIZATION_PATH
     try:
         if force_build:
