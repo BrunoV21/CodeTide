@@ -1,69 +1,40 @@
-from ...mcp.utils import initCodeTide
-from . import AgentTide
-
-
-try:
-    from aicore.logger import _logger
-    from aicore.config import Config
-    from aicore.llm import Llm
-except ImportError as e:
-    raise ImportError(
-        "The 'codetide.agents' module requires the 'aicore' package. "
-        "Install it with: pip install codetide[agents]"
-    ) from e
 
 from pathlib import Path
-import os
+import argparse
+import asyncio
 
-DEFAULT_AGENT_TIDE_LLM_CONFIG = "./config/agent_tide_llm_config.yml"
-DEFAULT_MAX_TOKENS = 48000
-
-def init_llm(project_path :Path)->Llm:
-    # TODO change this to from default path
-    config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG)
-    llm = Llm.from_config(Config.from_yaml(project_path / config_path).llm)
-    return llm
-
-async def run_tide_step(project_path :str, history :list):
-    if not history:
-        return
-
-    project_path = Path(project_path)
-    _logger.logger.remove()
-
-    llm = init_llm(project_path)
-    tide = await initCodeTide(workspace=project_path)
-
-    aTide = AgentTide(
-        llm=llm,
-        tide=tide,
-        history=history
-    )
-    aTide.trim_messages(aTide.history, llm.tokenizer, os.getenv("AGENT_TIDE_MAX_HISTORY_TOKENS", DEFAULT_MAX_TOKENS))
-
-    await aTide.agent_loop()
-
-
-def parse_history_arg(history_arg):
-    import json
-    import os
-    if not history_arg:
-        return []
-    if os.path.isfile(history_arg):
-        with open(history_arg, "r", encoding="utf-8") as f:
-            return json.load(f)
-    try:
-        return json.loads(history_arg)
-    except Exception:
-        return [history_arg]
-
+from ...mcp.utils import initCodeTide
+from .cli_step import init_llm, DEFAULT_MAX_HISTORY_TOKENS
+from .agent import AgentTide
 
 def main():
-    import argparse
-    import asyncio
-    parser = argparse.ArgumentParser(description="AgentTide Step CLI")
-    parser.add_argument("project_path", help="Path to the project root")
-    parser.add_argument("history", nargs="?", default=None, help="History as JSON string, file path, or single message")
+    parser = argparse.ArgumentParser(description="AgentTide Full Terminal CLI")
+    parser.add_argument(
+        "--project_path",
+        type=str,
+        default=".",
+        help="Path to the project root (default: current directory)"
+    )
+    parser.add_argument(
+        "--max_history_tokens",
+        type=int,
+        default=DEFAULT_MAX_HISTORY_TOKENS,
+        help=f"Maximum number of tokens to keep in history (default: {DEFAULT_MAX_HISTORY_TOKENS})"
+    )
     args = parser.parse_args()
-    history = parse_history_arg(args.history)
-    asyncio.run(run_tide_step(args.project_path, history))
+
+    asyncio.run(run_agent_tide_cli(args.project_path, args.max_history_tokens))
+
+async def run_agent_tide_cli(project_path: str, max_history_tokens: int):
+    project_path = Path(project_path)
+    llm = init_llm(project_path)
+    tide = await initCodeTide(workspace=project_path)
+    agent = AgentTide(
+        llm=llm,
+        tide=tide,
+        history=[]
+    )
+    await agent.run(max_tokens=max_history_tokens)
+
+if __name__ == "__main__":
+    main()
