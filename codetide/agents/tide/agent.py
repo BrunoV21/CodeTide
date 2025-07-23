@@ -108,15 +108,17 @@ class AgentTide(BaseModel):
                 try:
                     # 3. Use the async prompt instead of input()
                     message = await session.prompt_async("You: ")
-                    if message is not None:
-                        message = message.strip()
+                    if message is None:
+                        break
+                    
+                    message = message.strip()
 
                     if not message:
                         continue
 
                 except (EOFError, KeyboardInterrupt):
                     # prompt_toolkit raises EOFError on Ctrl-D and KeyboardInterrupt on Ctrl-C
-                    _logger.logger.warning("\nExiting...")
+                    _logger.logger.warning("Exiting...")
                     break
 
                 self.history.append(message)
@@ -129,4 +131,4 @@ class AgentTide(BaseModel):
             # This can happen if the event loop is shut down
             pass
         finally:
-            _logger.logger.info("\nExited by user. Goodbye!")
+            _logger.logger.info("Exited by user. Goodbye!")
