@@ -108,7 +108,8 @@ class AgentTide(BaseModel):
                 try:
                     # 3. Use the async prompt instead of input()
                     message = await session.prompt_async("You: ")
-                    message = message.strip()
+                    if message is not None:
+                        message = message.strip()
 
                     if not message:
                         continue
