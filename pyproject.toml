@@ -39,12 +39,18 @@ dependencies = [
 agents = [
     "core-for-ai>=0.1.98",
     "prompt_toolkit==3.0.50",
-    # Required for the agent-tide-step CLI entry point 
+    # Required for the agent-tide CLI entry point 
 ]
 visualization = [
     "networkx==3.4.2",
     "numpy==2.2.0",
     "plotly==5.24.1",
+]
+agents-ui = [
+    "core-for-ai>=0.1.98",
+    "prompt_toolkit==3.0.50",
+    # Required for the agent-tide CLI entry point
+    "chainlit==2.0.dev1"
 ]
 
 [project.scripts]
