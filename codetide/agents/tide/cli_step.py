@@ -1,3 +1,4 @@
+from .defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, DEFAULT_MAX_HISTORY_TOKENS
 from ...mcp.utils import initCodeTide
 from . import AgentTide
 
@@ -15,12 +16,9 @@ except ImportError as e:
 from pathlib import Path
 import os
 
-DEFAULT_AGENT_TIDE_LLM_CONFIG = "./config/agent_tide_llm_config.yml"
-DEFAULT_MAX_HISTORY_TOKENS = 48000
-
 def init_llm(project_path :Path)->Llm:
     # TODO change this to from default path
-    config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG)
+    config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
     llm = Llm.from_config(Config.from_yaml(project_path / config_path).llm)
     return llm
 

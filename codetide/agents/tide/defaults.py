@@ -1,0 +1,2 @@
+DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH = "./config/agent_tide_llm_config.yml"
+DEFAULT_MAX_HISTORY_TOKENS = 48000
