@@ -177,4 +177,5 @@ storage/
 logs/
 observability_data/
 config/
+.chainlit/
 
