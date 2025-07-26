@@ -336,10 +336,14 @@ class Parser:
             
             new_index, fuzz = find_context(orig_lines, next_ctx, search_start_idx, eof)
             if new_index == -1:
-                ctx_txt = "\n".join(next_ctx)
-                raise DiffError(
-                    f"In file '{path_for_error}', could not find context block:\n---\n{ctx_txt}\n---"
-                )
+                ## try again across the whole file
+                new_index, fuzz = find_context(orig_lines, next_ctx, 0, eof)
+
+                if new_index == -1:
+                    ctx_txt = "\n".join(next_ctx)
+                    raise DiffError(
+                        f"In file '{path_for_error}', could not find context block:\n---\n{ctx_txt}\n---"
+                    )
             
             self.fuzz += fuzz
             for ch in chunks:
