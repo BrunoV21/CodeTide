@@ -31,7 +31,8 @@ setup(
             "codetide-cli=codetide.cli:main",
             # agent-tide-step requires the [agents] extra: pip install codetide[agents] or to execute uvx --from codetide[agents] agent-tide-step -h
             "agent-tide-step=codetide.agents.tide.cli_step:main",
-            "agent-tide=codetide.agents.tide.cli:main"
+            "agent-tide=codetide.agents.tide.cli:main",
+            "agent-tide-ui=codetide.agents.tide.ui:serve"
         ]
     },
     classifiers=[
