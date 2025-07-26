@@ -10,6 +10,43 @@
 **CodeTide** is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.
 
 ---
+# Entrypoints & Usage
+
+CodeTide provides several entrypoints for interacting with the system via command-line and web UI. These entrypoints are exposed through the `uvx` launcher and require the appropriate extras to be installed.
+
+## CodeTide CLI
+
+To use the main CodeTide CLI:
+
+```sh
+uvx --from codetide codetide-cli --help
+```
+
+## AgentTide CLI
+
+To use the AgentTide conversational CLI, you must install the `[agents]` extra and launch via:
+
+```sh
+uvx --from codetide[agents] agent-tide
+```
+
+This will start an interactive terminal session with AgentTide.
+
+## AgentTide UI
+
+To use the AgentTide web UI, you must install the `[agents-ui]` extra and launch via:
+
+```sh
+uvx --from codetide[agents-ui] agent-tide-ui
+```
+
+This will start a web server for the AgentTide UI. Follow the on-screen instructions to interact with the agent in your browser.
+
+# Entrypoints & Usage
+
+CodeTide provides several entrypoints for interacting with the system via command-line and web UI. These entrypoints are exposed through the `uvx` launcher and require the appropriate extras to be installed.
+
+---
 
 ## ✅ Key Features
 
