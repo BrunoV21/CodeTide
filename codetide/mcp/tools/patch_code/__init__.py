@@ -7,6 +7,7 @@ import re
 import os
 
 BREAKLINE_TOKEN = "<n>"
+APOSTROPHE_TOKEN = "__APOSTROPHE__"
 
 BREAKLINE_PER_FILE_TYPE = {
     ".md": "\n",
@@ -101,13 +102,24 @@ def apply_commit(
             if change.move_path and target_path != path:
                 remove_fn(path)
 
-def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
+def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, apostrophe_token=APOSTROPHE_TOKEN):
     """
     Replace newlines with a special token only within single/double quoted strings,
-    but NOT within triple-quoted strings.
+    but NOT within triple-quoted strings. Also handles contractions by temporarily
+    replacing apostrophes in contractions with a dedicated token.
     """
     
-    # First, let's handle triple-quoted strings by temporarily replacing them
+    # Step 1: Handle contractions - replace apostrophes in contractions with a token
+    # Pattern matches letter + apostrophe + letter(s) combinations
+    contraction_pattern = r"([a-zA-Z])'([a-zA-Z]+)"
+    
+    def replace_contraction_apostrophe(match):
+        return f"{match.group(1)}{apostrophe_token}{match.group(2)}"
+    
+    # Replace apostrophes in contractions with tokens
+    text_with_contraction_tokens = re.sub(contraction_pattern, replace_contraction_apostrophe, text)
+    
+    # Step 2: Handle triple-quoted strings by temporarily replacing them
     # with placeholders to avoid processing them
     triple_quote_placeholders = []
     
@@ -120,9 +132,9 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
         return placeholder
     
     # Temporarily replace triple quotes with placeholders
-    text_with_placeholders = re.sub(triple_pattern, store_triple_quote, text, flags=re.DOTALL)
+    text_with_placeholders = re.sub(triple_pattern, store_triple_quote, text_with_contraction_tokens, flags=re.DOTALL)
     
-    # Now process single/double quoted strings (excluding triple quotes)
+    # Step 3: Process single/double quoted strings (excluding triple quotes)
     pattern = r'''
         (['"])         # Group 1: single or double quote (opening)
         (              # Group 2: content inside the quote
@@ -146,10 +158,13 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
     # Apply the replacement to single/double quoted strings only
     result = re.sub(pattern, replacer, text_with_placeholders, flags=re.VERBOSE | re.DOTALL)
     
-    # Restore the triple-quoted strings
+    # Step 4: Restore the triple-quoted strings
     for i, triple_quote in enumerate(triple_quote_placeholders):
         placeholder = f"__TRIPLE_QUOTE_{i}__"
         result = result.replace(placeholder, triple_quote)
+    
+    # Step 5: Restore apostrophes in contractions
+    result = result.replace(apostrophe_token, "'")
     
     return result
 
