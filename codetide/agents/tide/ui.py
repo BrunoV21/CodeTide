@@ -117,10 +117,8 @@ async def main(message: cl.Message):
     in_patch_block = False
     begin_marker = "*** Begin Patch"
     end_marker = "*** End Patch"
-    buffer = ""
-    in_patch_block = False
     
-    async with cl.Step("Diff", type="llm") as diff_step:        
+    async with cl.Step("ApplyPath", type="tool") as diff_step:
         await diff_step.remove()
         async for chunk in run_concurrent_tasks(agent_tide_ui):
             if chunk == STREAM_START_TOKEN:
@@ -144,12 +142,11 @@ async def main(message: cl.Message):
                             buffer = buffer[-len(begin_marker)+1:]
                         break
                     else:
-                        # Found begin marker
                         if idx > 0:
-                            # Stream content before the marker
+                            # Stream content before the marker to msg
                             await msg.stream_token(buffer[:idx])
                         
-                        # Start the code block
+                        # Start the code block in diff_step
                         await diff_step.stream_token("\n```shell\n")
                         in_patch_block = True
                         
@@ -172,10 +169,10 @@ async def main(message: cl.Message):
                     else:
                         # Found end marker
                         if idx > 0:
-                            # Stream content before the end marker
+                            # Stream content before the end marker to diff_step
                             await diff_step.stream_token(buffer[:idx])
                         
-                        # Close the code block
+                        # Close the code block in diff_step
                         await diff_step.stream_token("\n```\n")
                         in_patch_block = False
                         
@@ -183,13 +180,13 @@ async def main(message: cl.Message):
                         buffer = buffer[idx + len(end_marker):]
                         if buffer.startswith('\n'):
                             buffer = buffer[1:]
-                        # Continue processing the buffer
+                        # Continue processing the buffer (might find another patch!)
 
         # Handle any remaining content in buffer
         if buffer:
             if in_patch_block:
-                await msg.stream_token(buffer)
-                await msg.stream_token("\n```\n")  # Close any open code block
+                await diff_step.stream_token(buffer)
+                await diff_step.stream_token("\n```\n")  # Close any open code block
             else:
                 await msg.stream_token(buffer)
 
