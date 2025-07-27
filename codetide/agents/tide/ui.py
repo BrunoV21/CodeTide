@@ -119,81 +119,83 @@ async def main(message: cl.Message):
     end_marker = "*** End Patch"
     buffer = ""
     in_patch_block = False
-
-    async for chunk in run_concurrent_tasks(agent_tide_ui):
-        if chunk == STREAM_START_TOKEN:
-            continue
-        if chunk == STREAM_END_TOKEN:
-            break
-        
-        buffer += chunk
-        
-        # Process buffer until no more complete markers can be found
-        while True:
-            if not in_patch_block:
-                idx = buffer.find(begin_marker)
-                if idx == -1:
-                    # No begin marker found, stream everything except what might be a partial marker
-                    # Keep potential partial marker at end
-                    if len(buffer) >= len(begin_marker):
-                        stream_content = buffer[:-len(begin_marker)+1]
-                        if stream_content:
-                            await msg.stream_token(stream_content)
-                        buffer = buffer[-len(begin_marker)+1:]
-                    break
+    
+    async with cl.Step("Diff", type="llm") as diff_step:        
+        await diff_step.remove()
+        async for chunk in run_concurrent_tasks(agent_tide_ui):
+            if chunk == STREAM_START_TOKEN:
+                continue
+            if chunk == STREAM_END_TOKEN:
+                break
+            
+            buffer += chunk
+            
+            # Process buffer until no more complete markers can be found
+            while True:
+                if not in_patch_block:
+                    idx = buffer.find(begin_marker)
+                    if idx == -1:
+                        # No begin marker found, stream everything except what might be a partial marker
+                        # Keep potential partial marker at end
+                        if len(buffer) >= len(begin_marker):
+                            stream_content = buffer[:-len(begin_marker)+1]
+                            if stream_content:
+                                await msg.stream_token(stream_content)
+                            buffer = buffer[-len(begin_marker)+1:]
+                        break
+                    else:
+                        # Found begin marker
+                        if idx > 0:
+                            # Stream content before the marker
+                            await msg.stream_token(buffer[:idx])
+                        
+                        # Start the code block
+                        await diff_step.stream_token("\n```shell\n")
+                        in_patch_block = True
+                        
+                        # Remove everything up to and including the begin marker + newline
+                        buffer = buffer[idx + len(begin_marker):]
+                        if buffer.startswith('\n'):
+                            buffer = buffer[1:]
+                        # Continue processing the buffer
                 else:
-                    # Found begin marker
-                    if idx > 0:
-                        # Stream content before the marker
-                        await msg.stream_token(buffer[:idx])
-                    
-                    # Start the code block
-                    await msg.stream_token("\n```shell\n")
-                    in_patch_block = True
-                    
-                    # Remove everything up to and including the begin marker + newline
-                    buffer = buffer[idx + len(begin_marker):]
-                    if buffer.startswith('\n'):
-                        buffer = buffer[1:]
-                    # Continue processing the buffer
+                    # We're in a patch block
+                    idx = buffer.find(end_marker)
+                    if idx == -1:
+                        # No end marker found, stream everything except what might be a partial marker
+                        if len(buffer) >= len(end_marker):
+                            stream_content = buffer[:-len(end_marker)+1]
+                            if stream_content:
+                                await diff_step.stream_token(stream_content)
+                            buffer = buffer[-len(end_marker)+1:]
+                        break
+                    else:
+                        # Found end marker
+                        if idx > 0:
+                            # Stream content before the end marker
+                            await diff_step.stream_token(buffer[:idx])
+                        
+                        # Close the code block
+                        await diff_step.stream_token("\n```\n")
+                        in_patch_block = False
+                        
+                        # Remove everything up to and including the end marker
+                        buffer = buffer[idx + len(end_marker):]
+                        if buffer.startswith('\n'):
+                            buffer = buffer[1:]
+                        # Continue processing the buffer
+
+        # Handle any remaining content in buffer
+        if buffer:
+            if in_patch_block:
+                await msg.stream_token(buffer)
+                await msg.stream_token("\n```\n")  # Close any open code block
             else:
-                # We're in a patch block
-                idx = buffer.find(end_marker)
-                if idx == -1:
-                    # No end marker found, stream everything except what might be a partial marker
-                    if len(buffer) >= len(end_marker):
-                        stream_content = buffer[:-len(end_marker)+1]
-                        if stream_content:
-                            await msg.stream_token(stream_content)
-                        buffer = buffer[-len(end_marker)+1:]
-                    break
-                else:
-                    # Found end marker
-                    if idx > 0:
-                        # Stream content before the end marker
-                        await msg.stream_token(buffer[:idx])
-                    
-                    # Close the code block
-                    await msg.stream_token("\n```\n")
-                    in_patch_block = False
-                    
-                    # Remove everything up to and including the end marker
-                    buffer = buffer[idx + len(end_marker):]
-                    if buffer.startswith('\n'):
-                        buffer = buffer[1:]
-                    # Continue processing the buffer
+                await msg.stream_token(buffer)
 
-    # Handle any remaining content in buffer
-    if buffer:
-        if in_patch_block:
-            await msg.stream_token(buffer)
-            await msg.stream_token("\n```\n")  # Close any open code block
-        else:
-            await msg.stream_token(buffer)
-
-    # Send the final message
-    await msg.send()
-    await agent_tide_ui.add_to_history(msg.content)
+        # Send the final message
+        await msg.send()
+        await agent_tide_ui.add_to_history(msg.content)
 
 def serve():
     run_chainlit(os.path.abspath(__file__))
