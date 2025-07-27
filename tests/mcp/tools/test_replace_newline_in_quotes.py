@@ -187,3 +187,104 @@ with newlines that should NOT change"""'''
         expected = f"'' + '{BREAKLINE_TOKEN}test'"
         result = replace_newline_in_quotes(text)
         assert result == expected
+
+    def test_contractions_in_single_quoted_strings(self):
+        """Test contractions within single-quoted strings are preserved"""
+        text = "'We're going to the store'"
+        expected = "'We're going to the store'"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_contractions_in_double_quoted_strings(self):
+        """Test contractions within double-quoted strings are preserved"""
+        text = '"Don\'t forget to call"'
+        expected = '"Don\'t forget to call"'
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_contractions_with_newlines_in_quotes(self):
+        """Test contractions preserved when newlines are also replaced"""
+        text = "'I'm here\nWe're ready'"
+        expected = f"'I'm here{BREAKLINE_TOKEN}We're ready'"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_multiple_contractions_in_single_string(self):
+        """Test multiple contractions within a single quoted string"""
+        text = "'It's clear we're not going, don't worry'"
+        expected = "'It's clear we're not going, don't worry'"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_contractions_outside_quotes_preserved(self):
+        """Test contractions outside of quotes are preserved"""
+        text = "We're testing 'some string\\nwith newline' here"
+        expected = f"We're testing 'some string{BREAKLINE_TOKEN}with newline' here"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_contractions_in_triple_quotes_preserved(self):
+        """Test contractions in triple quotes are preserved (no processing)"""
+        text = '''"""We're testing this
+    Don't change anything here
+    It's all good"""'''
+        result = replace_newline_in_quotes(text)
+        assert result == text
+
+    def test_edge_case_apostrophe_vs_single_quote(self):
+        """Test distinguishing between contractions and single quotes"""
+        text = "'text' and we're 'more\\ntext'"
+        expected = f"'text' and we're 'more{BREAKLINE_TOKEN}text'"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_possessive_forms_preserved(self):
+        """Test possessive forms (like John's) are preserved"""
+        text = "'John's book has a\\nnewline in title'"
+        expected = f"'John's book has a{BREAKLINE_TOKEN}newline in title'"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_complex_contractions(self):
+        """Test various contraction forms"""
+        text = '"I\'ll, you\'ve, they\'d, won\'t all work\\nhere"'
+        expected = f'"I\'ll, you\'ve, they\'d, won\'t all work{BREAKLINE_TOKEN}here"'
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_contractions_in_python_code_context(self):
+        """Test contractions in a realistic Python code context"""
+        text = '''def greet():
+        message = "Hello! We're glad you're here\\nWelcome to our app"
+        error = 'Connection failed\\nCan\\'t reach server'
+        docstring = """
+        This function doesn't modify contractions in docstrings.
+        We're keeping them as-is here.
+        """
+        return message'''
+        
+        result = replace_newline_in_quotes(text)
+        
+        # Check contractions preserved and newlines replaced in quotes
+        assert f'"Hello! We\'re glad you\'re here{BREAKLINE_TOKEN}Welcome to our app"' in result
+        assert f"'Connection failed{BREAKLINE_TOKEN}Can\\'t reach server'" in result
+        
+        # Check triple quotes unchanged
+        assert '''"""
+        This function doesn't modify contractions in docstrings.
+        We're keeping them as-is here.
+        """''' in result
+
+    def test_nested_quotes_with_contractions(self):
+        """Test contractions in nested quote scenarios"""
+        text = '''"She said 'I\\'m not going\\nthere' to me"'''
+        expected = f'''"She said 'I\\'m not going{BREAKLINE_TOKEN}there' to me"'''
+        result = replace_newline_in_quotes(text)
+        assert result == expected
+
+    def test_contractions_at_string_boundaries(self):
+        """Test contractions at the beginning and end of strings"""
+        text = "'We're starting\\nIt's ending'"
+        expected = f"'We're starting{BREAKLINE_TOKEN}It's ending'"
+        result = replace_newline_in_quotes(text)
+        assert result == expected
