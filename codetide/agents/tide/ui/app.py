@@ -1,3 +1,8 @@
+import os
+from pathlib import Path
+
+# os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
+
 try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
@@ -15,10 +20,7 @@ except ImportError as e:
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.agent import AgentTide
 from codetide.mcp.utils import initCodeTide
-
-from pathlib import Path
 import asyncio
-import os
 
 class AgentTideUi(object):
     def __init__(self, project_path: Path = Path("./")):
@@ -118,7 +120,7 @@ async def main(message: cl.Message):
     begin_marker = "*** Begin Patch"
     end_marker = "*** End Patch"
     
-    async with cl.Step("ApplyPath", type="tool") as diff_step:
+    async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
         async for chunk in run_concurrent_tasks(agent_tide_ui):
             if chunk == STREAM_START_TOKEN:
@@ -195,4 +197,26 @@ async def main(message: cl.Message):
         await agent_tide_ui.add_to_history(msg.content)
 
 def serve():
+    # host = os.environ.get("CHAINLIT_HOST", DEFAULT_HOST)
+    # port = int(os.environ.get("CHAINLIT_PORT", DEFAULT_PORT))
+    # root_path = os.environ.get("CHAINLIT_ROOT_PATH", DEFAULT_ROOT_PATH)
+
+    # ssl_certfile = os.environ.get("CHAINLIT_SSL_CERT", None)
+    # ssl_keyfile = os.environ.get("CHAINLIT_SSL_KEY", None)
+
+    # ws_per_message_deflate_env = os.environ.get(
+    #     "UVICORN_WS_PER_MESSAGE_DEFLATE", "true"
+    # )
+    # ws_per_message_deflate = ws_per_message_deflate_env.lower() in [
+    #     "true",
+    #     "1",
+    #     "yes",
+    # ]  # Convert to boolean
+
+    # ws_protocol = os.environ.get("UVICORN_WS_PROTOCOL", "auto")
+    # root_path = os.environ.get("CHAINLIT_ROOT_PATH", DEFAULT_ROOT_PATH)
+    
     run_chainlit(os.path.abspath(__file__))
+
+if __name__ == "__main__":
+    serve()

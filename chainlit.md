@@ -1,60 +1,14 @@
-# Welcome to Agent Tide! 🚀🤖
+# Welcome to Chainlit! 🚀🤖
 
-```
-█████╗  ██████╗ ███████╗███╗   ██╗████████╗    ████████╗██╗██████╗ ███████╗
-██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝    ╚══██╔══╝██║██╔══██╗██╔════╝
-███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║          ██║   ██║██║  ██║█████╗  
-██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║          ██║   ██║██║  ██║██╔══╝  
-██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║          ██║   ██║██████╔╝███████╗
-╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝          ╚═╝   ╚═╝╚═════╝ ╚══════╝
-```
+Hi there, Developer! 👋 We're excited to have you on board. Chainlit is a powerful tool designed to help you prototype, debug and share applications built on top of LLMs.
 
+## Useful Links 🔗
 
-# CodeTide & AgentTide
+- **Documentation:** Get started with our comprehensive [Chainlit Documentation](https://docs.chainlit.io) 📚
+- **Discord Community:** Join our friendly [Chainlit Discord](https://discord.gg/k73SQ3FyUh) to ask questions, share your projects, and connect with other developers! 💬
 
-Welcome! This project uses **[CodeTide](https://github.com/BrunoV21/CodeTide)** — a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. CodeTide does not use LLMs, embeddings, or external APIs: all analysis is fast, explainable, and deterministic, running entirely on your machine.
+We can't wait to see what you create with Chainlit! Happy coding! 💻😊
 
-## What is AgentTide?
+## Welcome screen
 
-**AgentTide** is a precision-driven software engineering agent built on top of CodeTide. It connects directly to your codebase, retrieves relevant code context, and generates atomic, high-precision patches to fulfill your requests. AgentTide is designed for focused, context-aware code editing, ensuring code quality and requirements fidelity.
-
----
-
-**Original repository:** [https://github.com/BrunoV21/CodeTide](https://github.com/BrunoV21/CodeTide)
-
-
----
-
-## Example Things to Ask Agent Tide
-
-You can ask Agent Tide to perform a wide variety of code-related tasks. Here are some example prompts to get you started:
-
-- **Add new functionality**
-  - "Add a function to calculate the factorial of a number in `utils.py`."
-  - "Implement a REST API endpoint for user registration."
-
-- **Refactor or improve code**
-  - "Refactor the `process_data` function to improve readability and performance."
-  - "Rename the variable `x` to `user_id` throughout `models/user.py`."
-
-- **Fix bugs**
-  - "Fix the bug where the login form crashes on empty input."
-  - "Resolve the off-by-one error in the `get_page` method."
-
-- **Write or update tests**
-  - "Add unit tests for the `EmailSender` class."
-  - "Increase test coverage for `api/views.py`."
-
-- **Documentation**
-  - "Generate a docstring for the `parse_config` function."
-  - "Update the README with installation instructions."
-
-- **Code analysis and suggestions**
-  - "List all functions in `main.py` that are missing type annotations."
-  - "Suggest performance improvements for the `data_loader` module."
-
-- **Other codebase tasks**
-  - "Delete the deprecated `old_utils.py` file."
-  - "Move the `helpers` directory into `core/`."
-
-Feel free to be specific or general in your requests. Agent Tide will analyze your codebase and generate precise, production-ready patches to fulfill your needs!
+To modify the welcome screen, edit the `chainlit.md` file at the root of your project. If you do not want a welcome screen, just leave this file empty.
