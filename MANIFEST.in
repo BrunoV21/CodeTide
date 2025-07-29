@@ -3,3 +3,11 @@ include requirements-agents.txt
 include docs/assets/codetide-logo.png
 include requirements-visualization.txt
 include README.md
+
+# The following directories are only needed for the agent-ui build.
+# They contain the Chainlit-generated UI assets.
+# Only include these for the agent-ui variant to keep other builds light.
+graft codetide/agents/tide/ui/public
+graft codetide/agents/tide/ui/static
+graft codetide/agents/tide/ui/.chainlit
+codetide/agents/tide/ui/chainlit.md
