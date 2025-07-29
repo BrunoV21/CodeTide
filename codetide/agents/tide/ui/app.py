@@ -113,7 +113,7 @@ async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
             yield chunk
             
 @cl.on_message
-async def main(message: cl.Message):
+async def agent_loop(message: cl.Message):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
     await agent_tide_ui.add_to_history(message.content)
     msg = cl.Message(content="")
@@ -222,6 +222,34 @@ def serve(
     if ws_protocol is not None:
         os.environ["UVICORN_WS_PROTOCOL"] = str(ws_protocol)
     run_chainlit(os.path.abspath(__file__))
+
+
+def main():
+    import argparse
+    import os
+    from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
+    parser = argparse.ArgumentParser(description="Launch the Tide UI server.")
+    parser.add_argument("--host", type=str, default=None, help="Host to bind to")
+    parser.add_argument("--port", type=int, default=None, help="Port to bind to")
+    parser.add_argument("--root-path", type=str, default=None, help="Root path for the app")
+    parser.add_argument("--ssl-certfile", type=str, default=None, help="Path to SSL certificate file")
+    parser.add_argument("--ssl-keyfile", type=str, default=None, help="Path to SSL key file")
+    parser.add_argument("--ws-per-message-deflate", type=str, default="true", help="WebSocket per-message deflate (true/false)")
+    parser.add_argument("--ws-protocol", type=str, default="auto", help="WebSocket protocol")
+    parser.add_argument("--project-path", type=str, default="./", help="Path to the project directory")
+    parser.add_argument("--config-path", type=str, default=DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, help="Path to the config file")
+    args = parser.parse_args()
+    os.environ["AGENT_TIDE_PROJECT_PATH"] = args.project_path
+    os.environ["AGENT_TIDE_CONFIG_PATH"] = args.config_path
+    serve(
+        host=args.host,
+        port=args.port,
+        root_path=args.root_path,
+        ssl_certfile=args.ssl_certfile,
+        ssl_keyfile=args.ssl_keyfile,
+        ws_per_message_deflate=args.ws_per_message_deflate,
+        ws_protocol=args.ws_protocol,
+    )
 
 if __name__ == "__main__":
     serve()
