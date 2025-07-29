@@ -1,1 +1,1 @@
-chainlit==2.0.dev1
+chainlit==2.1.0
