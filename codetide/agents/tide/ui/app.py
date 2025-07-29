@@ -198,25 +198,29 @@ async def main(message: cl.Message):
         await msg.send()
         await agent_tide_ui.add_to_history(msg.content)
 
-def serve():
-    # host = os.environ.get("CHAINLIT_HOST", DEFAULT_HOST)
-    # port = int(os.environ.get("CHAINLIT_PORT", DEFAULT_PORT))
-    # root_path = os.environ.get("CHAINLIT_ROOT_PATH", DEFAULT_ROOT_PATH)
-
-    # ssl_certfile = os.environ.get("CHAINLIT_SSL_CERT", None)
-    # ssl_keyfile = os.environ.get("CHAINLIT_SSL_KEY", None)
-
-    # ws_per_message_deflate_env = os.environ.get(
-    #     "UVICORN_WS_PER_MESSAGE_DEFLATE", "true"
-    # )
-    # ws_per_message_deflate = ws_per_message_deflate_env.lower() in [
-    #     "true",
-    #     "1",
-    #     "yes",
-    # ]  # Convert to boolean
-
-    # ws_protocol = os.environ.get("UVICORN_WS_PROTOCOL", "auto")
-    # root_path = os.environ.get("CHAINLIT_ROOT_PATH", DEFAULT_ROOT_PATH)
+def serve(
+    host=None,
+    port=None,
+    root_path=None,
+    ssl_certfile=None,
+    ssl_keyfile=None,
+    ws_per_message_deflate="true",
+    ws_protocol="auto"
+):
+    if host is not None:
+        os.environ["CHAINLIT_HOST"] = str(host)
+    if port is not None:
+        os.environ["CHAINLIT_PORT"] = str(port)
+    if root_path is not None:
+        os.environ["CHAINLIT_ROOT_PATH"] = str(root_path)
+    if ssl_certfile is not None:
+        os.environ["CHAINLIT_SSL_CERT"] = str(ssl_certfile)
+    if ssl_keyfile is not None:
+        os.environ["CHAINLIT_SSL_KEY"] = str(ssl_keyfile)
+    if ws_per_message_deflate is not None:
+        os.environ["UVICORN_WS_PER_MESSAGE_DEFLATE"] = str(ws_per_message_deflate)
+    if ws_protocol is not None:
+        os.environ["UVICORN_WS_PROTOCOL"] = str(ws_protocol)
     run_chainlit(os.path.abspath(__file__))
 
 if __name__ == "__main__":
