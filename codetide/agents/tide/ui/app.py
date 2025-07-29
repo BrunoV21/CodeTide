@@ -1,16 +1,18 @@
-import os
+# ruff: noqa: E402
 from pathlib import Path
+import os
 
-# os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
+os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
 
 try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.logger import _logger
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
-    import chainlit as cl
-    from chainlit.cli import run_chainlit
     from chainlit.input_widget import Slider, TextInput
+    from chainlit.cli import run_chainlit
+    import chainlit as cl
+      
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' and 'chainlit' packages. "
@@ -215,7 +217,6 @@ def serve():
 
     # ws_protocol = os.environ.get("UVICORN_WS_PROTOCOL", "auto")
     # root_path = os.environ.get("CHAINLIT_ROOT_PATH", DEFAULT_ROOT_PATH)
-    
     run_chainlit(os.path.abspath(__file__))
 
 if __name__ == "__main__":
