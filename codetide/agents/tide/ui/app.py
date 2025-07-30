@@ -3,12 +3,14 @@ from pathlib import Path
 import os
 
 os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
+os.environ.setdefault("CHAINLIT_AUTH_SECRET","@6c1HFdtsjiYKe,-t?dZXnq%4xrgS/YaHte/:Dr6uYq0su/:fGX~M2uy0.ACehaK")
 
 try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.logger import _logger
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
+    from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from chainlit.input_widget import Slider, TextInput
     from chainlit.cli import run_chainlit
     import chainlit as cl
@@ -91,6 +93,14 @@ class AgentTideUi(object):
                 step=4096,
             )
         ]
+    
+@cl.password_auth_callback
+def auth():
+    return cl.User(identifier="test")
+
+@cl.data_layer
+def get_data_layer():
+    return SQLAlchemyDataLayer(conninfo=f"sqlite+aiosqlite:///{os.environ['CHAINLIT_APP_ROOT']}/database.db")
 
 @cl.on_settings_update
 async def setup_llm_config(settings):

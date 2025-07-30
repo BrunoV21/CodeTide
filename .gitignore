@@ -177,3 +177,4 @@ storage/
 logs/
 observability_data/
 config/
+*.db
