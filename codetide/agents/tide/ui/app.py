@@ -12,6 +12,7 @@ try:
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from chainlit.input_widget import Slider, TextInput
+    from chainlit.types import ThreadDict
     from chainlit.cli import run_chainlit
     import chainlit as cl
       
@@ -21,9 +22,12 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
+from codetide.agents.data_layer import init_db
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.agent import AgentTide
 from codetide.mcp.utils import initCodeTide
+
+import argparse
 import asyncio
 
 class AgentTideUi(object):
@@ -114,6 +118,12 @@ async def start_chat():
     await agent_tide_ui.load()
     cl.user_session.set("AgentTideUi", agent_tide_ui)
     await cl.ChatSettings(agent_tide_ui.settings()).send()
+    
+    cl.user_session.set("chat_history", [])
+
+@cl.on_chat_resume
+async def on_chat_resume(thread: ThreadDict):
+    pass
 
 async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
     asyncio.create_task(agent_tide_ui.agent_tide.agent_loop())
@@ -125,6 +135,12 @@ async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
 @cl.on_message
 async def agent_loop(message: cl.Message):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    
+    # Note: by default, the list of messages is saved and the entire user session is saved in the thread metadata
+    chat_history = cl.user_session.get("chat_history")
+    
+
+    chat_history.append({"role": "user", "content": message.content})
     await agent_tide_ui.add_to_history(message.content)
     msg = cl.Message(content="")
     buffer = ""
@@ -206,6 +222,8 @@ async def agent_loop(message: cl.Message):
 
         # Send the final message
         await msg.send()
+        
+        chat_history.append({"role": "assistant", "content": msg.content})
         await agent_tide_ui.add_to_history(msg.content)
 
 def serve(
@@ -235,9 +253,6 @@ def serve(
 
 
 def main():
-    import argparse
-    import os
-    from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
     parser = argparse.ArgumentParser(description="Launch the Tide UI server.")
     parser.add_argument("--host", type=str, default=None, help="Host to bind to")
     parser.add_argument("--port", type=int, default=None, help="Port to bind to")
@@ -249,8 +264,12 @@ def main():
     parser.add_argument("--project-path", type=str, default="./", help="Path to the project directory")
     parser.add_argument("--config-path", type=str, default=DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, help="Path to the config file")
     args = parser.parse_args()
+
     os.environ["AGENT_TIDE_PROJECT_PATH"] = args.project_path
     os.environ["AGENT_TIDE_CONFIG_PATH"] = args.config_path
+
+    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
+
     serve(
         host=args.host,
         port=args.port,
@@ -262,4 +281,6 @@ def main():
     )
 
 if __name__ == "__main__":
+    import asyncio
+    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
     serve()
