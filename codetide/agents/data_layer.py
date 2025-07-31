@@ -87,6 +87,7 @@ class Step(Base):
     showInput = mapped_column(Text)
     language = mapped_column(Text)
     indent = mapped_column(Integer)
+    defaultOpen = mapped_column(Boolean, default=False)
 
 class Element(Base):
     __tablename__ = "elements"
@@ -173,28 +174,6 @@ async def init_db(path: str):
     engine = create_async_engine(f"sqlite+aiosqlite:///{path}")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        
-           # Test ORM behavior
-    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-    
-    async with async_session() as session:
-        # Get a user using ORM
-        users = await session.execute(Select(User).limit(1))
-        user = users.scalar_one_or_none()
-        
-        if user:
-            print("\n=== ORM TEST ===")
-            print(f"user.user_metadata type: {type(user.user_metadata)}")
-            print(f"user.user_metadata value: {user.user_metadata}")
-            
-        # Get a thread using ORM  
-        threads = await session.execute(Select(Thread).limit(1))
-        thread = threads.scalar_one_or_none()
-        
-        if thread:
-            print(f"thread.user_metadata type: {type(thread.user_metadata)}")
-            print(f"thread.user_metadata value: {thread.user_metadata}")
-
 
 if __name__ == "__main__":
     asyncio.run(init_db("database.db"))
