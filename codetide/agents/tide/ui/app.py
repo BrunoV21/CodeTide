@@ -27,17 +27,18 @@ from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.agent import AgentTide
 from codetide.mcp.utils import initCodeTide
 
+from typing import Optional
 import argparse
 import asyncio
 
 class AgentTideUi(object):
-    def __init__(self, project_path: Path = Path("./")):
+    def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None):
         self.project_path: Path = Path(project_path)
         self.config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
         config = Config.from_yaml(self.project_path / self.config_path)
         self.llm_config: LlmConfig = config.llm
         self.agent_tide: AgentTide = None
-        self.history = []
+        self.history = [] if history is None else history
 
     async def load(self):
         self.agent_tide = AgentTide(
@@ -123,6 +124,10 @@ async def start_chat():
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
+    agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"))
+    await agent_tide_ui.load()
+    cl.user_session.set("AgentTideUi", agent_tide_ui)
+    ### TODO init agent_tide_ui and set chat_history at user_session
     pass
 
 async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
