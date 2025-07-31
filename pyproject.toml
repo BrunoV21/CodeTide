@@ -50,7 +50,9 @@ agents-ui = [
     "core-for-ai>=0.1.98",
     "prompt_toolkit==3.0.50",
     # Required for the agent-tide CLI entry point
-    "chainlit==2.1.0"
+    "chainlit==2.6.3",
+    "aiosqlite==0.21.0",
+    "SQLAlchemy==2.0.36"
 ]
 
 [project.scripts]
