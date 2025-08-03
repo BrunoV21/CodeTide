@@ -99,6 +99,25 @@ class AgentTideUi(object):
             )
         ]
     
+def process_thread(thread :ThreadDict):
+    ### type: tool
+    ### if nout ouput pop
+    ### start = end
+    idx_to_pop = []
+    for i, entry in enumerate(thread.get("steps")):
+
+        if entry.get("type") == "tool":
+            if not entry.get("output"):
+                idx_to_pop.insert(0, i)
+                continue
+
+            entry["start"] = entry["end"]
+
+    for idx in idx_to_pop:
+        thread.get("steps").pop(idx)
+
+    # TODO return history to init AgentTideUi
+
 @cl.password_auth_callback
 def auth():
     return cl.User(identifier="test")
@@ -124,11 +143,11 @@ async def start_chat():
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
+    process_thread(thread)
     agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"))
     await agent_tide_ui.load()
     cl.user_session.set("AgentTideUi", agent_tide_ui)
     ### TODO init agent_tide_ui and set chat_history at user_session
-    pass
 
 async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
     asyncio.create_task(agent_tide_ui.agent_tide.agent_loop())
@@ -289,3 +308,5 @@ if __name__ == "__main__":
     import asyncio
     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
     serve()
+
+    # TODO support updating project path via settings and configurations via settings to support multiple project from the same ui
