@@ -27,16 +27,21 @@ from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.agent import AgentTide
 from codetide.mcp.utils import initCodeTide
 
-from typing import Optional
+from typing import List, Optional, Tuple
 import argparse
 import asyncio
+import orjson
 
 class AgentTideUi(object):
-    def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None):
+    def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None, llm_config :Optional[LlmConfig]=None):
         self.project_path: Path = Path(project_path)
         self.config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
-        config = Config.from_yaml(self.project_path / self.config_path)
-        self.llm_config: LlmConfig = config.llm
+        if llm_config is None:
+            config = Config.from_yaml(self.project_path / self.config_path)
+            self.llm_config: LlmConfig = config.llm
+        else:
+            self.llm_config = llm_config
+        
         self.agent_tide: AgentTide = None
         self.history = [] if history is None else history
 
@@ -99,11 +104,12 @@ class AgentTideUi(object):
             )
         ]
     
-def process_thread(thread :ThreadDict):
+def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig]]:
     ### type: tool
     ### if nout ouput pop
     ### start = end
     idx_to_pop = []
+    
     for i, entry in enumerate(thread.get("steps")):
 
         if entry.get("type") == "tool":
@@ -116,7 +122,17 @@ def process_thread(thread :ThreadDict):
     for idx in idx_to_pop:
         thread.get("steps").pop(idx)
 
-    # TODO return history to init AgentTideUi
+    metadata = thread.get("metadata")
+    if metadata:
+        metadata = orjson.loads(metadata)
+        history = metadata.get("chat_history", [])
+        settings = metadata.get("chat_settings")
+    
+    else:
+        history = []
+        settings = None
+
+    return history, settings
 
 @cl.password_auth_callback
 def auth():
@@ -129,8 +145,14 @@ def get_data_layer():
 @cl.on_settings_update
 async def setup_llm_config(settings):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
-    await cl.ChatSettings(agent_tide_ui.settings()).send()
-    agent_tide_ui.llm = Llm.from_config(agent_tide_ui.llm_config)
+    settings = await cl.ChatSettings(agent_tide_ui.settings()).send()
+    
+    agent_tide_ui.llm_config = LlmConfig(**settings)
+    if Path(settings.get("project_path")) != agent_tide_ui.project_path:
+        agent_tide_ui.project_path = settings.get("project_path")
+        await agent_tide_ui.load()
+    else:
+        agent_tide_ui.agent_tide.llm = Llm.from_config(agent_tide_ui.llm_config)
 
 @cl.on_chat_start
 async def start_chat():
@@ -143,11 +165,10 @@ async def start_chat():
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
-    process_thread(thread)
-    agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"))
+    history, settings = process_thread(thread)
+    agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"), history=history, llm_config=settings)
     await agent_tide_ui.load()
     cl.user_session.set("AgentTideUi", agent_tide_ui)
-    ### TODO init agent_tide_ui and set chat_history at user_session
 
 async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
     asyncio.create_task(agent_tide_ui.agent_tide.agent_loop())
@@ -308,5 +329,3 @@ if __name__ == "__main__":
     import asyncio
     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
     serve()
-
-    # TODO support updating project path via settings and configurations via settings to support multiple project from the same ui
