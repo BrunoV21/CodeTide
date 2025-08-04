@@ -134,3 +134,36 @@ class AutoComplete:
             "is_valid": False,
             "matching_identifiers": close_matches
         }
+    
+    def validate_paths(self, file_paths):
+        """
+        Validate a list of file paths. For each path, check if it is valid; if not, try to match it to a valid one using autocomplete logic.
+        Args:
+            file_paths (list of str): List of file paths to validate.
+        Returns:
+            list of str: List of valid file paths (matched or original).
+        Raises:
+            ValueError: If a path cannot be matched to a valid entry.
+        """
+        import os
+        valid_paths = []
+        valid_set = set(self.words)
+        for path in file_paths:
+            # Direct match
+            if path in valid_set:
+                valid_paths.append(path)
+                continue
+            # Try normalization: replace '.' with os.sep, strip leading/trailing spaces
+            normalized = path.replace('.', os.sep).replace('\\', os.sep).replace('/', os.sep).strip()
+            # Try to match normalized path
+            if normalized in valid_set:
+                valid_paths.append(normalized)
+                continue
+                
+            # Try to find close matches using autocomplete logic
+            suggestions = []
+            if hasattr(self, "get_fuzzy_suggestions"):
+                suggestions = self.get_fuzzy_suggestions(path, 1)
+                if not suggestions:
+                    raise ValueError(f"Invalid file path: '{path}'")
+        return valid_paths
