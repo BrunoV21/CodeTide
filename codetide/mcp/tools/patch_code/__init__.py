@@ -1,5 +1,7 @@
+
 from .models import DiffError, Patch, Commit, ActionType
 from .parser import Parser, patch_to_commit
+# from ....core.common import writeFile
 
 from typing import Dict, Tuple, List, Callable
 import pathlib
@@ -30,6 +32,8 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
             lines[i] = f" {line}"
     
     # print(f"\n\n{lines[-2:]=}")
+    # writeFile("\n".join(lines), "lines.txt")
+    # writeFile("\n".join(list(orig.values())), "orig.txt")
 
     if not lines or not Parser._norm(lines[0]).startswith("*** Begin Patch"):
         raise DiffError("Invalid patch text - must start with '*** Begin Patch'.")
@@ -187,6 +191,7 @@ def process_patch(
             raise DiffError(f"Add File Error - file already exists: {p}")
 
     paths_needed = identify_files_needed(text)
+    # TODO cann add autocomplete with cached paths from tide here to validate if required
     orig_files = load_files(paths_needed, open_fn)
     
     patch, _fuzz = text_to_patch(text, orig_files)
