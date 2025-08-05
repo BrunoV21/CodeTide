@@ -28,7 +28,7 @@ def parse_steps_markdown(md: str):
     # Extract only content between *** Begin Steps and *** End Steps
     match = re.search(r"\*\*\* Begin Steps(.*?)\*\*\* End Steps", md, re.DOTALL)
     if not match:
-        raise ValueError("No steps block found.")
+        return []
     
     steps_block = match.group(1).strip()
 

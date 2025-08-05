@@ -2,10 +2,10 @@ from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
 from ...autocomplete import AutoComplete
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
+    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
+from .utils import parse_patch_blocks, parse_steps_markdown
 from .consts import AGENT_TIDE_ASCII_ART
-from .utils import parse_patch_blocks
 
 try:
     from aicore.llm import Llm
@@ -74,6 +74,61 @@ class AgentTide(BaseModel):
             prefix_prompt=codeContext
         )
         
+        diffPatches = parse_patch_blocks(response, multiple=True)
+        if diffPatches:
+
+            for patch in diffPatches:
+                patch = patch.replace("\'", "'").replace('\"', '"')
+                process_patch(patch, open_file, write_file, remove_file, file_exists)
+
+            
+            await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+        
+        self.history.append(response)
+
+    async def agent_loop_planing(self):
+        TODAY = date.today()
+        repo_tree = self.tide.codebase.get_tree_view(
+            include_modules=True,
+            include_types=True
+        )
+
+        codeIdentifiers = await self.llm.acomplete(
+            self.history,
+            system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
+            prefix_prompt=repo_tree,
+            stream=False,
+            json_output=True
+        )
+
+        codeContext = None
+        if codeIdentifiers:
+            autocomplete = AutoComplete(self.tide.cached_ids)    
+            # Validate each code identifier
+            validatedCodeIdentifiers = []
+            for codeId in codeIdentifiers:
+                result = autocomplete.validate_code_identifier(codeId)
+                if result.get("is_valid"):
+                    validatedCodeIdentifiers.append(codeId)
+                
+                elif result.get("matching_identifiers"):
+                    validatedCodeIdentifiers.append(result.get("matching_identifiers")[0])
+
+            codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
+
+        response = await self.llm.acomplete(
+            self.history,
+            system_prompt=[
+                AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
+                STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
+                WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
+            ],
+            prefix_prompt=codeContext
+        )
+        
+        steps = parse_steps_markdown(response)
+        print(f"{steps=}")
+
         diffPatches = parse_patch_blocks(response, multiple=True)
         if diffPatches:
 
