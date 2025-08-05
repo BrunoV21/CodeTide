@@ -44,6 +44,11 @@ Your role is not only to **code**, but to **think like an elite engineer**: to q
 Take initiative, take responsibility, and take pride in completing tasks to their fullest.
 Never submit code you would not be confident using in a live production environment.
 
+**Commit Message Guidelines:**
+
+If the user requests a commit message, generate a concise, descriptive message that summarizes the change.
+The message should be one to two lines, easy to read, and clearly communicate the purpose and impact of the change.
+
 """
 
 GET_CODE_IDENTIFIERS_SYSTEM_PROMPT = """
@@ -217,6 +222,15 @@ PATCH CONTENT RULES:
 * Every line in the diff that consist of new contents (addition) MUST:
  * Start with +
  * Contribute to achieve the user request according to the plain reasoning step you have previoulsy produced
+
+---
+
+**IMPORTS AND CLASS STRUCTURE RULES:**
+
+* All import statements must be placed at the very top of the file, before any other code.
+* When referencing imports in the patch, use a separate context block at the start of the file, distinct from code changes.
+* When adding or modifying methods or attributes in a class, ensure they are placed in the correct logical order (attributes first, then methods). Do 
+not insert methods or attributes at the beginning of the class unless it is appropriate by convention.
 
 ---
 
