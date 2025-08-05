@@ -29,6 +29,7 @@ from codetide.mcp.utils import initCodeTide
 
 from typing import List, Optional, Tuple
 import argparse
+import getpass
 import asyncio
 import orjson
 
@@ -161,7 +162,8 @@ def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig]]:
 
 @cl.password_auth_callback
 def auth():
-    return cl.User(identifier="test")
+    username = getpass.getuser()
+    return cl.User(identifier=username, display_name=username)
 
 @cl.data_layer
 def get_data_layer():
@@ -174,8 +176,9 @@ async def setup_llm_config(settings):
     
     agent_tide_ui.llm_config = LlmConfig(**settings)
     if Path(settings.get("project_path")) != agent_tide_ui.project_path:
-        agent_tide_ui.project_path = settings.get("project_path")
+        agent_tide_ui.project_path = Path(settings.get("project_path"))
         await agent_tide_ui.load()
+        await cl.send_window_message(f"Agent Tide is connected to workspace: {settings.get('project_path')}")
     else:
         agent_tide_ui.agent_tide.llm = Llm.from_config(agent_tide_ui.llm_config)
 
@@ -296,6 +299,10 @@ async def agent_loop(message: cl.Message):
         chat_history.append({"role": "assistant", "content": msg.content})
         await agent_tide_ui.add_to_history(msg.content)
 
+# def generate_temp_password(length=16):
+#     characters = string.ascii_letters + string.digits + string.punctuation
+#     return ''.join(secrets.choice(characters) for _ in range(length))
+
 def serve(
     host=None,
     port=None,
@@ -304,7 +311,19 @@ def serve(
     ssl_keyfile=None,
     ws_per_message_deflate="true",
     ws_protocol="auto"
-):
+):    
+    username = getpass.getuser()    
+    GREEN = "\033[92m"
+    RESET = "\033[0m"
+
+    print(f"\n{GREEN}Your chainlit username is `{username}`{RESET}\n")
+
+
+    # if not os.getenv("_PASSWORD"):
+    #     temp_password = generate_temp_password()
+    #     os.environ["_PASSWORD"] = temp_password
+    #     print(f"Your temporary password is `{temp_password}`")
+
     if host is not None:
         os.environ["CHAINLIT_HOST"] = str(host)
     if port is not None:
