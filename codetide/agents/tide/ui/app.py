@@ -257,6 +257,12 @@ async def agent_loop(message: cl.Message):
             
             await stream_processor.process_chunk(chunk)
         
+        # print(f"{agent_tide_ui.agent_tide.steps=}")
+        if agent_tide_ui.agent_tide.steps: 
+            msg.actions = [
+                cl.Action(name="execute_steps", payload={"value": "example_value"}, label="Run Steps One by One")
+            ]
+
         # # Send the final message
         await msg.send()
         
