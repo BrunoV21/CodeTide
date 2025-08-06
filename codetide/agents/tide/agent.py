@@ -1,6 +1,7 @@
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
 from ...autocomplete import AutoComplete
+from .models import Steps
 from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
@@ -28,6 +29,7 @@ class AgentTide(BaseModel):
     llm :Llm
     tide :CodeTide
     history :Optional[list]=None
+    steps :Optional[Steps]=None
 
     @staticmethod
     def trim_messages(messages, tokenizer_fn, max_tokens :Optional[int]=None):
@@ -127,7 +129,8 @@ class AgentTide(BaseModel):
         )
         
         steps = parse_steps_markdown(response)
-        print(f"{steps=}")
+        if steps:
+            self.steps = Steps.from_steps(steps)
 
         diffPatches = parse_patch_blocks(response, multiple=True)
         if diffPatches:
