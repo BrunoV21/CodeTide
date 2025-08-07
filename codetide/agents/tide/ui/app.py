@@ -6,13 +6,12 @@ os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).p
 os.environ.setdefault("CHAINLIT_AUTH_SECRET","@6c1HFdtsjiYKe,-t?dZXnq%4xrgS/YaHte/:Dr6uYq0su/:fGX~M2uy0.ACehaK")
 
 try:
-    from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
-    from aicore.logger import _logger
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
+    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks
+    from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
-    from chainlit.input_widget import Slider, TextInput, Switch
     from chainlit.types import ThreadDict
     from chainlit.cli import run_chainlit
     import chainlit as cl
@@ -23,149 +22,11 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
-from codetide.agents.data_layer import init_db
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
-from codetide.agents.tide.agent import AgentTide
-from codetide.mcp.utils import initCodeTide
-
-from typing import List, Optional, Tuple
+from codetide.agents.data_layer import init_db
 import argparse
 import getpass
 import asyncio
-import orjson
-
-class AgentTideUi(object):
-    def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None, llm_config :Optional[LlmConfig]=None):
-        self.project_path: Path = Path(project_path)
-        self.config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
-        if llm_config is None:
-            config = Config.from_yaml(self.project_path / self.config_path)
-            self.llm_config: LlmConfig = config.llm
-        else:
-            self.llm_config = llm_config
-        
-        self.agent_tide: AgentTide = None
-        self.history = [] if history is None else history
-
-    async def load(self):
-        self.agent_tide = AgentTide(
-            llm=Llm.from_config(self.llm_config),
-            tide=await initCodeTide(workspace=self.project_path),
-            history=self.history
-        )
-
-    async def add_to_history(self, message):
-        self.history.append(message)
-        if not self.agent_tide:
-            await self.load()
-        else:
-            self.agent_tide.history.append(message)
-
-    def settings(self):
-        return [
-            TextInput(
-                id="project_path",
-                label="Project Path",
-                initial=str(Path(os.getcwd())/(self.project_path))
-            ),
-            Switch(
-                id="planning_mode",
-                label="Planning Mode",
-                initial=False,
-                description="if active, Agent Tide will first generate a list of tasks and prompt you to select which ones to tackle"
-            ),
-            TextInput(
-                id="provider",
-                label="Provider",
-                initial=self.llm_config.provider
-            ),
-            TextInput(
-                id="model",
-                label="LLM",
-                initial=self.llm_config.model
-            ),
-            TextInput(
-                id="api_key",
-                label="API Key",
-                initial=self.llm_config.api_key
-            ),
-            TextInput(
-                id="base_url",
-                label="Base URL",
-                initial=self.llm_config.base_url
-            ),
-            Slider(
-                id="temperature",
-                label="Temperature",
-                initial=self.llm_config.temperature,
-                min=0,
-                max=1,
-                step=0.1,
-            ),
-            Slider(
-                id="max_tokens",
-                label="Max Tokens",
-                initial=self.llm_config.max_tokens,
-                min=4096,
-                max=self.llm_config.max_tokens,
-                step=4096,
-            )
-        ]
-    
-def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig]]:
-    ### type: tool
-    ### if nout ouput pop
-    ### start = end
-    idx_to_pop = []
-    steps = thread.get("steps")
-    tool_moves = []
-    for i, entry in enumerate(steps):
-        if entry.get("type") == "tool":
-            if not entry.get("output"):
-                idx_to_pop.insert(0, i)
-                continue
-            entry["start"] = entry["end"]
-            tool_moves.append(i)
-
-    for idx in idx_to_pop:
-        steps.pop(idx)
-
-    # Move tool entries with output after the next non-tool entry
-    # Recompute tool_moves since popping may have changed indices
-    # We'll process from the end to avoid index shifting issues
-    # First, collect the indices of tool entries with output again
-    tool_indices = []
-    for i, entry in enumerate(steps):
-        if entry.get("type") == "tool" and entry.get("output"):
-            tool_indices.append(i)
-    # For each tool entry, move it after the next non-tool entry
-    # Process from last to first to avoid index shifting
-    for tool_idx in reversed(tool_indices):
-        tool_entry = steps[tool_idx]
-        # Find the next non-tool entry after tool_idx
-        insert_idx = None
-        for j in range(tool_idx + 1, len(steps)):
-            if steps[j].get("type") != "tool":
-                insert_idx = j + 1
-                break
-        if insert_idx is not None and insert_idx - 1 != tool_idx:
-            # Remove and insert at new position
-            steps.pop(tool_idx)
-            # If tool_idx < insert_idx, after pop, insert_idx decreases by 1
-            if tool_idx < insert_idx:
-                insert_idx -= 1
-            steps.insert(insert_idx, tool_entry)
-
-    metadata = thread.get("metadata")
-    if metadata:
-        metadata = orjson.loads(metadata)
-        history = metadata.get("chat_history", [])
-        settings = metadata.get("chat_settings")
-    else:
-        history = []
-        settings = None
-
-    return history, settings
 
 @cl.password_auth_callback
 def auth():
@@ -205,12 +66,34 @@ async def on_chat_resume(thread: ThreadDict):
     await agent_tide_ui.load()
     cl.user_session.set("AgentTideUi", agent_tide_ui)
 
-async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
-    asyncio.create_task(agent_tide_ui.agent_tide.agent_loop_planing())
-    asyncio.create_task(_logger.distribute())
-    while True:
-        async for chunk in _logger.get_session_logs(agent_tide_ui.agent_tide.llm.session_id):
-            yield chunk
+@cl.action_callback("execute_steps")
+async def on_action(action):    
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+
+    # await cl.Message(content=f"Executed {action.name}").send()
+    
+
+    if agent_tide_ui.current_step is None:
+        task_list = cl.TaskList("Steps")
+        task_list.status = "Executing step 0"
+        for step in agent_tide_ui.agent_tide.steps.root:
+            # message = await cl.Message(
+            #     content=f"Step {step.step}.\n\n**Instructions**:\n{step.instructions}",
+            #     metadata={"context_identifiers": step.context_identifiers}
+            # ).send()
+            task = cl.Task(title=step.description)#, forId=message.id)
+            await task_list.add_task(task)
+
+        # Update the task list in the interface
+        await task_list.send()
+    
+    is_last = agent_tide_ui.increment_step()
+    # Optionally remove the action button from the chatbot user interface
+
+    if is_last:
+        await action.remove()        
+        await task_list.remove()
 
 @cl.on_message
 async def agent_loop(message: cl.Message):
@@ -258,11 +141,22 @@ async def agent_loop(message: cl.Message):
             await stream_processor.process_chunk(chunk)
         
         # print(f"{agent_tide_ui.agent_tide.steps=}")
-        if agent_tide_ui.agent_tide.steps: 
+        if agent_tide_ui.agent_tide.steps:
+            if agent_tide_ui.current_step is None:
+                label="Run Steps One by One"
+            elif agent_tide_ui.current_step == len(agent_tide_ui.agent_tide.steps.root) -1:
+                label = "Close Steps List"
+            else:
+                label = f"Proceed to step {agent_tide_ui.current_step+1}"
+ 
             msg.actions = [
-                cl.Action(name="execute_steps", payload={"value": "example_value"}, label="Run Steps One by One")
+                cl.Action(
+                    name="execute_steps", 
+                    payload={"step": "example_value"},
+                    label=label
+                )
             ]
-
+            
         # # Send the final message
         await msg.send()
         
