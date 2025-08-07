@@ -76,7 +76,6 @@ async def on_action(action):
 
     if agent_tide_ui.current_step is None:
         task_list = cl.TaskList("Steps")
-        task_list.status = "Executing step 0"
         for step in agent_tide_ui.agent_tide.steps.root:
             # message = await cl.Message(
             #     content=f"Step {step.step}.\n\n**Instructions**:\n{step.instructions}",
@@ -87,13 +86,36 @@ async def on_action(action):
 
         # Update the task list in the interface
         await task_list.send()
-    
-    is_last = agent_tide_ui.increment_step()
+        cl.user_session.set("StepsTaskList", task_list)
+
+    else:
+        task_list = cl.user_session.get("StepsTaskList")
+
+    is_done = agent_tide_ui.increment_step()
     # Optionally remove the action button from the chatbot user interface
 
-    if is_last:
-        await action.remove()        
+    if is_done:
+        await action.remove()
+        task_list.tasks[-1].status = cl.TaskStatus.DONE
+        await cl.sleep(3)
         await task_list.remove()
+
+    else:
+        current_task_idx = agent_tide_ui.current_step
+        if current_task_idx >= 1:
+            task_list.tasks[current_task_idx-1].status = cl.TaskStatus.DONE
+
+        task_list.status = f"Executing step {current_task_idx}"
+        await task_list.send()
+
+        # TODO run ehre loop for executing current step
+        # TODO most likely will need to have a separate button for running the first step and the latter ones
+        # due to the fact that the button must be moved with the enw messages that are sent to the llm and from
+        # from the llm
+
+        
+        task_list.status = f"Waiting feedback on step {current_task_idx}"
+        await task_list.send()
 
 @cl.on_message
 async def agent_loop(message: cl.Message):
@@ -142,18 +164,18 @@ async def agent_loop(message: cl.Message):
         
         # print(f"{agent_tide_ui.agent_tide.steps=}")
         if agent_tide_ui.agent_tide.steps:
-            if agent_tide_ui.current_step is None:
-                label="Run Steps One by One"
-            elif agent_tide_ui.current_step == len(agent_tide_ui.agent_tide.steps.root) -1:
-                label = "Close Steps List"
-            else:
-                label = f"Proceed to step {agent_tide_ui.current_step+1}"
+            # if agent_tide_ui.current_step is None:
+            #     label="Run Next Step"  Steps One by One"
+            # elif agent_tide_ui.current_step == len(agent_tide_ui.agent_tide.steps.root) -1:
+            #     label = "Close Steps List"
+            # else:
+            #     label = f"Proceed to step {agent_tide_ui.current_step+1}"
  
             msg.actions = [
                 cl.Action(
                     name="execute_steps", 
                     payload={"step": "example_value"},
-                    label=label
+                    label="Proceed to next step"
                 )
             ]
             
