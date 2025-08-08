@@ -1,7 +1,7 @@
 try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
-    from chainlit.input_widget import Slider, TextInput, Switch
+    from chainlit.input_widget import Slider, TextInput
       
 except ImportError as e:
     raise ImportError(
@@ -64,12 +64,6 @@ class AgentTideUi(object):
                 id="project_path",
                 label="Project Path",
                 initial=str(Path(os.getcwd())/(self.project_path))
-            ),
-            Switch(
-                id="planning_mode",
-                label="Planning Mode",
-                initial=False,
-                description="if active, Agent Tide will first generate a list of tasks and prompt you to select which ones to tackle"
             ),
             TextInput(
                 id="provider",
