@@ -498,6 +498,9 @@ Here’s what’s next for CodeTide:
 ~~- 🧭 **Handle relative imports** in Python projects  
   → Improve resolution for intra-package navigation.~~
 
+- 🚀 **AgentTideUi Hugging Face Space**  
+  → We are planning to make AgentTideUi available as a Hugging Face Space, supporting GitHub OAuth for user session and allowing users to provide a repo URL for one-time conversations.
+
 ---
 
 ## 🤖 Agents Module: AgentTide
