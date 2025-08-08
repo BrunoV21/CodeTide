@@ -278,12 +278,12 @@ Proceed directly with fulfilling the request or returning the appropriate output
 **Before the steps**, you may include brief, high-level comments clarifying assumptions, ambiguities, or summary of how you interpreted the request. Then output the implementation plan in the exact format below:
 
 *** Begin Steps
-0. **step_description**
+1. **step_description**
    **instructions**: precise instructions of the task to be implemented in this step
    **context_identifiers**:
      - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step touches, depends on, or must update
 ---
-1. **next_step_description**
+2. **next_step_description**
    **instructions**: ...
    **context_identifiers**:
      - ...
