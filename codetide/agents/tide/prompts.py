@@ -295,7 +295,7 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 1. **Completeness:** No task should be partially specified. Each step must be actionable and sufficient for a developer (or downstream executor) to implement it. If any requirement is ambiguous, explicitly list assumptions in the preliminary comment section.
 
-2. **Code Awareness:** If code or repository context is provided, identify and reference valid identifiers from the repo\_tree (functions, classes, modules, file paths when necessary). Steps must not refer to nonexistent identifiers.
+2. **Code Awareness:** If code or repository context is provided, identify and reference valid identifiers from the repo_tree (functions, classes, modules, file paths when necessary). Steps must not refer to nonexistent identifiers.
 
 3. **Feedback Incorporation:** When the user supplies feedback on previous planning, modify the existing steps to reflect corrections, removals, additions, or reprioritizations. Do not regenerate from scratch unless the user’s feedback indicates a full redesign is desired.
 
