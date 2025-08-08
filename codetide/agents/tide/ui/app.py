@@ -12,8 +12,10 @@ try:
     from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
+    from codetide.agents.tide.models import Step
     from chainlit.types import ThreadDict
     from chainlit.cli import run_chainlit
+    from typing import List, Optional
     import chainlit as cl
       
 except ImportError as e:
@@ -27,6 +29,8 @@ from codetide.agents.data_layer import init_db
 import argparse
 import getpass
 import asyncio
+
+AGENT_TIDE_PORT = 9753
 
 @cl.password_auth_callback
 def auth():
@@ -67,12 +71,8 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("AgentTideUi", agent_tide_ui)
 
 @cl.action_callback("execute_steps")
-async def on_action(action):    
-    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
-
-
-    # await cl.Message(content=f"Executed {action.name}").send()
-    
+async def on_action(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")    
 
     if agent_tide_ui.current_step is None:
         task_list = cl.TaskList("Steps")
@@ -99,26 +99,30 @@ async def on_action(action):
         task_list.tasks[-1].status = cl.TaskStatus.DONE
         await cl.sleep(3)
         await task_list.remove()
+        await action.remove()
 
     else:
         current_task_idx = agent_tide_ui.current_step
         if current_task_idx >= 1:
             task_list.tasks[current_task_idx-1].status = cl.TaskStatus.DONE
 
+        step  :Step = agent_tide_ui.agent_tide.steps.root[agent_tide_ui.current_step]
+
         task_list.status = f"Executing step {current_task_idx}"
         await task_list.send()
+        await action.remove()
+        
+        step_instructions_msg = await cl.Message(
+            content=step.as_instruction()
+        ).send()
 
-        # TODO run ehre loop for executing current step
-        # TODO most likely will need to have a separate button for running the first step and the latter ones
-        # due to the fact that the button must be moved with the enw messages that are sent to the llm and from
-        # from the llm
-
+        await agent_loop(step_instructions_msg, in_planning_loop=True, codeIdentifiers=step.context_identifiers)
         
         task_list.status = f"Waiting feedback on step {current_task_idx}"
         await task_list.send()
 
 @cl.on_message
-async def agent_loop(message: cl.Message):
+async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIdentifiers :Optional[List[str]]=None):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
     chat_history = cl.user_session.get("chat_history")
     
@@ -151,7 +155,7 @@ async def agent_loop(message: cl.Message):
             global_fallback_msg=msg
         )
         
-        async for chunk in run_concurrent_tasks(agent_tide_ui):
+        async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
             if chunk == STREAM_START_TOKEN:
                 continue
 
@@ -162,19 +166,10 @@ async def agent_loop(message: cl.Message):
             
             await stream_processor.process_chunk(chunk)
         
-        # print(f"{agent_tide_ui.agent_tide.steps=}")
         if agent_tide_ui.agent_tide.steps:
-            # if agent_tide_ui.current_step is None:
-            #     label="Run Next Step"  Steps One by One"
-            # elif agent_tide_ui.current_step == len(agent_tide_ui.agent_tide.steps.root) -1:
-            #     label = "Close Steps List"
-            # else:
-            #     label = f"Proceed to step {agent_tide_ui.current_step+1}"
- 
             msg.actions = [
                 cl.Action(
-                    name="execute_steps", 
-                    payload={"step": "example_value"},
+                    name="execute_steps",
                     label="Proceed to next step"
                 )
             ]
@@ -191,7 +186,7 @@ async def agent_loop(message: cl.Message):
 
 def serve(
     host=None,
-    port=None,
+    port=AGENT_TIDE_PORT,
     root_path=None,
     ssl_certfile=None,
     ssl_keyfile=None,
@@ -230,7 +225,7 @@ def serve(
 def main():
     parser = argparse.ArgumentParser(description="Launch the Tide UI server.")
     parser.add_argument("--host", type=str, default=None, help="Host to bind to")
-    parser.add_argument("--port", type=int, default=None, help="Port to bind to")
+    parser.add_argument("--port", type=int, default=AGENT_TIDE_PORT, help="Port to bind to")
     parser.add_argument("--root-path", type=str, default=None, help="Root path for the app")
     parser.add_argument("--ssl-certfile", type=str, default=None, help="Path to SSL certificate file")
     parser.add_argument("--ssl-keyfile", type=str, default=None, help="Path to SSL key file")
