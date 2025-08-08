@@ -62,8 +62,8 @@ def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig]]:
 
     return history, settings
 
-async def run_concurrent_tasks(agent_tide_ui: AgentTideUi):
-    asyncio.create_task(agent_tide_ui.agent_tide.agent_loop_planing())
+async def run_concurrent_tasks(agent_tide_ui: AgentTideUi, codeIdentifiers :Optional[List[str]]=None):
+    asyncio.create_task(agent_tide_ui.agent_tide.agent_loop(codeIdentifiers))
     asyncio.create_task(_logger.distribute())
     while True:
         async for chunk in _logger.get_session_logs(agent_tide_ui.agent_tide.llm.session_id):
