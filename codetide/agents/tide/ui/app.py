@@ -77,10 +77,6 @@ async def on_action(action :cl.Action):
     if agent_tide_ui.current_step is None:
         task_list = cl.TaskList("Steps")
         for step in agent_tide_ui.agent_tide.steps.root:
-            # message = await cl.Message(
-            #     content=f"Step {step.step}.\n\n**Instructions**:\n{step.instructions}",
-            #     metadata={"context_identifiers": step.context_identifiers}
-            # ).send()
             task = cl.Task(title=step.description)#, forId=message.id)
             await task_list.add_task(task)
 
@@ -102,6 +98,9 @@ async def on_action(action :cl.Action):
         await action.remove()
 
     else:
+
+        # TODO can store forid forId from tasks step list into messages as they are being sent
+
         current_task_idx = agent_tide_ui.current_step
         if current_task_idx >= 1:
             task_list.tasks[current_task_idx-1].status = cl.TaskStatus.DONE
@@ -113,7 +112,8 @@ async def on_action(action :cl.Action):
         await action.remove()
         
         step_instructions_msg = await cl.Message(
-            content=step.as_instruction()
+            content=step.as_instruction(),
+            author="Agent Tide Instruct"
         ).send()
 
         await agent_loop(step_instructions_msg, in_planning_loop=True, codeIdentifiers=step.context_identifiers)
@@ -129,7 +129,7 @@ async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIden
     chat_history.append({"role": "user", "content": message.content})
     await agent_tide_ui.add_to_history(message.content)
     
-    msg = cl.Message(content="")
+    msg = cl.Message(content="", author="Agent Tide")
     
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
