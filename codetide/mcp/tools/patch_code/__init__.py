@@ -34,6 +34,9 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
 
         elif (line.startswith("---") and len(line)==3) or not line.startswith(("+", "-", " ", )):
             lines[i] = f" {line}"
+
+        elif line.startswith(("+", "-")) and i < len(lines) and lines[i+1].startswith(" "):
+            lines[i] = f" {line}"
     
     # print(f"\n\n{lines[-2:]=}")
     # writeFile("\n".join(lines), "lines.txt")
