@@ -1,0 +1,16 @@
+/* Only resize avatars where the image's alt text contains 'Avatar for Assistant' */
+span.relative.flex.shrink-0.overflow-hidden.rounded-full:has(img[alt="Avatar for Agent Tide"]) {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+span.relative.flex.shrink-0.overflow-hidden.rounded-full img[alt="Avatar for Agent Tide"] {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important; /* keep them round */
+}
+
+img.logo.w-\[200px\] {
+  width: 1000px !important;
+  height: auto;
+}
