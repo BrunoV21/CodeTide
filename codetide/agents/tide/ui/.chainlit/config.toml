@@ -33,7 +33,7 @@ edit_message = true
 
 # Authorize users to spontaneously upload files with messages
 [features.spontaneous_file_upload]
-    enabled = true
+    enabled = false
     # Define accepted file types using MIME types
     # Examples:
     # 1. For specific file types:
@@ -53,11 +53,11 @@ edit_message = true
 
 [UI]
 # Name of the assistant.
-name = "Assistant"
+name = "Agent Tide"
 
 # default_theme = "dark"
 
-# layout = "wide"
+layout = "wide"
 
 # Description of the assistant. This is used for HTML tags.
 # description = ""
@@ -70,7 +70,7 @@ github = "https://github.com/BrunoV21/CodeTide"
 
 # Specify a CSS file that can be used to customize the user interface.
 # The CSS file can be served from the public directory or via an external link.
-# custom_css = "/public/test.css"
+custom_css = '/public/stylesheet.css'
 
 # Specify a Javascript file that can be used to customize the user interface.
 # The Javascript file can be served from the public directory.

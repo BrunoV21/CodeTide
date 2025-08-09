@@ -113,7 +113,7 @@ async def on_action(action :cl.Action):
         
         step_instructions_msg = await cl.Message(
             content=step.as_instruction(),
-            author="Agent Tide Instruct"
+            author="Agent Tide"
         ).send()
 
         await agent_loop(step_instructions_msg, in_planning_loop=True, codeIdentifiers=step.context_identifiers)
