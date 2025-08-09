@@ -178,3 +178,5 @@ logs/
 observability_data/
 config/
 *.db
+
+codetide/agents/tide/ui/assets/
