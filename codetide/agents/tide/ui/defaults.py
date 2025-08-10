@@ -13,7 +13,7 @@ STARTERS = [
         "message": (
             "Review the project’s existing tests (if present) to understand patterns, coverage, and structure. "
             "If tests already exist, enhance them by filling coverage gaps, improving clarity, and following "
-            "best practices for the project's tech stack. If no tests exist, create a full testing suite from "
+            "best practices for the project's tech stack. If no tests exist, come up with a plan for a full testing suite from "
             "scratch, including unit tests, integration tests, and any other relevant types. Prioritize critical "
             "components and ensure maintainability."
         ),
@@ -22,8 +22,8 @@ STARTERS = [
     {
         "label": "Create Containerized Deployment",
         "message": (
-            "Examine the project’s structure, dependencies, and services to either create new or update existing "
-            "Docker-related files for containerized deployment. If Docker configuration exists, improve it for "
+            "Examine the project’s structure, dependencies, and services and come up with a detailed plan to either create new or update existing "
+            "Docker-related files for containerized deployment. Make sure to ask me to review your plan before moving on! If Docker configuration exists, improve it for "
             "efficiency, security, and adherence to best practices (multi-stage builds, environment variables, "
             "network configuration). If none exists, create optimized Dockerfile and docker-compose.yml files "
             "from scratch, including configurations for any required services like databases or caches."
