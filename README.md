@@ -1,11 +1,19 @@
+<div align="center">
+
 <!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
-# <img src="./docs/assets/codetide-logo.png" alt="code-tide-logo" width="35" height="auto"/> CodeTide
+<img src="./codetide/agents/tide/ui/public/codetide-banner.png" alt="code-tide-logo" width="900" height="auto"/>
+
+
+
 [![GitHub Stars](https://img.shields.io/github/stars/BrunoV21/CodeTide?style=social)](https://github.com/BrunoV21/CodeTide/stargazers)
 [![PyPI Downloads](https://static.pepy.tech/badge/CodeTide)](https://pepy.tech/projects/CodeTide)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/CodeTide?style=flat)](https://pypi.org/pypi/codetide/)
 [![PyPI - Version](https://img.shields.io/pypi/v/CodeTide?style=flat)](https://pypi.org/pypi/codetide/)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://pydantic.dev)
---- 
+
+</div>
+
+---
 
 **CodeTide** is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.
 
@@ -34,7 +42,12 @@ uvx --from codetide codetide-cli --help
 ```
 ## AgentTide
 
-![Agent Tide Logo](codetide/agents/tide/ui/public/logo_dark.png)
+<div align="center">
+<!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
+<img src="./codetide/agents/tide/ui/public/logo_dark.png" alt="code-tide-logo" width="700" height="auto"/>
+</div>
+
+---
 
 AgentTide is the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
 
