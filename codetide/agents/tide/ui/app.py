@@ -74,7 +74,7 @@ async def on_chat_resume(thread: ThreadDict):
     cl.user_session.set("AgentTideUi", agent_tide_ui)
 
 @cl.action_callback("execute_steps")
-async def on_action(action :cl.Action):
+async def on_execute_steps(action :cl.Action):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")    
 
     if agent_tide_ui.current_step is None:
@@ -124,6 +124,11 @@ async def on_action(action :cl.Action):
         task_list.status = f"Waiting feedback on step {current_task_idx}"
         await task_list.send()
 
+@cl.action_callback("stop_steps")
+async def on_stop_steps(action :cl.Action):
+    # agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    pass
+
 @cl.on_message
 async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIdentifiers :Optional[List[str]]=None):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
@@ -172,8 +177,16 @@ async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIden
         if agent_tide_ui.agent_tide.steps:
             msg.actions = [
                 cl.Action(
+                    name="stop_steps",
+                    tooltip="stop",
+                    icon="octagon-x",
+                    payload={}
+                ),
+                cl.Action(
                     name="execute_steps",
-                    label="Proceed to next step"
+                    tooltip="proceed to next step",
+                    icon="fast-forward",
+                    payload={}
                 )
             ]
             
