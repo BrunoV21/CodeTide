@@ -9,6 +9,17 @@
 
 **CodeTide** is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.
 
+
+## ✅ Key Features
+
+- ✅ 100% **local & private** - all parsing and querying happens on your machine.
+- 📦 Structured parsing of codebases using [Tree-sitter](https://tree-sitter.github.io/tree-sitter/).
+- 🧠 Retrieval of relevant code snippets by symbolic ID - not vector similarity.
+- 🧱 Visualize the architecture and hierarchy of your project.
+- ⚡ Fast, cacheable parsing with smart update detection.
+- 🔁 Designed to work alongside tools like Copilot, GPT, and Claude - on your terms.
+
+
 ---
 # Entrypoints & Usage
 
@@ -21,8 +32,13 @@ To use the main CodeTide CLI:
 ```sh
 uvx --from codetide codetide-cli --help
 ```
+## AgentTide
 
-## AgentTide CLI
+![Agent Tide Logo](codetide/agents/tide/ui/public/logo_dark.png)
+
+AgentTide is the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
+
+**AgentTide CLI**
 
 To use the AgentTide conversational CLI, you must install the `[agents]` extra and launch via:
 
@@ -32,7 +48,7 @@ uvx --from codetide[agents] agent-tide
 
 This will start an interactive terminal session with AgentTide.
 
-## AgentTide UI
+**AgentTide UI**
 
 To use the AgentTide web UI, you must install the `[agents-ui]` extra and launch via:
 
@@ -40,22 +56,19 @@ To use the AgentTide web UI, you must install the `[agents-ui]` extra and launch
 uvx --from codetide[agents-ui] agent-tide-ui
 ```
 
-This will start a web server for the AgentTide UI. Follow the on-screen instructions to interact with the agent in your browser.
+This will start a web server for the AgentTide UI. Follow the on-screen instructions to interact with the agent in your browser at [http://localhost:9753](http://localhost:9753) (or the port you specified)
 
-# Entrypoints & Usage
+### Why Try AgentTide? ([Full Guide & Tips Here](codetide/agents/tide/ui/chainlit.md))
 
-CodeTide provides several entrypoints for interacting with the system via command-line and web UI. These entrypoints are exposed through the `uvx` launcher and require the appropriate extras to be installed.
+**Local-First & Private:** All code analysis and patching is performed locally. Your code never leaves your machine.
+- **Transparent & Stepwise:** See every plan and patch before it's applied. Edit, reorder, or approve steps—you're always in control.
+- **Context-Aware:** AgentTide loads only the relevant code identifiers and dependencies for your request, making it fast and precise.
+- **Human-in-the-Loop:** After each step, review the patch, provide feedback, or continue—no black-box agent behavior.
+- **Patch-Based Editing:** All changes are atomic diffs, not full file rewrites, for maximum clarity and efficiency.
 
----
-
-## ✅ Key Features
-
-- ✅ 100% **local & private** - all parsing and querying happens on your machine.
-- 📦 Structured parsing of codebases using [Tree-sitter](https://tree-sitter.github.io/tree-sitter/).
-- 🧠 Retrieval of relevant code snippets by symbolic ID - not vector similarity.
-- 🧱 Visualize the architecture and hierarchy of your project.
-- ⚡ Fast, cacheable parsing with smart update detection.
-- 🔁 Designed to work alongside tools like Copilot, GPT, and Claude - on your terms.
+**Usage Tips:**  
+If you know the exact code context, specify identifiers directly in your request (e.g., `module.submodule.file_withoutextension.object`).  
+You can request a plan, edit steps, and proceed step-by-step—see the [chainlit.md](codetide/agents/tide/ui/chainlit.md) for full details and advanced workflows!
 
 ---
 
