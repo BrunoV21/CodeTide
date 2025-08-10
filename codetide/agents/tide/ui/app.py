@@ -10,6 +10,7 @@ try:
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks
+    from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from codetide.agents.tide.models import Step
@@ -29,8 +30,6 @@ from codetide.agents.data_layer import init_db
 import argparse
 import getpass
 import asyncio
-
-AGENT_TIDE_PORT = 9753
 
 @cl.password_auth_callback
 def auth():
@@ -62,6 +61,10 @@ async def start_chat():
     await cl.ChatSettings(agent_tide_ui.settings()).send()
     
     cl.user_session.set("chat_history", [])
+
+@cl.set_starters
+async def set_starters():
+    return [cl.Starter(**kwargs) for kwargs in STARTERS]
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
