@@ -45,6 +45,38 @@ LANGUAGE_EXTENSIONS = {
     
 }
 
+SKIP_EXTENSIONS = [
+    # Images
+    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.webp', '.heic', '.heif',
+    '.ico', '.icns', '.psd', '.ai', '.eps',
+
+    # Audio
+    '.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma', '.aiff',
+
+    # Video
+    '.mp4', '.mkv', '.mov', '.avi', '.wmv', '.flv', '.webm', '.mpeg', '.mpg', '.3gp',
+
+    # Fonts
+    '.ttf', '.otf', '.woff', '.woff2', '.eot',
+
+    # Archives & Compressed
+    '.zip', '.tar', '.gz', '.bz2', '.xz', '.rar', '.7z', '.iso', '.dmg',
+
+    # Database & Data Dumps
+    '.db', '.sqlite', '.sqlite3', '.mdb', '.accdb', '.dbf',
+    '.frm', '.myd', '.myi', '.ndf', '.ldf',
+
+    # System / OS junk
+    '.sys', '.dll', '.exe', '.bin', '.msi', '.obj', '.o', '.so', '.dylib', '.class',
+    '.lock', '.tmp', '.log', '.bak', '.swp', '.swo', '.DS_Store', 'Thumbs.db',
+
+    # 3D / CAD
+    '.stl', '.obj', '.fbx', '.blend', '.dae', '.3ds',
+
+    # Other binary documents
+    '.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.odt', '.ods', '.odp'
+]
+
 DEFAULT_MAX_CONCURRENT_TASKS = 50
 DEFAULT_BATCH_SIZE = 128
 
