@@ -39,6 +39,10 @@ class AgentTide(BaseModel):
 
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
+
+        # update codetide with the latest changes made by the human and agent
+        await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+
         repo_tree = self.tide.codebase.get_tree_view(
             include_modules=True,
             include_types=True
@@ -88,10 +92,6 @@ class AgentTide(BaseModel):
             for patch in diffPatches:
                 patch = patch.replace("\'", "'").replace('\"', '"')
                 process_patch(patch, open_file, write_file, remove_file, file_exists)
-
-            
-            await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
-        
         self.history.append(response)
 
     async def run(self, max_tokens: int = 48000):
