@@ -75,7 +75,11 @@ async def on_chat_resume(thread: ThreadDict):
 
 @cl.action_callback("execute_steps")
 async def on_execute_steps(action :cl.Action):
-    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")    
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+    latest_step_message :cl.Message = cl.user_session.get("latest_step_message")
+    if latest_step_message and latest_step_message.id == action.payload.get("msg_id"):
+        await latest_step_message.remove_actions()
 
     if agent_tide_ui.current_step is None:
         task_list = cl.TaskList("Steps")
@@ -94,21 +98,19 @@ async def on_execute_steps(action :cl.Action):
     # Optionally remove the action button from the chatbot user interface
 
     if is_done:
-        await action.remove()
         task_list.tasks[-1].status = cl.TaskStatus.DONE
         await cl.sleep(3)
         await task_list.remove()
         await action.remove()
+        
+        # await cl.send_window_message("Finished implementing Steps")
 
     else:
-
-        # TODO can store forid forId from tasks step list into messages as they are being sent
-
         current_task_idx = agent_tide_ui.current_step
         if current_task_idx >= 1:
             task_list.tasks[current_task_idx-1].status = cl.TaskStatus.DONE
 
-        step  :Step = agent_tide_ui.agent_tide.steps.root[agent_tide_ui.current_step]
+        step :Step = agent_tide_ui.agent_tide.steps.root[agent_tide_ui.current_step]
 
         task_list.status = f"Executing step {current_task_idx}"
         await task_list.send()
@@ -126,8 +128,19 @@ async def on_execute_steps(action :cl.Action):
 
 @cl.action_callback("stop_steps")
 async def on_stop_steps(action :cl.Action):
-    # agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
-    pass
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+    latest_step_message :cl.Message = cl.user_session.get("latest_step_message")
+    if latest_step_message and latest_step_message.id == action.payload.get("msg_id"):
+        await latest_step_message.remove_actions()
+    
+    task_list = cl.user_session.get("StepsTaskList")
+    if task_list:
+        agent_tide_ui.current_step = None 
+        await task_list.remove()
+    
+        # await cl.send_window_message("Current Steps have beed discarded")
+
 
 @cl.on_message
 async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIdentifiers :Optional[List[str]]=None):
@@ -175,18 +188,19 @@ async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIden
             await stream_processor.process_chunk(chunk)
         
         if agent_tide_ui.agent_tide.steps:
+            cl.user_session.set("latest_step_message", msg)
             msg.actions = [
                 cl.Action(
                     name="stop_steps",
                     tooltip="stop",
                     icon="octagon-x",
-                    payload={}
+                    payload={"msg_id": msg.id}
                 ),
                 cl.Action(
                     name="execute_steps",
-                    tooltip="proceed to next step",
+                    tooltip="Next step",
                     icon="fast-forward",
-                    payload={}
+                    payload={"msg_id": msg.id}
                 )
             ]
             
@@ -270,4 +284,6 @@ if __name__ == "__main__":
     import asyncio
     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
     serve()
-    # TODO add logic in the apply patch path calling to ensure a correct file path is always used
+    # TODO fix the no time being inserted to msg bug in data-persistance
+    # TODO there's a bug that changes are not being persistied in untracked files that are deleted so will need to update codetide to track that
+    # TODO add chainlit commands for writing tests, updating readme, writing commit message and planning
