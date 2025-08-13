@@ -147,7 +147,7 @@ def replace_newlines_in_quotes_regex(text, breakline_token=BREAKLINE_TOKEN):
     
     return re.sub(pattern, process_match, text)
 
-def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
+def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, escape_backslashes :bool=True):
     triple_quote_placeholders = []
     
     # Find all triple-quoted strings (both ''' and """)
@@ -162,7 +162,8 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
     result = re.sub(triple_pattern, store_triple_quote, text, flags=re.DOTALL)
 
     # result = text
-    result = result.replace("\\", "\\\\")
+    if escape_backslashes:
+        result = result.replace("\\", "\\\\")
     result = replace_newlines_in_quotes_regex(result, token)
        
     # Restore the triple-quoted strings
@@ -205,7 +206,7 @@ def process_patch(
 # --------------------------------------------------------------------------- #
 def open_file(path: str) -> str:
     with open(path, "rt", encoding="utf-8") as fh:
-        return replace_newlines_in_quotes_regex(fh.read())
+        return replace_newline_in_quotes(fh.read(), escape_backslashes=False)
 
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
