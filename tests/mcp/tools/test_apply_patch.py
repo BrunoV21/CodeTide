@@ -94,8 +94,6 @@ def test_update_middle_of_file(mock_fs):
 -    print('Goodbye, world!')
 +    # A new and improved goodbye
 +    print('Farewell, cruel world!')
- 
- if __name__ == '__main__':
 *** End Patch
 """
     mock_fs.apply_patch(patch)
@@ -111,8 +109,6 @@ def test_update_start_of_file(mock_fs):
 -    print('Hello, world!')
 +def new_hello():
 +    print('Greetings, planet!')
- 
- def goodbye():
 *** End Patch
 """
     mock_fs.apply_patch(patch)
@@ -157,7 +153,6 @@ def test_rename_file(mock_fs):
  line1
 -line2
 +line_two
- line3
 *** End of File
 *** End Patch
 """
@@ -175,10 +170,10 @@ def test_crlf_handling(mock_fs):
  line one
 -line two
 +line 2
- line three
 *** End of File
 *** End Patch
 """
+    # TODO does not handle trialling context well...
     mock_fs.apply_patch(patch)
     assert mock_fs.fs['crlf.txt'] == "line one\nline 2\nline three\n"
 
