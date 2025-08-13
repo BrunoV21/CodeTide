@@ -9,11 +9,16 @@ import re
 import os
 
 BREAKLINE_TOKEN = "<n>"
-APOSTROPHE_TOKEN = "__APOSTROPHE__"
+MULTILINE_BREAKLINE_TOKEN = "<N>"
+
+RAW_BREAKLINE_PER_FILE_TYPE = {
+    ".md": r"\n",
+    ".py": r"\n"
+}
 
 BREAKLINE_PER_FILE_TYPE = {
     ".md": "\n",
-    ".py": r"\n"
+    ".py": "\n"
 }
 
 # --------------------------------------------------------------------------- #
@@ -113,25 +118,36 @@ def apply_commit(
             if change.move_path and target_path != path:
                 remove_fn(path)
 
-def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, apostrophe_token=APOSTROPHE_TOKEN):
+def replace_newlines_in_quotes_regex(text, breakline_token=BREAKLINE_TOKEN):
     """
-    Replace newlines with a special token only within single/double quoted strings,
-    but NOT within triple-quoted strings. Also handles contractions by temporarily
-    replacing apostrophes in contractions with a dedicated token.
+    Alternative implementation using regex approach.
+    Replace \n with breakline_token when found inside quote pairs on the same line.
     """
+    def process_match(match):
+        # Get the full match including quotes
+        full_match = match.group(0)
+        quote_char = full_match[0]
+        content = full_match[1:-1]  # Content between quotes
+        
+        # Replace both \n and actual newlines with <n> in the content
+        processed_content = content.replace('\\n', breakline_token).replace('\n', breakline_token)
+        
+        return quote_char + processed_content + quote_char
     
-    # Step 1: Handle contractions - replace apostrophes in contractions with a token
-    # Pattern matches letter + apostrophe + letter(s) combinations
-    contraction_pattern = r"([a-zA-Z])'([a-zA-Z]+)"
+    # Regex pattern explanation:
+    # (['"]) - Capture the opening quote (group 1)
+    # (?: - Start non-capturing group
+    #   \\. - Match escaped character (backslash followed by any char)
+    #   | - OR
+    #   [^\1] - Match any character that's not the same quote character
+    # )* - Zero or more of the above
+    # \1 - Match the same quote character that opened
     
-    def replace_contraction_apostrophe(match):
-        return f"{match.group(1)}{apostrophe_token}{match.group(2)}"
+    pattern = r'([\'"])((?:\\.|[^\1])*?)\1'
     
-    # Replace apostrophes in contractions with tokens
-    text_with_contraction_tokens = re.sub(contraction_pattern, replace_contraction_apostrophe, text)
-    
-    # Step 2: Handle triple-quoted strings by temporarily replacing them
-    # with placeholders to avoid processing them
+    return re.sub(pattern, process_match, text)
+
+def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
     triple_quote_placeholders = []
     
     # Find all triple-quoted strings (both ''' and """)
@@ -143,39 +159,16 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, apostrophe_token=APOS
         return placeholder
     
     # Temporarily replace triple quotes with placeholders
-    text_with_placeholders = re.sub(triple_pattern, store_triple_quote, text_with_contraction_tokens, flags=re.DOTALL)
-    
-    # Step 3: Process single/double quoted strings (excluding triple quotes)
-    pattern = r'''
-        (['"])         # Group 1: single or double quote (opening)
-        (              # Group 2: content inside the quote
-            (?:        # non-capturing group
-                \\\1   # escaped quote like \' or \"
-                |      # or
-                (?!\1).  # any char that's not the same quote
-            )*?
-        )
-        \1             # Closing quote, must match opening
-        (?!\1{2})      # Negative lookahead: ensure it's not followed by two more of same quote (triple quote)
-    '''
+    result = re.sub(triple_pattern, store_triple_quote, text, flags=re.DOTALL)
 
-    def replacer(match):
-        quote = match.group(1)
-        content = match.group(2)
-        # Replace both literal \n and actual newlines
-        replaced = content.replace(r'\n', token).replace('\n', token)
-        return f'{quote}{replaced}{quote}'
-
-    # Apply the replacement to single/double quoted strings only
-    result = re.sub(pattern, replacer, text_with_placeholders, flags=re.VERBOSE | re.DOTALL)
-    
-    # Step 4: Restore the triple-quoted strings
+    # result = text
+    result = result.replace("\\", "\\\\")
+    result = replace_newlines_in_quotes_regex(result, token)
+       
+    # Restore the triple-quoted strings
     for i, triple_quote in enumerate(triple_quote_placeholders):
         placeholder = f"__TRIPLE_QUOTE_{i}__"
         result = result.replace(placeholder, triple_quote)
-    
-    # Step 5: Restore apostrophes in contractions
-    result = result.replace(apostrophe_token, "'")
     
     return result
 
@@ -212,15 +205,19 @@ def process_patch(
 # --------------------------------------------------------------------------- #
 def open_file(path: str) -> str:
     with open(path, "rt", encoding="utf-8") as fh:
-        return replace_newline_in_quotes(fh.read())
-
+        return replace_newlines_in_quotes_regex(fh.read())
 
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     _, ext = os.path.splitext(target)
     with target.open("wt", encoding="utf-8", newline="\n") as fh:
-        fh.write(content.replace(BREAKLINE_TOKEN, BREAKLINE_PER_FILE_TYPE.get(ext, r"\n")))
+        fh.write(content.replace(
+            BREAKLINE_TOKEN, 
+            RAW_BREAKLINE_PER_FILE_TYPE.get(ext, r"\n").replace(
+                MULTILINE_BREAKLINE_TOKEN, BREAKLINE_PER_FILE_TYPE.get(ext, "\n")
+            )
+        ))
 
 
 def remove_file(path: str) -> None:
