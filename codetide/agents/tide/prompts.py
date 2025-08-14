@@ -239,6 +239,7 @@ DO NOT:
 * Invent, paraphrase, or transform location lines — all lines must exist exactly in the source
 * Add or remove formatting, inferred syntax, or markdown rendering
 * Use ellipses, placeholders, or extra unchanged lines
+* Reference contents in a patch that were removed by the current or previous patches
 
 ---
 
