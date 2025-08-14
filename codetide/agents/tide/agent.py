@@ -90,6 +90,8 @@ class AgentTide(BaseModel):
         if diffPatches:
 
             for patch in diffPatches:
+                # TODO this deletes previouspatches from history to make sure changes are always focused on the latest version of the file
+                response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
                 patch = patch.replace("\'", "'").replace('\"', '"')
                 process_patch(patch, open_file, write_file, remove_file, file_exists)
         self.history.append(response)
