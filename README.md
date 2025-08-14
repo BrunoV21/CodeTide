@@ -42,14 +42,16 @@ uvx --from codetide codetide-cli --help
 ```
 ## AgentTide
 
-<div align="center">
-<!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
-<img src="./codetide/agents/tide/ui/public/logo_dark.png" alt="code-tide-logo" width="700" height="auto"/>
-</div>
+AgentTide is the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
 
 ---
 
-AgentTide is the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
+<div align="center">
+<!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
+<img src="./codetide/agents/tide/ui/public/agent-tide-demo.gif" alt="agent-tide-demo" width="100%" height="auto"/>
+</div>
+
+---
 
 **AgentTide CLI**
 
