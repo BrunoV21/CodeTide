@@ -1,9 +1,9 @@
 
 from .models import DiffError, Patch, Commit, ActionType
 from .parser import Parser, patch_to_commit
-# from ....core.common import writeFile
+from ....core.common import writeFile
 
-from typing import Dict, Tuple, List, Callable
+from typing import Dict, Optional, Tuple, List, Callable
 import pathlib
 import re
 import os
@@ -19,6 +19,10 @@ RAW_BREAKLINE_PER_FILE_TYPE = {
 BREAKLINE_PER_FILE_TYPE = {
     ".md": "\n",
     ".py": "\n"
+}
+
+COMMENTS_PER_FILE_TYPE = {
+    ".py": "#"
 }
 
 # --------------------------------------------------------------------------- #
@@ -44,8 +48,8 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
             lines[i] = f" {line}"
     
     # print(f"\n\n{lines[-2:]=}")
-    # writeFile("\n".join(lines), "lines.txt")
-    # writeFile("\n".join(list(orig.values())), "orig.txt")
+    writeFile("\n".join(lines), "lines.txt")
+    writeFile("\n".join(list(orig.values())), "orig.txt")
 
     if not lines or not Parser._norm(lines[0]).startswith("*** Begin Patch"):
         raise DiffError("Invalid patch text - must start with '*** Begin Patch'.")
@@ -118,6 +122,53 @@ def apply_commit(
             if change.move_path and target_path != path:
                 remove_fn(path)
 
+def handle_uneven_quotes_in_comments(text, comment_identifier="#"):
+    """
+    Process lines with comment identifiers to handle uneven quotes.
+    If a line has uneven quotes after the comment identifier,
+    replace the first quote found after the comment with a special token.
+    """
+    lines = text.split('\n')
+    processed_lines = []
+    
+    for line in lines:
+        if comment_identifier in line:
+            # Find the position of the comment identifier
+            comment_pos = line.find(comment_identifier)
+            
+            # Get the part after the comment identifier
+            after_comment = line[comment_pos + len(comment_identifier):]
+            
+            # Count quotes in the part after comment
+            single_quote_count = after_comment.count("'")
+            double_quote_count = after_comment.count('"')
+            
+            # Check if either quote type has uneven count
+            if single_quote_count % 2 == 1 or double_quote_count % 2 == 1:
+                # Find the first quote after the comment identifier
+                first_single = after_comment.find("'")
+                first_double = after_comment.find('"')
+                
+                # Determine which quote comes first
+                if first_single != -1 and (first_double == -1 or first_single < first_double):
+                    # Single quote comes first
+                    replacement_pos = comment_pos + len(comment_identifier) + first_single
+                    line = line[:replacement_pos] + "**APOSTROPHE**" + line[replacement_pos + 1:]
+                elif first_double != -1:
+                    # Double quote comes first
+                    replacement_pos = comment_pos + len(comment_identifier) + first_double
+                    line = line[:replacement_pos] + "**QUOTE**" + line[replacement_pos + 1:]
+        
+        processed_lines.append(line)
+    
+    return '\n'.join(processed_lines)
+
+def restore_special_quote_tokens(text):
+    """
+    Restore the special quote tokens back to their original characters.
+    """
+    return text.replace("**APOSTROPHE**", "'").replace("**QUOTE**", '"')
+
 def replace_newlines_in_quotes_regex(text, breakline_token=BREAKLINE_TOKEN):
     """
     Alternative implementation using regex approach.
@@ -147,7 +198,11 @@ def replace_newlines_in_quotes_regex(text, breakline_token=BREAKLINE_TOKEN):
     
     return re.sub(pattern, process_match, text)
 
-def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, escape_backslashes :bool=True):
+def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, escape_backslashes :bool=True, comments_symbol :Optional[bool]=False):
+    
+    if comments_symbol is not None:
+        text = handle_uneven_quotes_in_comments(text, comments_symbol)
+
     triple_quote_placeholders = []
     
     # Find all triple-quoted strings (both ''' and """)
@@ -170,6 +225,9 @@ def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN, escape_backslashes :b
     for i, triple_quote in enumerate(triple_quote_placeholders):
         placeholder = f"__TRIPLE_QUOTE_{i}__"
         result = result.replace(placeholder, triple_quote)
+
+    if comments_symbol is not None:
+        result = restore_special_quote_tokens(result)
     
     return result
 
@@ -184,7 +242,6 @@ def process_patch(
     if not text.strip():
         raise DiffError("Patch text is empty.")
     
-    text = replace_newline_in_quotes(text)
     # FIX: Check for existence of files to be added before parsing.
     paths_to_add = identify_files_added(text)
     for p in paths_to_add:
@@ -192,6 +249,10 @@ def process_patch(
             raise DiffError(f"Add File Error - file already exists: {p}")
 
     paths_needed = identify_files_needed(text)
+    # TODO prepare this to receive list of unique extensions in the future
+    ext = [os.path.splitext(path)[1] for path in paths_needed][0]
+    text = replace_newline_in_quotes(text, comments_symbol=COMMENTS_PER_FILE_TYPE.get(ext))
+
     # TODO cann add autocomplete with cached paths from tide here to validate if required
     orig_files = load_files(paths_needed, open_fn)
     
@@ -204,9 +265,10 @@ def process_patch(
 # --------------------------------------------------------------------------- #
 #  Default FS wrappers
 # --------------------------------------------------------------------------- #
-def open_file(path: str) -> str:
+def open_file(path: str) -> str:    
+    _, ext = os.path.splitext(path)
     with open(path, "rt", encoding="utf-8") as fh:
-        return replace_newline_in_quotes(fh.read(), escape_backslashes=False)
+        return replace_newline_in_quotes(fh.read(), escape_backslashes=False, comments_symbol=COMMENTS_PER_FILE_TYPE.get(ext))
 
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
