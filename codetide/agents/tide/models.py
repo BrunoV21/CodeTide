@@ -3,14 +3,19 @@ from pydantic import BaseModel, RootModel
 from typing import Dict, List, Optional
 
 STEP_INSTRUCTION_TEMPLATE = """
-{step}.
+## Step {step}:
 
-**Description**
+**Goal**
 {description}
 
-**Instructions**
+**Detailed Instructions**
 {instructions}
 
+---
+Please ensure:
+- All requirements in the instructions are fully addressed.
+- Edge cases and error handling are considered.
+- The solution is clear, actionable, and ready for implementation.
 """
 
 class Step(BaseModel):
