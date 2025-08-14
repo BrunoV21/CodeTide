@@ -167,6 +167,8 @@ class TypeScriptParser(BaseParser):
                 cls._process_class_node(child, code, codeFile, "interface")
             elif child.type == "type_alias_declaration":
                 cls._process_class_node(child, code, codeFile, "type")
+            else:
+                cls._process_node(child, code, codeFile)
 
     @classmethod
     def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[Optional[str]]]:

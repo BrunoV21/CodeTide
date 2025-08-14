@@ -150,6 +150,8 @@ class PythonParser(BaseParser):
                 cls._process_function_definition(child, code, codeFile)
             elif child.type == "expression_statement":
                 cls._process_expression_statement(child, code, codeFile)
+            else:
+                cls._process_node(child, code, codeFile)
             # elif child.type == "assignment": # <- class attribute
             #     cls._process_assignment(child, code, codeFile)
 
