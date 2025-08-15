@@ -9,6 +9,7 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
+from codetide.agents.tide.prompts import CMD_CODE_REVIEW_PROMPT, CMD_COMMIT_PROMPT, CMD_WRITE_TESTS_PROMPT
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.agent import AgentTide
 from codetide.mcp.utils import initCodeTide
@@ -30,6 +31,16 @@ class AgentTideUi(object):
         self.agent_tide: AgentTide = None
         self.history = [] if history is None else history
         self.current_step :Optional[int] = None
+        self.commands = [
+            {"id": "review", "icon": "search-check", "description": "Review file(s) or object(s)"},
+            {"id": "test", "icon": "flask-conical", "description": "Test file(s) or object(s)"},
+            {"id": "commit", "icon": "git-commit", "description": "Generate commit message"},
+        ]
+        self.commands_prompts = {
+            "review": CMD_CODE_REVIEW_PROMPT,
+            "test": CMD_WRITE_TESTS_PROMPT,
+            "commit": CMD_COMMIT_PROMPT
+        }
 
     async def load(self):
         self.agent_tide = AgentTide(
@@ -103,3 +114,5 @@ class AgentTideUi(object):
             )
         ]
     
+    def get_command_prompt(self, command :str)->Optional[str]:
+       return self.commands_prompts.get(command)

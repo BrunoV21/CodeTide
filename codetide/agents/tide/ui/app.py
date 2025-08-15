@@ -16,7 +16,7 @@ try:
     from codetide.agents.tide.models import Step
     from chainlit.types import ThreadDict
     from chainlit.cli import run_chainlit
-    from typing import List, Optional
+    from typing import Optional
     import chainlit as cl
       
 except ImportError as e:
@@ -59,7 +59,7 @@ async def start_chat():
     await agent_tide_ui.load()
     cl.user_session.set("AgentTideUi", agent_tide_ui)
     await cl.ChatSettings(agent_tide_ui.settings()).send()
-    
+    await cl.context.emitter.set_commands(agent_tide_ui.commands)
     cl.user_session.set("chat_history", [])
 
 @cl.set_starters
@@ -121,7 +121,7 @@ async def on_execute_steps(action :cl.Action):
             author="Agent Tide"
         ).send()
 
-        await agent_loop(step_instructions_msg, in_planning_loop=True, codeIdentifiers=step.context_identifiers)
+        await agent_loop(step_instructions_msg, codeIdentifiers=step.context_identifiers)
         
         task_list.status = f"Waiting feedback on step {current_task_idx}"
         await task_list.send()
@@ -143,50 +143,55 @@ async def on_stop_steps(action :cl.Action):
 
 
 @cl.on_message
-async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIdentifiers :Optional[List[str]]=None):
+async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
     chat_history = cl.user_session.get("chat_history")
-    
+
+    if message.command:
+        command_prompt = agent_tide_ui.get_command_prompt(message.command)
+        if command_prompt:
+            message.content = "\n\n---\n\n".join([command_prompt, message.content])
+
     chat_history.append({"role": "user", "content": message.content})
     await agent_tide_ui.add_to_history(message.content)
-    
+
     msg = cl.Message(content="", author="Agent Tide")
-    
+
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
-        
+
         # Initialize the stream processor
         stream_processor = StreamProcessor(
             marker_configs=[
                 MarkerConfig(
                     begin_marker="*** Begin Patch",
-                    end_marker="*** End Patch", 
+                    end_marker="*** End Patch",
                     start_wrapper="\n```shell\n",
                     end_wrapper="\n```\n",
                     target_step=diff_step
                 ),
                 MarkerConfig(
                     begin_marker="*** Begin Steps",
-                    end_marker="*** End Steps", 
+                    end_marker="*** End Steps",
                     start_wrapper="\n```shell\n",
                     end_wrapper="\n```\n",
                     target_step=msg
-                ) 
+                )
             ],
             global_fallback_msg=msg
         )
-        
+
         async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
             if chunk == STREAM_START_TOKEN:
                 continue
 
             if chunk == STREAM_END_TOKEN:
-                 #  Handle any remaining content
+                #  Handle any remaining content
                 await stream_processor.finalize()
                 break
-            
+
             await stream_processor.process_chunk(chunk)
-        
+
         if agent_tide_ui.agent_tide.steps:
             cl.user_session.set("latest_step_message", msg)
             msg.actions = [
@@ -203,10 +208,10 @@ async def agent_loop(message: cl.Message, in_planning_loop :bool=False, codeIden
                     payload={"msg_id": msg.id}
                 )
             ]
-            
+
         # # Send the final message
         await msg.send()
-        
+
         chat_history.append({"role": "assistant", "content": msg.content})
         await agent_tide_ui.add_to_history(msg.content)
 

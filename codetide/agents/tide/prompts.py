@@ -323,3 +323,18 @@ When the user confirms everything is correct and no further planning is needed, 
 `repo_tree`
 {REPO_TREE}
 """
+
+CMD_WRITE_TESTS_PROMPT = """
+Analyze the provided code and write comprehensive tests.
+Ensure high coverage by including unit, integration, and end-to-end tests that address edge cases and follow best practices.
+"""
+
+CMD_CODE_REVIEW_PROMPT = """
+Review the following code submission for bugs, style inconsistencies, and performance issues.
+Provide specific, actionable feedback to improve code quality, maintainability, and adherence to established coding standards.
+"""
+
+CMD_COMMIT_PROMPT = """
+Generate a conventional commit message that summarizes the work done since the previous commit.
+The message should have a clear subject line and a body explaining the problem solved and the implementation approach.
+"""
