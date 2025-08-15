@@ -138,6 +138,35 @@ Feel free to be specific or general in your requests. Agent Tide will analyze yo
   - Models like DeepSeek Chat may struggle with patch generation.  
   - Terminal access is available for advanced workflows.  
   - MCP integration (via aicore) is deactivated by default in this demo.
+
+---
+
+## Available Slash Commands
+
+Agent Tide supports special commands that can be invoked directly from the chat input using a `/command` syntax. These commands provide quick access to advanced features and workflows.
+
+### How to Use
+
+Type `/command` (replace `command` with the actual command name) in the text input box and press Enter. Agent Tide will recognize and execute the command.
+
+### Available Commands
+
+1. **/test**
+   - **Description:** Request test implmentations for a specific element.
+   - **Usage:**  
+     `/test` add coverage for apply_patch tool.
+
+2. **/review**
+   - **Description:** Request a code review for a specific file, function, or recent patch.
+   - **Usage:**  
+     `/review` codetide/agents/tide/ui/app.py
+
+3. **/commit**
+   - **Description:** Generate a concise, production-ready commit message for the most recent patch or set of changes.
+   - **Usage:**  
+     `/commit` the changes we just made
+
+You can use these commands at any time to guide Agent Tide's workflow, request reviews, or generate commit messages. More commands may be added in the future—refer to this section for updates.
   
 ---
 
