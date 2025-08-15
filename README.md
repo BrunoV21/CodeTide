@@ -42,7 +42,7 @@ uvx --from codetide codetide-cli --help
 ```
 ## AgentTide
 
-AgentTide is the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
+AgentTide consists of a demo, showing how CodeTide can integrate with LLMs and augment code generation and condebase related workflows. If you ask Tide to describe himself, he will say something like this: I'm the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
 
 ---
 
