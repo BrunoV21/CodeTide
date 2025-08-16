@@ -31,20 +31,22 @@ class AgentTideUi(object):
         self.agent_tide: AgentTide = None
         self.history = [] if history is None else history
         self.current_step :Optional[int] = None
-        self.commands = [
-            {"id": "review", "icon": "search-check", "description": "Review file(s) or object(s)"},
-            {"id": "test", "icon": "flask-conical", "description": "Test file(s) or object(s)"},
-            {"id": "commit", "icon": "git-commit", "description": "Generate commit message"},
-        ]
         self.commands_prompts = {
             "review": CMD_CODE_REVIEW_PROMPT,
             "test": CMD_WRITE_TESTS_PROMPT,
             "commit": CMD_COMMIT_PROMPT
         }
+    
+    commands = [
+        {"id": "review", "icon": "search-check", "description": "Review file(s) or object(s)"},
+        {"id": "test", "icon": "flask-conical", "description": "Test file(s) or object(s)"},
+        {"id": "commit", "icon": "git-commit", "description": "Generate commit message"},
+    ]
 
     async def load(self):
+        llm = Llm.from_config(self.llm_config)
         self.agent_tide = AgentTide(
-            llm=Llm.from_config(self.llm_config),
+            llm=llm,
             tide=await initCodeTide(workspace=self.project_path),
             history=self.history
         )
