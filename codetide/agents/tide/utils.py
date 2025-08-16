@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from typing import List, Union
 import aiofiles
 import sys
+import os
 import re
 
 async def trim_to_patch_section(filename):
@@ -20,9 +21,14 @@ async def trim_to_patch_section(filename):
             elif capturing:
                 lines_to_keep.append(line)
     
-    # Write back only the lines we want to keep
-    async with aiofiles.open(filename, 'w') as f:
-        await f.writelines(lines_to_keep)
+    if lines_to_keep: # Write back only the lines we want to keep
+        async with aiofiles.open(filename, 'w') as f:
+            await f.writelines(lines_to_keep)
+    else: # Otherwise, delete the file
+        try:
+            os.remove(filename)
+        except FileNotFoundError:
+            pass
 
 @asynccontextmanager
 async def tee_and_trim_patch(filename):
