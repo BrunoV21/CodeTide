@@ -1,3 +1,5 @@
+from codetide.core.defaults import DEFAULT_ENCODING
+
 from contextlib import asynccontextmanager
 from typing import List, Union
 import aiofiles
@@ -55,7 +57,7 @@ async def tee_and_trim_patch(filename):
                 await self.file.flush()
                 self._buffer.clear()
     
-    async with aiofiles.open(filename, 'w', encoding="utf-8") as f:
+    async with aiofiles.open(filename, 'w', encoding=DEFAULT_ENCODING) as f:
         tee = AsyncTeeFile(f)
         old_stdout = sys.stdout
         sys.stdout = tee

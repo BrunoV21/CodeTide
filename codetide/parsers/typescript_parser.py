@@ -1,3 +1,4 @@
+from ..core.defaults import DEFAULT_ENCODING
 from .base_parser import BaseParser
 from ..core.common import readFile
 from ..core.models import (
@@ -66,11 +67,11 @@ class TypeScriptParser(BaseParser):
     @staticmethod
     def _get_content(code: bytes, node: Node, preserve_indentation: bool = False) -> str:
         if not preserve_indentation:
-            return code[node.start_byte:node.end_byte].decode('utf-8')
+            return code[node.start_byte:node.end_byte].decode(DEFAULT_ENCODING)
         line_start = node.start_byte
         while line_start > 0 and code[line_start - 1] not in (10, 13):
             line_start -= 1
-        return code[line_start:node.end_byte].decode('utf-8')
+        return code[line_start:node.end_byte].decode(DEFAULT_ENCODING)
 
     @staticmethod
     def _skip_init_paths(file_path: Path) -> str:

@@ -1,4 +1,5 @@
 from .defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, DEFAULT_MAX_HISTORY_TOKENS
+from ...core.defaults import DEFAULT_ENCODING
 from ...mcp.utils import initCodeTide
 from . import AgentTide
 
@@ -48,7 +49,7 @@ def parse_history_arg(history_arg):
     if not history_arg:
         return []
     if os.path.isfile(history_arg):
-        with open(history_arg, "r", encoding="utf-8") as f:
+        with open(history_arg, "r", encoding=DEFAULT_ENCODING) as f:
             return json.load(f)
     try:
         return json.loads(history_arg)

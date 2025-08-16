@@ -1,3 +1,4 @@
+from ..core.defaults import DEFAULT_ENCODING
 from .base_parser import BaseParser
 from ..core.common import readFile
 from ..core.models import (
@@ -90,7 +91,7 @@ class PythonParser(BaseParser):
     @staticmethod
     def _get_content(code: bytes, node: Node, preserve_indentation: bool = False) -> str:
         if not preserve_indentation:
-            return code[node.start_byte:node.end_byte].decode('utf-8')
+            return code[node.start_byte:node.end_byte].decode(DEFAULT_ENCODING)
 
         if preserve_indentation:
             # Go back to the start of the line to include indentation
@@ -98,7 +99,7 @@ class PythonParser(BaseParser):
             while line_start > 0 and code[line_start - 1] not in (10, 13):
                 line_start -= 1
 
-        return code[line_start:node.end_byte].decode('utf-8')
+        return code[line_start:node.end_byte].decode(DEFAULT_ENCODING)
 
     
     @staticmethod

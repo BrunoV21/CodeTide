@@ -1,5 +1,5 @@
-
 from .models import DiffError, Patch, Commit, ActionType
+from ....core.defaults import DEFAULT_ENCODING
 from .parser import Parser, patch_to_commit
 # from ....core.common import writeFile
 
@@ -143,13 +143,13 @@ def process_patch(
 # --------------------------------------------------------------------------- #
 def open_file(path: str) -> str:    
     _, ext = os.path.splitext(path)
-    with open(path, "rt", encoding="utf-8") as fh:
+    with open(path, "rt", encoding=DEFAULT_ENCODING) as fh:
         return fh.read()
 
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("wt", encoding="utf-8", newline="\n") as fh:
+    with target.open("wt", encoding=DEFAULT_ENCODING, newline="\n") as fh:
         fh.write(content)
 
 def remove_file(path: str) -> None:
