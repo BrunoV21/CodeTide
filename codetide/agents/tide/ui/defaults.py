@@ -66,4 +66,9 @@ Here is the original exception:
 ```
 """
 
+PLACEHOLDER_LLM_CONFIG = {
+    "provider": "openai",
+    "api_key": "YOUR-SUPER-SCECRET-OPENAI-API-KEY",
+    "model": "gpt-4.1"
+}
 

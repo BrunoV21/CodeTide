@@ -1,11 +1,9 @@
 # ruff: noqa: E402
-import json
 from pathlib import Path
 import os
 
-import yaml
-
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
+from codetide.core.defaults import DEFAULT_ENCODING
 
 os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
 os.environ.setdefault("CHAINLIT_AUTH_SECRET","@6c1HFdtsjiYKe,-t?dZXnq%4xrgS/YaHte/:Dr6uYq0su/:fGX~M2uy0.ACehaK")
@@ -37,6 +35,8 @@ from codetide.agents.data_layer import init_db
 import argparse
 import getpass
 import asyncio
+import json
+import yaml
 
 @cl.password_auth_callback
 def auth():
@@ -62,9 +62,7 @@ async def setup_llm_config(settings):
 
 async def validate_llm_config(agent_tide_ui: AgentTideUi):
     exception = True
-    print("HERE")
     while exception:
-        print(f"{exception=}")
         try:
             agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
             exception = None
@@ -80,7 +78,7 @@ async def validate_llm_config(agent_tide_ui: AgentTideUi):
                 elements=[
                     cl.File(
                         name="config.yml",
-                        path=os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH),
+                        # path=os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH),
                         display="inline",
                         content=AICORE_CONFIG_EXAMPLE,
                         size="small"
@@ -98,20 +96,26 @@ async def validate_llm_config(agent_tide_ui: AgentTideUi):
 
             if _config_files:
                 _config_file = _config_files[0]
-                print(f"{_config_file.path=}")
-
-                with open(_config_file.path, "r") as _file:
-                    yaml_config = yaml.safe_load(_file)
-
-                print(f"{yaml_config=}")
 
                 try:
-                    agent_tide_ui.agent_tide.llm = Llm.from_config(Config.from_yaml(_config_file.path).llm)
-                    print(agent_tide_ui.agent_tide.llm.provider.config)
+                    with open(_config_file.path, "r", encoding=DEFAULT_ENCODING) as _file:
+                        config_raw = _file.read()
+                        config_dict = yaml.safe_load(config_raw)
+                        config = Config(**config_dict)
+
+                    agent_tide_ui.agent_tide.llm = Llm.from_config(config.llm)
                     agent_tide_ui.agent_tide.llm.provider.session_id = agent_tide_ui.agent_tide.session_id
+
+                    config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
+                    config_dir_path = os.path.split(config_path)[0]
+                    if not os.path.exists(config_dir_path):
+                        os.makedirs(config_dir_path, exist_ok=True)
+                    
+                    with open(config_path, "w", encoding=DEFAULT_ENCODING) as _file:
+                        _file.write(config_raw)
+
                 except Exception as e:
                     exception = e
-            # TODO add logic to serialize config
 
 @cl.on_chat_start
 async def start_chat():
@@ -138,12 +142,16 @@ async def on_chat_resume(thread: ThreadDict):
 async def loadAgentTideUi()->AgentTideUi:
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
     if agent_tide_ui is None:
-        agent_tide_ui = AgentTideUi(
-            os.getenv("AGENT_TIDE_PROJECT_PATH", "./"),
-            history=cl.user_session.get("chat_history"),
-            llm_config=cl.user_session.get("settings")
-        )
-        await agent_tide_ui.load()
+        try:
+            agent_tide_ui = AgentTideUi(
+                os.getenv("AGENT_TIDE_PROJECT_PATH", "./"),
+                history=cl.user_session.get("chat_history"),
+                llm_config=cl.user_session.get("settings")
+            )
+            await agent_tide_ui.load()
+
+        except FileNotFoundError:
+            ...
 
         await validate_llm_config(agent_tide_ui)
 

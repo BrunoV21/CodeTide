@@ -11,6 +11,7 @@ except ImportError as e:
 
 from codetide.agents.tide.prompts import CMD_CODE_REVIEW_PROMPT, CMD_COMMIT_PROMPT, CMD_WRITE_TESTS_PROMPT
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
+from codetide.agents.tide.ui.defaults import PLACEHOLDER_LLM_CONFIG
 from codetide.agents.tide.agent import AgentTide
 from codetide.mcp.utils import initCodeTide
 
@@ -22,9 +23,14 @@ class AgentTideUi(object):
     def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None, llm_config :Optional[LlmConfig]=None):
         self.project_path: Path = Path(project_path)
         self.config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
+        
         if llm_config is None:
-            config = Config.from_yaml(self.project_path / self.config_path)
-            self.llm_config: LlmConfig = config.llm
+            try:
+                config = Config.from_yaml(self.project_path / self.config_path)
+                self.llm_config: LlmConfig = config.llm
+            except Exception:
+                self.llm_config = LlmConfig(**PLACEHOLDER_LLM_CONFIG)
+
         else:
             self.llm_config = llm_config
         
