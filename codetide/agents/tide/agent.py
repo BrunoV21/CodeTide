@@ -1,11 +1,12 @@
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
+from ...core.defaults import DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
-from .utils import parse_patch_blocks, parse_steps_markdown
+from .utils import parse_patch_blocks, parse_steps_markdown, tee_and_trim_patch
 from .consts import AGENT_TIDE_ASCII_ART
 
 try:
@@ -19,9 +20,11 @@ except ImportError as e:
 
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import date
+from pathlib import Path
+from ulid import ulid
 import asyncio
 import os
 
@@ -30,6 +33,14 @@ class AgentTide(BaseModel):
     tide :CodeTide
     history :Optional[list]=None
     steps :Optional[Steps]=None
+    session_id :str=Field(default_factory=ulid)
+
+    @property
+    def patch_path(self)->Path:
+        if not os.path.exists(DEFAULT_STORAGE_PATH):
+            os.makedirs(DEFAULT_STORAGE_PATH, exist_ok=True)
+        
+        return DEFAULT_STORAGE_PATH / f"{self.session_id}.bash"
 
     @staticmethod
     def trim_messages(messages, tokenizer_fn, max_tokens :Optional[int]=None):
@@ -72,15 +83,19 @@ class AgentTide(BaseModel):
 
             codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
 
-        response = await self.llm.acomplete(
-            self.history,
-            system_prompt=[
-                AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
-                STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
-                WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
-            ],
-            prefix_prompt=codeContext
-        )
+        async with tee_and_trim_patch(self.patch_path):
+            response = await self.llm.acomplete(
+                self.history,
+                system_prompt=[
+                    AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
+                    STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
+                    WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
+                ],
+                prefix_prompt=codeContext
+            )
+
+        if os.path.exists(self.patch_path):
+            process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)
         
         steps = parse_steps_markdown(response)
         if steps:
@@ -88,12 +103,10 @@ class AgentTide(BaseModel):
 
         diffPatches = parse_patch_blocks(response, multiple=True)
         if diffPatches:
-
             for patch in diffPatches:
                 # TODO this deletes previouspatches from history to make sure changes are always focused on the latest version of the file
                 response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
-                patch = patch.replace("\'", "'").replace('\"', '"')
-                process_patch(patch, open_file, write_file, remove_file, file_exists)
+
         self.history.append(response)
 
     async def run(self, max_tokens: int = 48000):
