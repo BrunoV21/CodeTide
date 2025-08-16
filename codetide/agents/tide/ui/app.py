@@ -57,7 +57,8 @@ async def setup_llm_config(settings):
 async def start_chat():
     agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"))
     await agent_tide_ui.load()
-    cl.user_session.set("AgentTideUi", agent_tide_ui)
+    cl.user_session.set("AgentTideUi", agent_tide_ui)    
+    cl.user_session.set("session_id", agent_tide_ui.agent_tide.session_id)
     await cl.ChatSettings(agent_tide_ui.settings()).send()
     await cl.context.emitter.set_commands(agent_tide_ui.commands)
     cl.user_session.set("chat_history", [])
@@ -68,10 +69,12 @@ async def set_starters():
 
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
-    history, settings = process_thread(thread)
+    history, settings, session_id = process_thread(thread)
     agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"), history=history, llm_config=settings)
+    agent_tide_ui.agent_tide.session_id = session_id
     await agent_tide_ui.load()
     cl.user_session.set("AgentTideUi", agent_tide_ui)
+    cl.user_session.set("session_id", session_id)
 
 @cl.action_callback("execute_steps")
 async def on_execute_steps(action :cl.Action):

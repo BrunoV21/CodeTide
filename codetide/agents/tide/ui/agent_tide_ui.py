@@ -43,6 +43,8 @@ class AgentTideUi(object):
         }
 
     async def load(self):
+        llm = Llm.from_config(self.llm_config)
+        llm.session_id = self.agent_tide.session_id
         self.agent_tide = AgentTide(
             llm=Llm.from_config(self.llm_config),
             tide=await initCodeTide(workspace=self.project_path),

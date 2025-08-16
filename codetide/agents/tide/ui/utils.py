@@ -7,7 +7,7 @@ from aicore.llm import LlmConfig
 import asyncio
 import orjson
 
-def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig]]:
+def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig], str]:
     ### type: tool
     ### if nout ouput pop
     ### start = end
@@ -56,11 +56,13 @@ def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig]]:
         metadata = orjson.loads(metadata)
         history = metadata.get("chat_history", [])
         settings = metadata.get("chat_settings")
+        session_id = metadata.get("session_id")
     else:
         history = []
         settings = None
+        session_id = None
 
-    return history, settings
+    return history, settings, session_id
 
 async def run_concurrent_tasks(agent_tide_ui: AgentTideUi, codeIdentifiers :Optional[List[str]]=None):
     asyncio.create_task(agent_tide_ui.agent_tide.agent_loop(codeIdentifiers))
