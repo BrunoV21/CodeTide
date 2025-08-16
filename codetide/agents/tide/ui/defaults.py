@@ -31,3 +31,39 @@ STARTERS = [
         "icon": "/public/docker.svg"
     }
 ]
+
+MISSING_CONFIG_MESSAGE = """
+A valid configuration was not found at `{agent_tide_config_path}` Please provide a valid `{config_file}` by editing the following config example and uploading it below.
+
+```yml
+{example_config}
+```
+"""
+
+AICORE_CONFIG_EXAMPLE = """
+# learn more about the LlmConfig class at https://github.com/BrunoV21/AiCore/tree/main/config
+llm:
+  temperature: 0
+  max_tokens: 32000
+
+  # provider: "groq"
+  # api_key: "YOUR-SUPER-SCECRET-GROQ-API-KEY"
+  # model: "openai/gpt-oss-20b"
+
+  provider: "openai"
+  api_key: "YOUR-SUPER-SCECRET-OPENAI-API-KEY"
+  model: "gpt-4.1"
+
+  # provider: "anthropic"
+  # model: "claude-sonnet-4-20250514"
+  # api_key: "YOUR-SUPER-SCRET-CLAUDE-API-KEY"
+"""
+
+EXCEPTION_MESSAGE = """
+Here is the original exception:
+```json
+{exception}
+```
+"""
+
+

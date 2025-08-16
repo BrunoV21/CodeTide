@@ -1,12 +1,19 @@
 # ruff: noqa: E402
+import json
 from pathlib import Path
 import os
+
+import yaml
+
+from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
 
 os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
 os.environ.setdefault("CHAINLIT_AUTH_SECRET","@6c1HFdtsjiYKe,-t?dZXnq%4xrgS/YaHte/:Dr6uYq0su/:fGX~M2uy0.ACehaK")
 
 try:
+    from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
+    from aicore.models import AuthenticationError, ModelError
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks
@@ -53,14 +60,68 @@ async def setup_llm_config(settings):
     else:
         agent_tide_ui.agent_tide.llm = Llm.from_config(agent_tide_ui.llm_config)
 
+async def validate_llm_config(agent_tide_ui: AgentTideUi):
+    exception = True
+    print("HERE")
+    while exception:
+        print(f"{exception=}")
+        try:
+            agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
+            exception = None
+
+        except (AuthenticationError, ModelError) as e:
+            exception = e
+            await cl.Message(
+                content=MISSING_CONFIG_MESSAGE.format(
+                    agent_tide_config_path=os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH),
+                    config_file=Path(os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)).name,
+                    example_config=AICORE_CONFIG_EXAMPLE
+                ),
+                elements=[
+                    cl.File(
+                        name="config.yml",
+                        path=os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH),
+                        display="inline",
+                        content=AICORE_CONFIG_EXAMPLE,
+                        size="small"
+                    ),
+                ]
+            ).send()
+
+            _config_files = None
+            while _config_files is None:
+                _config_files = await cl.AskFileMessage(
+                    content=EXCEPTION_MESSAGE.format(exception=json.dumps(exception.__dict__, indent=4)),
+                    accept=[".yml", ".yaml"],
+                    timeout=3600
+                ).send()
+
+            if _config_files:
+                _config_file = _config_files[0]
+                print(f"{_config_file.path=}")
+
+                with open(_config_file.path, "r") as _file:
+                    yaml_config = yaml.safe_load(_file)
+
+                print(f"{yaml_config=}")
+
+                try:
+                    agent_tide_ui.agent_tide.llm = Llm.from_config(Config.from_yaml(_config_file.path).llm)
+                    print(agent_tide_ui.agent_tide.llm.provider.config)
+                    agent_tide_ui.agent_tide.llm.provider.session_id = agent_tide_ui.agent_tide.session_id
+                except Exception as e:
+                    exception = e
+            # TODO add logic to serialize config
+
 @cl.on_chat_start
 async def start_chat():
-    agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"))
-    await agent_tide_ui.load()
-    cl.user_session.set("AgentTideUi", agent_tide_ui)    
-    cl.user_session.set("session_id", agent_tide_ui.agent_tide.session_id)
-    await cl.ChatSettings(agent_tide_ui.settings()).send()
-    await cl.context.emitter.set_commands(agent_tide_ui.commands)
+    # TODO think of fast way to initialize and get settings
+    # agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"))
+    # await agent_tide_ui.load()
+    # cl.user_session.set("AgentTideUi", None)
+    # cl.user_session.set("session_id", agent_tide_ui.agent_tide.session_id)
+    # await cl.ChatSettings(agent_tide_ui.settings()).send()
+    await cl.context.emitter.set_commands(AgentTideUi.commands)  
     cl.user_session.set("chat_history", [])
 
 @cl.set_starters
@@ -70,11 +131,31 @@ async def set_starters():
 @cl.on_chat_resume
 async def on_chat_resume(thread: ThreadDict):
     history, settings, session_id = process_thread(thread)
-    agent_tide_ui = AgentTideUi(os.getenv("AGENT_TIDE_PROJECT_PATH", "./"), history=history, llm_config=settings)
-    agent_tide_ui.agent_tide.session_id = session_id
-    await agent_tide_ui.load()
-    cl.user_session.set("AgentTideUi", agent_tide_ui)
     cl.user_session.set("session_id", session_id)
+    cl.user_session.set("settings", settings)
+    cl.user_session.set("chat_history", history)
+
+async def loadAgentTideUi()->AgentTideUi:
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    if agent_tide_ui is None:
+        agent_tide_ui = AgentTideUi(
+            os.getenv("AGENT_TIDE_PROJECT_PATH", "./"),
+            history=cl.user_session.get("chat_history"),
+            llm_config=cl.user_session.get("settings")
+        )
+        await agent_tide_ui.load()
+
+        await validate_llm_config(agent_tide_ui)
+
+        session_id = cl.user_session.get("session_id")
+        if session_id:
+            agent_tide_ui.agent_tide.llm.provider.session_id = session_id
+        else:
+            cl.user_session.set("session_id", agent_tide_ui.agent_tide.llm.provider.session_id)
+
+        cl.user_session.set("AgentTideUi", agent_tide_ui)
+
+    return agent_tide_ui
 
 @cl.action_callback("execute_steps")
 async def on_execute_steps(action :cl.Action):
@@ -147,7 +228,8 @@ async def on_stop_steps(action :cl.Action):
 
 @cl.on_message
 async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
-    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    agent_tide_ui = await loadAgentTideUi()
+
     chat_history = cl.user_session.get("chat_history")
 
     if message.command:
@@ -290,6 +372,7 @@ def main():
 
 if __name__ == "__main__":
     import asyncio
+    os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
     serve()
     # TODO fix the no time being inserted to msg bug in data-persistance
