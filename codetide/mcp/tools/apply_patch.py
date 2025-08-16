@@ -170,11 +170,10 @@ async def applyPatch(patch_text: str) -> str:
     * Always match formatting, indentation, and block structure precisely.
     """
 
-    patch_path = f"./storage/{ulid()}.txt"
+    patch_path = f"./storage/{ulid()}.txt"    
+    writeFile(patch_text, patch_path)
     try:
-        patch_text = patch_text.replace("\'", "'")
-        patch_text = patch_text.replace('\"', '"')
-        result = process_patch(patch_text, open_file, write_file, remove_file, file_exists)
+        result = process_patch(patch_path, open_file, write_file, remove_file, file_exists)
         _ = await initCodeTide()
 
     except DiffError as exc:
@@ -188,9 +187,5 @@ async def applyPatch(patch_text: str) -> str:
     except Exception as exc:
         result = f"An unexpected error occurred: {exc}"
         raise exc
-
-    finally:
-        if "exc" in locals():
-            writeFile(patch_text, patch_path)
 
     return result
