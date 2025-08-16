@@ -1,5 +1,65 @@
+from contextlib import asynccontextmanager
 from typing import List, Union
+import aiofiles
+import sys
 import re
+
+async def trim_to_patch_section(filename):
+    """Remove all lines before '*** Begin Patch' and after '*** End Patch'"""
+    lines_to_keep = []
+    capturing = False
+    
+    async with aiofiles.open(filename, 'r') as f:
+        async for line in f:
+            if '*** Begin Patch' in line:
+                capturing = True
+                lines_to_keep.append(line)  # Include the begin marker
+            elif '*** End Patch' in line:
+                lines_to_keep.append(line)  # Include the end marker
+                break  # Stop after end marker
+            elif capturing:
+                lines_to_keep.append(line)
+    
+    # Write back only the lines we want to keep
+    async with aiofiles.open(filename, 'w') as f:
+        await f.writelines(lines_to_keep)
+
+@asynccontextmanager
+async def tee_and_trim_patch(filename):
+    """Show output in console AND save to file, then trim to patch section"""
+    
+    class AsyncTeeFile:
+        def __init__(self, file_obj):
+            self.file = file_obj
+            self.stdout = sys.__stdout__
+            
+        def write(self, data):
+            self.stdout.write(data)
+            # For async file writing, we'll buffer and write at the end
+            if not hasattr(self, '_buffer'):
+                self._buffer = []
+            self._buffer.append(data)
+            
+        def flush(self):
+            self.stdout.flush()
+            
+        async def async_flush(self):
+            if hasattr(self, '_buffer'):
+                await self.file.write(''.join(self._buffer))
+                await self.file.flush()
+                self._buffer.clear()
+    
+    async with aiofiles.open(filename, 'w', encoding="utf-8") as f:
+        tee = AsyncTeeFile(f)
+        old_stdout = sys.stdout
+        sys.stdout = tee
+        try:
+            yield tee
+        finally:
+            sys.stdout = old_stdout
+            await tee.async_flush()
+    
+    await trim_to_patch_section(filename)
 
 def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
     """
