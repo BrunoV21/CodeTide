@@ -1,0 +1,28 @@
+name: Sync Agent Tide Demo to Hugging Face Space
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Deploy examples/hf_demo_space to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          cd examples/hf_demo_space
+          git init --initial-branch=main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add origin https://McLoviniTtt:$HF_TOKEN@huggingface.co/spaces/McLoviniTtt/AgentTideDemo
+          git add .
+          git commit -m "Deploy Agent Tide Demo to HF Space"
+          git push --force origin main
