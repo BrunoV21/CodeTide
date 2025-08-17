@@ -1,9 +1,6 @@
-from codetide.core.defaults import DEFAULT_ENCODING
 
-from contextlib import asynccontextmanager
 from typing import List, Union
 import aiofiles
-import sys
 import os
 import re
 
@@ -31,43 +28,6 @@ async def trim_to_patch_section(filename):
             os.remove(filename)
         except FileNotFoundError:
             pass
-
-@asynccontextmanager
-async def tee_and_trim_patch(filename):
-    """Show output in console AND save to file, then trim to patch section"""
-    
-    class AsyncTeeFile:
-        def __init__(self, file_obj):
-            self.file = file_obj
-            self.stdout = sys.__stdout__
-            
-        def write(self, data):
-            self.stdout.write(data)
-            # For async file writing, we'll buffer and write at the end
-            if not hasattr(self, '_buffer'):
-                self._buffer = []
-            self._buffer.append(data)
-            
-        def flush(self):
-            self.stdout.flush()
-            
-        async def async_flush(self):
-            if hasattr(self, '_buffer'):
-                await self.file.write(''.join(self._buffer))
-                await self.file.flush()
-                self._buffer.clear()
-    
-    async with aiofiles.open(filename, 'w', encoding=DEFAULT_ENCODING) as f:
-        tee = AsyncTeeFile(f)
-        old_stdout = sys.stdout
-        sys.stdout = tee
-        try:
-            yield tee
-        finally:
-            sys.stdout = old_stdout
-            await tee.async_flush()
-    
-    await trim_to_patch_section(filename)
 
 def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
     """

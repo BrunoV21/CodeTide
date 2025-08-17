@@ -1,17 +1,18 @@
+from functools import partial
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
-from ...core.defaults import DEFAULT_STORAGE_PATH
+from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
-from .utils import parse_patch_blocks, parse_steps_markdown, tee_and_trim_patch
+from .utils import parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
 
 try:
     from aicore.llm import Llm
-    from aicore.logger import _logger
+    from aicore.logger import _logger, SPECIAL_TOKENS
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' package. "
@@ -20,13 +21,21 @@ except ImportError as e:
 
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional, Self
 from datetime import date
 from pathlib import Path
 from ulid import ulid
+import aiofiles
 import asyncio
 import os
+
+async def custom_logger_fn(message :str, session_id :str, filepath :str):
+    if message not in SPECIAL_TOKENS:
+        async with aiofiles.open(filepath, 'a', encoding=DEFAULT_ENCODING) as f:
+            await f.write(message)
+
+    await _logger.log_chunk_to_queue(message, session_id)
 
 class AgentTide(BaseModel):
     llm :Llm
@@ -34,6 +43,11 @@ class AgentTide(BaseModel):
     history :Optional[list]=None
     steps :Optional[Steps]=None
     session_id :str=Field(default_factory=ulid)
+
+    @model_validator(mode="after")
+    def pass_custom_logger_fn(self)->Self:
+        self.llm.logger_fn = partial(custom_logger_fn, session_id=self.session_id, filepath=self.patch_path)
+        return self
 
     @property
     def patch_path(self)->Path:
@@ -83,20 +97,20 @@ class AgentTide(BaseModel):
 
             codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
 
-        async with tee_and_trim_patch(self.patch_path):
-            response = await self.llm.acomplete(
-                self.history,
-                system_prompt=[
-                    AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
-                    STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
-                    WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
-                ],
-                prefix_prompt=codeContext
-            )
+        response = await self.llm.acomplete(
+            self.history,
+            system_prompt=[
+                AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
+                STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
+                WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
+            ],
+            prefix_prompt=codeContext
+        )
 
+        await trim_to_patch_section(self.patch_path)
         if os.path.exists(self.patch_path):
             process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)
-        
+
         steps = parse_steps_markdown(response)
         if steps:
             self.steps = Steps.from_steps(steps)
