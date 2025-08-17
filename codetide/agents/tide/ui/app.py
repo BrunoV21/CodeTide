@@ -2,9 +2,6 @@
 from pathlib import Path
 import os
 
-from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
-from codetide.core.defaults import DEFAULT_ENCODING
-
 os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
 os.environ.setdefault("CHAINLIT_AUTH_SECRET","@6c1HFdtsjiYKe,-t?dZXnq%4xrgS/YaHte/:Dr6uYq0su/:fGX~M2uy0.ACehaK")
 
@@ -30,7 +27,8 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
-from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
+from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
+from codetide.core.defaults import DEFAULT_ENCODING
 from codetide.agents.data_layer import init_db
 import argparse
 import getpass
@@ -125,7 +123,7 @@ async def start_chat():
     # cl.user_session.set("AgentTideUi", None)
     # cl.user_session.set("session_id", agent_tide_ui.agent_tide.session_id)
     # await cl.ChatSettings(agent_tide_ui.settings()).send()
-    await cl.context.emitter.set_commands(AgentTideUi.commands)  
+    await cl.context.emitter.set_commands(AgentTideUi.commands)
     cl.user_session.set("chat_history", [])
 
 @cl.set_starters
@@ -141,6 +139,7 @@ async def on_chat_resume(thread: ThreadDict):
 
 async def loadAgentTideUi()->AgentTideUi:
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    print(f"{agent_tide_ui=}")
     if agent_tide_ui is None:
         try:
             agent_tide_ui = AgentTideUi(
@@ -386,3 +385,6 @@ if __name__ == "__main__":
     # TODO fix the no time being inserted to msg bug in data-persistance
     # TODO there's a bug that changes are not being persistied in untracked files that are deleted so will need to update codetide to track that
     # TODO add chainlit commands for writing tests, updating readme, writing commit message and planning
+    # TODO pre release, create hf orchestrator that launches temp dir, clones repo there and stores api config there
+    # TODO or just deactivate pre data persistance for hf release
+    # TODO need to test project path is working as expected...

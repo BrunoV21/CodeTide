@@ -17,10 +17,11 @@ from codetide.mcp.utils import initCodeTide
 
 from typing import Optional
 from pathlib import Path
+from ulid import ulid
 import os
 
 class AgentTideUi(object):
-    def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None, llm_config :Optional[LlmConfig]=None):
+    def __init__(self, project_path: Path = Path("./"), history :Optional[list]=None, llm_config :Optional[LlmConfig]=None, session_id :Optional[str]=None):
         self.project_path: Path = Path(project_path)
         self.config_path = os.getenv("AGENT_TIDE_CONFIG_PATH", DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH)
         
@@ -42,6 +43,7 @@ class AgentTideUi(object):
             "test": CMD_WRITE_TESTS_PROMPT,
             "commit": CMD_COMMIT_PROMPT
         }
+        self.session_id = session_id if session_id else ulid()
     
     commands = [
         {"id": "review", "icon": "search-check", "description": "Review file(s) or object(s)"},
@@ -54,7 +56,8 @@ class AgentTideUi(object):
         self.agent_tide = AgentTide(
             llm=llm,
             tide=await initCodeTide(workspace=self.project_path),
-            history=self.history
+            history=self.history,
+            session_id=self.session_id
         )
         self.agent_tide.llm.session_id = self.agent_tide.session_id
 
