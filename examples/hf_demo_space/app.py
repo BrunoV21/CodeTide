@@ -22,12 +22,41 @@ from chainlit.cli import run_chainlit
 from pathlib import Path
 from ulid import ulid
 import chainlit as cl
+import subprocess
 import shutil
 import yaml
 import json
 import os
+import re
 
 DEFAULT_SESSIONS_WORKSPACE = Path(os.getcwd()) / "sessions"
+
+GIT_URL_PATTERN = re.compile(
+    r'^(?:http|https|git|ssh)://'  # Protocol
+    r'(?:\S+@)?'  # Optional username
+    r'([^/]+)'  # Domain
+    r'(?:[:/])([^/]+/[^/]+?)(?:\.git)?$'  # Repo path
+)
+
+def validate_git_url(url) -> None:
+    """Validate the Git repository URL using git ls-remote."""
+    if not GIT_URL_PATTERN.match(url):
+        raise ValueError(f"Invalid Git repository URL format: {url}")
+        
+    try:
+        result = subprocess.run(
+            ["git", "ls-remote", url],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10  # Add timeout to prevent hanging
+        )
+        if not result.stdout.strip():
+            raise ValueError(f"URL {url} points to an empty repository")
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"Timeout while validating URL {url}")
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Invalid Git repository URL: {url}. Error: {e.stderr}") from e
 
 async def validate_llm_config_hf(agent_tide_ui: AgentTideUi):
     exception = True
@@ -86,6 +115,8 @@ async def loadAgentTideUi()->AgentTideUi:
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
     session_id = cl.user_session.get("session_id")
     if agent_tide_ui is None:
+        await clone_repo(session_id)
+
         try:
             agent_tide_ui = AgentTideUi(
                 DEFAULT_SESSIONS_WORKSPACE / session_id,
@@ -104,9 +135,29 @@ async def loadAgentTideUi()->AgentTideUi:
 
     return agent_tide_ui
 
-async def clone_repo():
+async def clone_repo(session_id):
     # TODO ask user actions to get PAT and attempt to clone git repo contents
-    pass
+    exception = True
+    
+    while exception:
+        try:
+            url = await cl.AskUserMessage(
+                content="Provide a valid github url to give AgentTide some context!"
+            ).send()
+            validate_git_url(url)
+            exception = None
+        except Exception as e:
+            await cl.Message(f"Invalid url found, please provide only the url, if it is a private repo you can inlucde a PAT in the url: {e}").send()
+            exception = e
+
+    subprocess.run(
+        ["git", "clone", "--no-checkout", url, DEFAULT_SESSIONS_WORKSPACE / session_id],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=300
+    )
+
 
 @cl.on_chat_start
 async def start_chatr():
@@ -115,9 +166,6 @@ async def start_chatr():
     cl.user_session.set("session_id", ulid())
     await cl.context.emitter.set_commands(AgentTideUi.commands)
     cl.user_session.set("chat_history", [])
-    ###
-    await clone_repo()
-    ###
 
 @cl.set_starters
 async def set_starters():
@@ -276,5 +324,6 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
         await agent_tide_ui.add_to_history(msg.content)
 
 if __name__ == "__main__":
-    import os
+    
+    # TODO add button button to ckeckout and push
     run_chainlit(os.path.abspath(__file__))
