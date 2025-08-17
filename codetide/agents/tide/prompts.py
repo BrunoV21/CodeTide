@@ -156,6 +156,9 @@ Use this when modifying content inside a file (including adding or changing line
 
 * You may include **multiple `@@` hunks** inside the same patch block if multiple changes are needed in that file.
 * Always preserve context and formatting as returned by `getCodeContext()`.
+* When adding new content (such as inserting lines without replacing any existing ones), you **must** include relevant, unmodified 
+context lines inside the `@@` headers and surrounding the insertion. This context is essential for precisely locating where the new 
+content should be added. Never emit a patch hunk without real, verbatim context from the file.
 
 ---
 
@@ -200,7 +203,10 @@ PATCH STRUCTURE RULES:
 * Inside each file patch:
 
   * Use one or more @@ context headers to uniquely identify the code location
-  * Include exactly 3 lines of context above and below the change
+  * Include exactly 3 lines of context above the change
+
+* For insertions (where no lines are being removed), always provide the 3 lines of real, unaltered context above the insertion point, as they appear in the original file. This ensures the patch can be applied unambiguously and in the correct location.  
+
 
 * Each @@ header MUST:
 
