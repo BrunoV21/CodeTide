@@ -8,6 +8,9 @@ async def trim_to_patch_section(filename):
     """Remove all lines before '*** Begin Patch' and after '*** End Patch'"""
     lines_to_keep = []
     capturing = False
+
+    if not os.path.exists(filename):
+        return
     
     async with aiofiles.open(filename, 'r') as f:
         async for line in f:
