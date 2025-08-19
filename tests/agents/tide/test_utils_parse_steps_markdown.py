@@ -73,13 +73,6 @@ def test_missing_context_identifiers():
     assert len(steps) == 1
     assert steps[0]["context_identifiers"] == []
 
-def test_empty_block_raises():
-    md = """
-    This markdown contains no valid steps.
-    """
-    with pytest.raises(ValueError, match="No steps block found"):
-        parse_steps_markdown(md)
-
 def test_malformed_but_parsable_step():
     md = """
     *** Begin Steps

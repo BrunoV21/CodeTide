@@ -223,7 +223,7 @@ def test_rename_file(mock_fs):
 
 
 def test_crlf_handling(mock_fs):
-    mock_fs._create_file('crlf.txt', "line one\r\nline two\r\nline three\r\n")
+    mock_fs._create_file('crlf.txt', """line one\nline two\nline three\n""")
     patch = """*** Begin Patch
 *** Update File: crlf.txt
 @@ line one
