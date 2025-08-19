@@ -1,7 +1,13 @@
 name: Sync Agent Tide Demo to Hugging Face Space
 on:
   push:
-    branches: [main]
+    branches: [main]    
+    tags: [ "*" ]
+  release:
+    types: [published, created, edited]
+  pull_request:
+    branches: [ "main" ]
+    
   workflow_dispatch:
 
 jobs:
