@@ -45,10 +45,11 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         run: pytest tests --ignore=tests/agents --ignore=tests/mcp/tools
-      - name: Test agents with pytest
+      - name: Install package with agents requirements
         run: |
-          python -m pip install .[agents] 
-          pytest tests/agents tests/mcp/tools
+          python -m pip -r requirements-agents.txt
+      - name: Test agents with pytest
+        run: pytest tests/agents tests/mcp/tools
   security:
     name: Security Check
     runs-on: ubuntu-latest
