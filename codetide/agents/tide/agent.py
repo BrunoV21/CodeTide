@@ -22,7 +22,8 @@ except ImportError as e:
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
 from pydantic import BaseModel, Field, model_validator
-from typing import List, Optional, Self
+from typing_extensions import Self
+from typing import List, Optional
 from datetime import date
 from pathlib import Path
 from ulid import ulid
