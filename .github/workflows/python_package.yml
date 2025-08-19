@@ -47,7 +47,7 @@ jobs:
         run: pytest tests --ignore=tests/agents --ignore=tests/mcp/tools
       - name: Install package with agents requirements
         run: |
-          python -m pip -r requirements-agents.txt
+          python -m pip install -r requirements-agents.txt
       - name: Test agents with pytest
         run: pytest tests/agents tests/mcp/tools
   security:
