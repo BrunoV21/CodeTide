@@ -7,7 +7,6 @@ requirements = (here / "requirements.txt").read_text(encoding="utf-8").splitline
 requirements_visualization = (here / "requirements-visualization.txt").read_text(encoding="utf-8").splitlines()
 requirements_agents = (here / "requirements-agents.txt").read_text(encoding="utf-8").splitlines()
 requirements_agents_ui = (here / "requirements-agents-ui.txt").read_text(encoding="utf-8").splitlines()
-requirements_agents_ui.extend(requirements_agents)
 
 setup(
     name="codetide",
@@ -24,7 +23,7 @@ setup(
     extras_require={
         "visualization": requirements_visualization,
         "agents": requirements_agents,
-        "agents-ui": requirements_agents_ui
+        "agents-ui": requirements_agents + requirements_agents_ui
     },
     entry_points={
         "console_scripts": [
