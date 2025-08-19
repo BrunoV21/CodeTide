@@ -1,5 +1,0 @@
-include requirements.txt
-include requirements-agents.txt
-include docs/assets/codetide-logo.png
-include requirements-visualization.txt
-include README.md

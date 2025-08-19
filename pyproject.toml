@@ -39,12 +39,20 @@ dependencies = [
 agents = [
     "core-for-ai>=0.1.98",
     "prompt_toolkit==3.0.50",
-    # Required for the agent-tide-step CLI entry point 
+    # Required for the agent-tide CLI entry point 
 ]
 visualization = [
     "networkx==3.4.2",
     "numpy==2.2.0",
     "plotly==5.24.1",
+]
+agents-ui = [
+    "core-for-ai>=0.1.98",
+    "prompt_toolkit==3.0.50",
+    # Required for the agent-tide CLI entry point
+    "chainlit==2.6.3",
+    "aiosqlite==0.21.0",
+    "SQLAlchemy==2.0.36"
 ]
 
 [project.scripts]
@@ -52,6 +60,7 @@ codetide-mcp-server = "codetide.mcp.server:serve"
 codetide-cli = "codetide.cli:main"
 agent-tide-step = "codetide.agents.tide.cli_step:main"
 agent-tide = "codetide.agents.tide.cli:main"
+agent-tide-ui = "codetide.agents.tide.ui:main"
 # agent-tide-step and agent-tide require the [agents] extra: pip install codetide[agents] or to execute uvx --from codetide[agents] agent-tide-step -h
 
 [project.urls]

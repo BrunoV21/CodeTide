@@ -1,39 +1,41 @@
 from .models import DiffError, Patch, Commit, ActionType
+from ....core.defaults import DEFAULT_ENCODING
 from .parser import Parser, patch_to_commit
+# from ....core.common import writeFile
 
 from typing import Dict, Tuple, List, Callable
 import pathlib
-import re
 import os
-
-BREAKLINE_TOKEN = "<n>"
-
-BREAKLINE_PER_FILE_TYPE = {
-    ".md": "\n",
-    ".py": r"\n"
-}
 
 # --------------------------------------------------------------------------- #
 #  User-facing API
 # --------------------------------------------------------------------------- #
 def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
-    """High-level function to parse patch text against original file content."""
+    """Improved version with better splitlines handling."""
     lines = text.splitlines()
+
     for i, line in enumerate(lines):
         if line.startswith(("@", "***")):
-            if  line.startswith("@@") and lines[i+1].startswith("+"):
+            if line.startswith("@@") and i + 1 < len(lines) and lines[i+1].startswith("+"):
                 lines.insert(i+1, line.replace("@@", ""))
+            elif line.startswith("@") and not line.startswith("@@"):
+                lines[i] = f" {line}"
             continue
 
-        elif (line.startswith("---") and len(line)==3) or not line.startswith(("+", "-", " ")):
+        elif (line.startswith("---") and len(line) == 3) or not line.startswith(("+", "-", " ")):
+            lines[i] = f" {line}"
+
+        elif line.startswith(("+", "-")) and i + 1 < len(lines) and lines[i+1].startswith(" "):
             lines[i] = f" {line}"
     
-    # print(f"\n\n{lines[-2:]=}")
+    # Debug output
+    # writeFile("\n".join(lines), "lines_processed.txt")
+    # writeFile("\n".join(list(orig.values())), "lines_orig.txt")
 
     if not lines or not Parser._norm(lines[0]).startswith("*** Begin Patch"):
-        raise DiffError("Invalid patch text - must start with '*** Begin Patch'.")
-    if not Parser._norm(lines[-1]) == "*** End Patch":
-        raise DiffError("Invalid patch text - must end with '*** End Patch'.")
+        raise DiffError(f"Invalid patch text - must start with '*** Begin Patch'. Found: '{lines[0] if lines else 'empty'}'")
+    if not lines or not Parser._norm(lines[-1]) == "*** End Patch":
+        raise DiffError(f"Invalid patch text - must end with '*** End Patch'. Found: '{lines[-1] if lines else 'empty'}'")
 
     parser = Parser(current_files=orig, lines=lines, index=1)
     parser.parse()
@@ -101,70 +103,20 @@ def apply_commit(
             if change.move_path and target_path != path:
                 remove_fn(path)
 
-def replace_newline_in_quotes(text, token=BREAKLINE_TOKEN):
-    """
-    Replace newlines with a special token only within single/double quoted strings,
-    but NOT within triple-quoted strings.
-    """
-    
-    # First, let's handle triple-quoted strings by temporarily replacing them
-    # with placeholders to avoid processing them
-    triple_quote_placeholders = []
-    
-    # Find all triple-quoted strings (both ''' and """)
-    triple_pattern = r'(""".*?"""|\'\'\'.*?\'\'\')'
-    
-    def store_triple_quote(match):
-        placeholder = f"__TRIPLE_QUOTE_{len(triple_quote_placeholders)}__"
-        triple_quote_placeholders.append(match.group(1))
-        return placeholder
-    
-    # Temporarily replace triple quotes with placeholders
-    text_with_placeholders = re.sub(triple_pattern, store_triple_quote, text, flags=re.DOTALL)
-    
-    # Now process single/double quoted strings (excluding triple quotes)
-    pattern = r'''
-        (['"])         # Group 1: single or double quote (opening)
-        (              # Group 2: content inside the quote
-            (?:        # non-capturing group
-                \\\1   # escaped quote like \' or \"
-                |      # or
-                (?!\1).  # any char that's not the same quote
-            )*?
-        )
-        \1             # Closing quote, must match opening
-        (?!\1{2})      # Negative lookahead: ensure it's not followed by two more of same quote (triple quote)
-    '''
-
-    def replacer(match):
-        quote = match.group(1)
-        content = match.group(2)
-        # Replace both literal \n and actual newlines
-        replaced = content.replace(r'\n', token).replace('\n', token)
-        return f'{quote}{replaced}{quote}'
-
-    # Apply the replacement to single/double quoted strings only
-    result = re.sub(pattern, replacer, text_with_placeholders, flags=re.VERBOSE | re.DOTALL)
-    
-    # Restore the triple-quoted strings
-    for i, triple_quote in enumerate(triple_quote_placeholders):
-        placeholder = f"__TRIPLE_QUOTE_{i}__"
-        result = result.replace(placeholder, triple_quote)
-    
-    return result
-
 def process_patch(
-    text: str,
+    patch_path: str,
     open_fn: Callable[[str], str],
     write_fn: Callable[[str, str], None],
     remove_fn: Callable[[str], None],
     exists_fn: Callable[[str], bool]
 ) -> str:
     """The main entrypoint function to process a patch from text to filesystem."""
-    if not text.strip():
-        raise DiffError("Patch text is empty.")
+    if not os.path.exists(patch_path):
+        raise DiffError("Patch path {patch_path} does not exist.")
     
-    text = replace_newline_in_quotes(text)
+    # Normalize line endings before processing
+    text = open_fn(patch_path)
+    
     # FIX: Check for existence of files to be added before parsing.
     paths_to_add = identify_files_added(text)
     for p in paths_to_add:
@@ -172,29 +124,33 @@ def process_patch(
             raise DiffError(f"Add File Error - file already exists: {p}")
 
     paths_needed = identify_files_needed(text)
-    orig_files = load_files(paths_needed, open_fn)
+
+    # Load files with normalized line endings
+    orig_files = {}
+    for path in paths_needed:
+        orig_files[path] = open_fn(path)
     
     patch, _fuzz = text_to_patch(text, orig_files)
     commit = patch_to_commit(patch, orig_files)
     
     apply_commit(commit, write_fn, remove_fn, exists_fn)
+
+    remove_fn(patch_path)
     return "Patch applied successfully."
 
 # --------------------------------------------------------------------------- #
 #  Default FS wrappers
 # --------------------------------------------------------------------------- #
-def open_file(path: str) -> str:
-    with open(path, "rt", encoding="utf-8") as fh:
-        return replace_newline_in_quotes(fh.read())
-
+def open_file(path: str) -> str:    
+    _, ext = os.path.splitext(path)
+    with open(path, "rt", encoding=DEFAULT_ENCODING) as fh:
+        return fh.read()
 
 def write_file(path: str, content: str) -> None:
     target = pathlib.Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    _, ext = os.path.splitext(target)
-    with target.open("wt", encoding="utf-8", newline="\n") as fh:
-        fh.write(content.replace(BREAKLINE_TOKEN, BREAKLINE_PER_FILE_TYPE.get(ext, r"\n")))
-
+    with target.open("wt", encoding=DEFAULT_ENCODING, newline="\n") as fh:
+        fh.write(content)
 
 def remove_file(path: str) -> None:
     p = pathlib.Path(path)

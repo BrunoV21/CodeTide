@@ -2,9 +2,15 @@ from .defaults import DEFAULT_ENCODING
 from typing import Union
 from pathlib import Path
 
-def readFile(path :Union[str, Path], mode :str="r")->str:
-    with open(path, mode, encoding=DEFAULT_ENCODING if mode != "rb" else None) as _file:
-        contents = _file.read()
+def readFile(path :Union[str, Path], mode :str="r", skip_errors :bool=False)->str:
+    try:
+        with open(path, mode, encoding=DEFAULT_ENCODING if mode != "rb" else None) as _file:
+            contents = _file.read()
+    except Exception as e:
+        if skip_errors:
+            return ""
+        raise e
+    
     return contents
 
 def writeFile(contents: Union[str, bytes], path: Union[str, Path], mode: str = "w"):

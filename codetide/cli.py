@@ -1,4 +1,4 @@
-from codetide.core.defaults import DEFAULT_SERIALIZATION_PATH
+from codetide.core.defaults import DEFAULT_SERIALIZATION_PATH, DEFAULT_ENCODING
 from codetide import CodeTide
 
 from pathlib import Path
@@ -14,8 +14,8 @@ def safe_print(string :str):
         try:
             # Try with UTF-8 encoding
             import sys
-            if sys.stdout.encoding != 'utf-8':
-                sys.stdout.reconfigure(encoding='utf-8')  # Python 3.7+
+            if sys.stdout.encoding != DEFAULT_ENCODING:
+                sys.stdout.reconfigure(encoding=DEFAULT_ENCODING)  # Python 3.7+
             print(string)
         except Exception:
             # Fallback to ASCII-safe output

@@ -1,0 +1,10 @@
+include requirements.txt
+include requirements-agents.txt
+include docs/assets/codetide-logo.png
+include requirements-visualization.txt
+include README.md
+
+# Include all files in codetide/agents/tide/ui/.chainlit and public directories (and subdirectories)
+recursive-include codetide/agents/tide/ui/.chainlit *
+recursive-include codetide/agents/tide/ui/public *
+recursive-include codetide/agents/tide/ui *

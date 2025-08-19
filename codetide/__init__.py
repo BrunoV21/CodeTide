@@ -1,7 +1,7 @@
 from codetide.core.defaults import (
     CODETIDE_ASCII_ART, DEFAULT_SERIALIZATION_PATH, DEFAULT_MAX_CONCURRENT_TASKS,
     DEFAULT_BATCH_SIZE, DEFAULT_CACHED_ELEMENTS_FILE, DEFAULT_CACHED_IDS_FILE,
-    LANGUAGE_EXTENSIONS
+    LANGUAGE_EXTENSIONS, SKIP_EXTENSIONS
 )
 from codetide.core.models import CodeFileModel, CodeBase, CodeContextStructure
 from codetide.core.common import readFile, writeFile
@@ -474,6 +474,18 @@ class CodeTide(BaseModel):
                 include_cached_ids=kwargs.get("include_cached_ids", False)
             )
 
+    @staticmethod
+    def _is_file_content_valid(filepath :Path)->bool:
+        # Lowercase name for case-insensitive matching
+        name_lower = filepath.name.lower()
+
+        # Skip if extension or full filename is in SKIP_EXTENSIONS
+        for ext in SKIP_EXTENSIONS:
+            if name_lower.endswith(ext.lower()):
+                return False
+
+        return True
+
     def _precheck_id_is_file(self, unique_ids : List[str])->Dict[Path, str]:
         """
         Preload file contents for the given IDs if they correspond to known files.
@@ -486,7 +498,7 @@ class CodeTide(BaseModel):
         """
         return {
             unique_id: readFile(self.rootpath / unique_id) for unique_id in unique_ids
-            if self.rootpath / unique_id in self.files
+            if self.rootpath / unique_id in self.files and self._is_file_content_valid(self.rootpath / unique_id)
         }
 
     def get(

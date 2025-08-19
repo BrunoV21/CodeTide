@@ -177,4 +177,7 @@ storage/
 logs/
 observability_data/
 config/
+*.db
+.files/
 
+codetide/agents/tide/ui/assets/

@@ -1,0 +1,1 @@
+codetide @ git+https://github.com/BrunoV21/codetide.git#egg=codetide[agent-tide-ui]

@@ -1,15 +1,22 @@
+<div align="center">
+
 <!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
-# <img src="./docs/assets/codetide-logo.png" alt="code-tide-logo" width="35" height="auto"/> CodeTide
+<img src="./codetide/agents/tide/ui/public/codetide-banner.png" alt="code-tide-logo" width="900" height="auto"/>
+
+
+
 [![GitHub Stars](https://img.shields.io/github/stars/BrunoV21/CodeTide?style=social)](https://github.com/BrunoV21/CodeTide/stargazers)
 [![PyPI Downloads](https://static.pepy.tech/badge/CodeTide)](https://pepy.tech/projects/CodeTide)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/CodeTide?style=flat)](https://pypi.org/pypi/codetide/)
 [![PyPI - Version](https://img.shields.io/pypi/v/CodeTide?style=flat)](https://pypi.org/pypi/codetide/)
 [![Pydantic v2](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/pydantic/pydantic/main/docs/badge/v2.json)](https://pydantic.dev)
---- 
+
+</div>
+
+---
 
 **CodeTide** is a fully local, privacy-preserving tool for parsing and understanding Python codebases using symbolic, structural analysis. No internet, no LLMs, no embeddings - just fast, explainable, and deterministic code intelligence.
 
----
 
 ## ✅ Key Features
 
@@ -19,6 +26,64 @@
 - 🧱 Visualize the architecture and hierarchy of your project.
 - ⚡ Fast, cacheable parsing with smart update detection.
 - 🔁 Designed to work alongside tools like Copilot, GPT, and Claude - on your terms.
+
+
+---
+# Entrypoints & Usage
+
+CodeTide provides several entrypoints for interacting with the system via command-line and web UI. These entrypoints are exposed through the `uvx` launcher and require the appropriate extras to be installed.
+
+## CodeTide CLI
+
+To use the main CodeTide CLI:
+
+```sh
+uvx --from codetide codetide-cli --help
+```
+## AgentTide
+
+AgentTide consists of a demo, showing how CodeTide can integrate with LLMs and augment code generation and condebase related workflows. If you ask Tide to describe himself, he will say something like this: I'm the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
+
+---
+
+<div align="center">
+<!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
+<img src="./codetide/agents/tide/ui/public/agent-tide-demo.gif" alt="agent-tide-demo" width="100%" height="auto"/>
+</div>
+
+---
+
+**AgentTide CLI**
+
+To use the AgentTide conversational CLI, you must install the `[agents]` extra and launch via:
+
+```sh
+uvx --from codetide[agents] agent-tide
+```
+
+This will start an interactive terminal session with AgentTide.
+
+**AgentTide UI**
+
+To use the AgentTide web UI, you must install the `[agents-ui]` extra and launch via:
+
+```sh
+uvx --from codetide[agents-ui] agent-tide-ui
+```
+
+This will start a web server for the AgentTide UI. Follow the on-screen instructions to interact with the agent in your browser at [http://localhost:9753](http://localhost:9753) (or the port you specified)
+
+### Why Try AgentTide? ([Full Guide & Tips Here](codetide/agents/tide/ui/chainlit.md))
+
+**Local-First & Private:** All code analysis and patching is performed locally. Your code never leaves your machine.
+- **Transparent & Stepwise:** See every plan and patch before it's applied. Edit, reorder, or approve steps—you're always in control.
+- **Context-Aware:** AgentTide loads only the relevant code identifiers and dependencies for your request, making it fast and precise.
+- **Human-in-the-Loop:** After each step, review the patch, provide feedback, or continue—no black-box agent behavior.
+- **Patch-Based Editing:** All changes are atomic diffs, not full file rewrites, for maximum clarity and efficiency.
+
+**Usage Tips:**  
+If you know the exact code context, specify identifiers directly in your request (e.g., `module.submodule.file_withoutextension.object`).  
+You can request a plan, edit steps, and proceed step-by-step—see the [chainlit.md](codetide/agents/tide/ui/chainlit.md) for full details and advanced workflows!
 
 ---
 
@@ -460,6 +525,9 @@ Here’s what’s next for CodeTide:
   
 ~~- 🧭 **Handle relative imports** in Python projects  
   → Improve resolution for intra-package navigation.~~
+
+- 🚀 **AgentTideUi Hugging Face Space**  
+  → We are planning to make AgentTideUi available as a Hugging Face Space, supporting GitHub OAuth for user session and allowing users to provide a repo URL for one-time conversations.
 
 ---
 

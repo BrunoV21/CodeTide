@@ -1,15 +1,18 @@
+from functools import partial
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
+from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
+from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
+    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
+from .utils import parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
-from .utils import parse_patch_blocks
 
 try:
     from aicore.llm import Llm
-    from aicore.logger import _logger
+    from aicore.logger import _logger, SPECIAL_TOKENS
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' package. "
@@ -18,16 +21,41 @@ except ImportError as e:
 
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field, model_validator
+from typing_extensions import Self
+from typing import List, Optional
 from datetime import date
+from pathlib import Path
+from ulid import ulid
+import aiofiles
 import asyncio
 import os
+
+async def custom_logger_fn(message :str, session_id :str, filepath :str):
+    if message not in SPECIAL_TOKENS:
+        async with aiofiles.open(filepath, 'a', encoding=DEFAULT_ENCODING) as f:
+            await f.write(message)
+
+    await _logger.log_chunk_to_queue(message, session_id)
 
 class AgentTide(BaseModel):
     llm :Llm
     tide :CodeTide
     history :Optional[list]=None
+    steps :Optional[Steps]=None
+    session_id :str=Field(default_factory=ulid)
+
+    @model_validator(mode="after")
+    def pass_custom_logger_fn(self)->Self:
+        self.llm.logger_fn = partial(custom_logger_fn, session_id=self.session_id, filepath=self.patch_path)
+        return self
+
+    @property
+    def patch_path(self)->Path:
+        if not os.path.exists(DEFAULT_STORAGE_PATH):
+            os.makedirs(DEFAULT_STORAGE_PATH, exist_ok=True)
+        
+        return DEFAULT_STORAGE_PATH / f"{self.session_id}.bash"
 
     @staticmethod
     def trim_messages(messages, tokenizer_fn, max_tokens :Optional[int]=None):
@@ -35,20 +63,25 @@ class AgentTide(BaseModel):
         while messages and sum(len(tokenizer_fn(str(msg))) for msg in messages) > max_tokens:
             messages.pop(0)  # Remove from the beginning
 
-    async def agent_loop(self):
+    async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
+
+        # update codetide with the latest changes made by the human and agent
+        await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+
         repo_tree = self.tide.codebase.get_tree_view(
             include_modules=True,
             include_types=True
         )
 
-        codeIdentifiers = await self.llm.acomplete(
-            self.history,
-            system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
-            prefix_prompt=repo_tree,
-            stream=False,
-            json_output=True
-        )
+        if codeIdentifiers is None:
+            codeIdentifiers = await self.llm.acomplete(
+                self.history,
+                system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
+                prefix_prompt=repo_tree,
+                stream=False,
+                json_output=True
+            )
 
         codeContext = None
         if codeIdentifiers:
@@ -69,21 +102,26 @@ class AgentTide(BaseModel):
             self.history,
             system_prompt=[
                 AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
+                STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
                 WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
             ],
             prefix_prompt=codeContext
         )
-        
+
+        await trim_to_patch_section(self.patch_path)
+        if os.path.exists(self.patch_path):
+            process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)
+
+        steps = parse_steps_markdown(response)
+        if steps:
+            self.steps = Steps.from_steps(steps)
+
         diffPatches = parse_patch_blocks(response, multiple=True)
         if diffPatches:
-
             for patch in diffPatches:
-                patch = patch.replace("\'", "'").replace('\"', '"')
-                process_patch(patch, open_file, write_file, remove_file, file_exists)
+                # TODO this deletes previouspatches from history to make sure changes are always focused on the latest version of the file
+                response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
 
-            
-            await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
-        
         self.history.append(response)
 
     async def run(self, max_tokens: int = 48000):

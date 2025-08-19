@@ -3,8 +3,9 @@ from pathlib import Path
 import argparse
 import asyncio
 
+from .defaults import DEFAULT_MAX_HISTORY_TOKENS
 from ...mcp.utils import initCodeTide
-from .cli_step import init_llm, DEFAULT_MAX_HISTORY_TOKENS
+from .cli_step import init_llm
 from .agent import AgentTide
 
 def main():
@@ -38,3 +39,4 @@ async def run_agent_tide_cli(project_path: str, max_history_tokens: int):
 
 if __name__ == "__main__":
     main()
+    #TODO add support to receive -ui param in which case a chainlit ui is launched to interact with the agent!
