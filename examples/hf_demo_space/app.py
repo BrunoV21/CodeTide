@@ -18,8 +18,9 @@ from aicore.models import AuthenticationError, ModelError
 from aicore.config import Config
 from aicore.llm import Llm
 
-from typing import Optional
+from git_utils import commit_and_push_changes, validate_git_url
 from chainlit.cli import run_chainlit
+from typing import Optional
 from pathlib import Path
 from ulid import ulid
 import chainlit as cl
@@ -30,44 +31,8 @@ import json
 import stat
 import yaml
 import os
-import re
 
 DEFAULT_SESSIONS_WORKSPACE = Path(os.getcwd()) / "sessions"
-
-GIT_URL_PATTERN = re.compile(
-    r'^(?:http|https|git|ssh)://'  # Protocol
-    r'(?:\S+@)?'  # Optional username
-    r'([^/]+)'  # Domain
-    r'(?:[:/])([^/]+/[^/]+?)(?:\.git)?$'  # Repo path
-)
-
-async def validate_git_url(url) -> None:
-    """Validate the Git repository URL using git ls-remote."""
-
-    if not GIT_URL_PATTERN.match(url):
-        raise ValueError(f"Invalid Git repository URL format: {url}")
-        
-    try:
-        process = await asyncio.create_subprocess_exec(
-            "git", "ls-remote", url,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
-        
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, ["git", "ls-remote", url], stdout, stderr)
-            
-        if not stdout.strip():
-            raise ValueError(f"URL {url} points to an empty repository")
-            
-    except asyncio.TimeoutError:
-        process.kill()
-        await process.wait()
-        raise ValueError(f"Timeout while validating URL {url}")
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Invalid Git repository URL: {url}. Error: {e.stderr}") from e
 
 async def validate_llm_config_hf(agent_tide_ui: AgentTideUi):
     exception = True
@@ -278,6 +243,11 @@ async def on_stop_steps(action :cl.Action):
         agent_tide_ui.current_step = None 
         await task_list.remove()
 
+@cl.action_callback("checkout_commit_push")
+async def on_checkout_commit_push(action :cl.Action):
+    session_id = cl.user_session.get("session_id")
+    await commit_and_push_changes(DEFAULT_SESSIONS_WORKSPACE / session_id)
+
 @cl.on_message
 async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
     agent_tide_ui = await loadAgentTideUi()
@@ -342,6 +312,12 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                     name="execute_steps",
                     tooltip="Next step",
                     icon="fast-forward",
+                    payload={"msg_id": msg.id}
+                ),
+                cl.Action(
+                    name="checkout_commit_push",
+                    tooltip="A new branch will be created and the changes made so far will be commited and pushed to the upstream repository",
+                    icon="circle-fading-arrow-up",
                     payload={"msg_id": msg.id}
                 )
             ]
