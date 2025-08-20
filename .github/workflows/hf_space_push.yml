@@ -26,17 +26,11 @@ jobs:
           rsync -av codetide/agents/tide/ui/public/ examples/hf_demo_space/public/
           cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
           cd examples/hf_demo_space
+          git lfs install
           git init --initial-branch=main
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add origin https://McLoviniTtt:$HF_TOKEN@huggingface.co/spaces/McLoviniTtt/AgentTideDemo
           git add .
           git commit -m "Deploy Agent Tide Demo to HF Space"y
-          git filter-branch --force --index-filter "
-            git rm --cached --ignore-unmatch public/agent-tide-demo.gif
-            git rm --cached --ignore-unmatch public/avatars/agent_tide.png
-            git rm --cached --ignore-unmatch public/codetide-banner.png
-            git rm --cached --ignore-unmatch public/logo_dark.png
-            git rm --cached --ignore-unmatch public/logo_light.png
-          " HEAD
           git push --force --all
