@@ -1,8 +1,9 @@
 from loguru import logger
+from pathlib import Path
 import sys
 
 # Ensure logs directory exists
-logs_dir = "./logs"
+logs_dir = Path("./logs")
 logs_dir.mkdir(exist_ok=True, parents=True)
 
 # Configure logger
