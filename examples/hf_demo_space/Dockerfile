@@ -28,4 +28,4 @@ RUN pip install --upgrade pip && \
 
 EXPOSE 7860
 
-CMD python -m chainlit run app.py -w --host 0.0.0.0 --port 7860
+CMD python -m chainlit run app.py --host 0.0.0.0 --port 7860
