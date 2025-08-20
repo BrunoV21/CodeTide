@@ -25,21 +25,28 @@ jobs:
           rsync -av codetide/agents/tide/ui/.chainlit/ examples/hf_demo_space/.chainlit/
           rsync -av codetide/agents/tide/ui/public/ examples/hf_demo_space/public/
           cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
-          cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
           cp .gitattributes examples/hf_demo_space
           cd examples/hf_demo_space
+
           git lfs install
           git init --initial-branch=main
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add origin https://McLoviniTtt:$HF_TOKEN@huggingface.co/spaces/McLoviniTtt/AgentTideDemo
+
+          # Set up LFS tracking for your binary files
+          git lfs track "*.gif"
+          git lfs track "*.png"
+          git lfs track "public/*.gif"
+          git lfs track "public/*.png" 
+          git lfs track "public/avatars/*.png"
+
+          # Add .gitattributes first (this tells git which files to track with LFS)
+          git add .gitattributes
+
+          # Now add all files - the binary ones will be handled by LFS
           git add .
-          git commit -m "Deploy Agent Tide Demo to HF Space"
-          git filter-branch --force --index-filter "
-            git rm --cached --ignore-unmatch public/agent-tide-demo.gif
-            git rm --cached --ignore-unmatch public/avatars/agent_tide.png
-            git rm --cached --ignore-unmatch public/codetide-banner.png
-            git rm --cached --ignore-unmatch public/logo_dark.png
-            git rm --cached --ignore-unmatch public/logo_light.png
-          " HEAD
-          git push --force --all
+          git commit -m "Deploy Agent Tide Demo to HF Space with LFS"
+
+          # Push everything (no filter-branch needed since LFS handles the binary files)
+          git push --force origin main
