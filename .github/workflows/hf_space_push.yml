@@ -22,10 +22,9 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          cp --parents -r codetide/agents/tide/ui/.chainlit/* examples/hf_demo_space/
-          cp --parents -r codetide/agents/tide/ui/public/* examples/hf_demo_space/
-          cp --parents codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
-          cp -r codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
+          rsync -av codetide/agents/tide/ui/.chainlit/ examples/hf_demo_space/.chainlit/
+          rsync -av codetide/agents/tide/ui/public/ examples/hf_demo_space/public/
+          cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
           cd examples/hf_demo_space
           git init --initial-branch=main
           git config user.name "github-actions[bot]"
