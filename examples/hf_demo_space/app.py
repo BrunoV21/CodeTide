@@ -313,15 +313,17 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                     tooltip="Next step",
                     icon="fast-forward",
                     payload={"msg_id": msg.id}
-                ),
-                cl.Action(
+                )
+            ]
+
+        msg.actions.append(
+            cl.Action(
                     name="checkout_commit_push",
                     tooltip="A new branch will be created and the changes made so far will be commited and pushed to the upstream repository",
                     icon="circle-fading-arrow-up",
                     payload={"msg_id": msg.id}
                 )
-            ]
-
+        )
         # # Send the final message
         await msg.send()
 
