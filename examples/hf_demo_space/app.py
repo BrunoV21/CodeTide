@@ -10,6 +10,7 @@ from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConf
 from codetide.agents.tide.ui.utils import run_concurrent_tasks
 from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
 from codetide.core.defaults import DEFAULT_ENCODING
+from codetide.core.logs import logger
 from codetide.agents.tide.models import Step
 
 from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN
@@ -24,8 +25,9 @@ from ulid import ulid
 import chainlit as cl
 import subprocess
 import shutil
-import yaml
 import json
+import stat
+import yaml
 import os
 import re
 
@@ -40,6 +42,7 @@ GIT_URL_PATTERN = re.compile(
 
 def validate_git_url(url) -> None:
     """Validate the Git repository URL using git ls-remote."""
+
     if not GIT_URL_PATTERN.match(url):
         raise ValueError(f"Invalid Git repository URL format: {url}")
         
@@ -141,22 +144,25 @@ async def clone_repo(session_id):
     
     while exception:
         try:
-            url = await cl.AskUserMessage(
+            user_message = await cl.AskUserMessage(
                 content="Provide a valid github url to give AgentTide some context!"
             ).send()
+            url = user_message.get("output")
             validate_git_url(url)
             exception = None
         except Exception as e:
             await cl.Message(f"Invalid url found, please provide only the url, if it is a private repo you can inlucde a PAT in the url: {e}").send()
             exception = e
 
+    logger.info(f"executing cmd git clone --no-checkout {url} {DEFAULT_SESSIONS_WORKSPACE / session_id}")
     subprocess.run(
-        ["git", "clone", "--no-checkout", url, DEFAULT_SESSIONS_WORKSPACE / session_id],
+        ["git", "clone", url, DEFAULT_SESSIONS_WORKSPACE / session_id],
         check=True,
         capture_output=True,
         text=True,
         timeout=300
     )
+    logger.info(f"finished cloning to {DEFAULT_SESSIONS_WORKSPACE / session_id}")
 
 
 @cl.on_chat_start
@@ -178,10 +184,15 @@ async def empty_current_session():
     if os.path.exists(session_path):
         shutil.rmtree(session_path)
 
+def remove_readonly(func, path, _):
+    """Clear the readonly bit and reattempt the removal"""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 @cl.on_app_shutdown
 async def empty_all_sessions():
     if os.path.exists(DEFAULT_SESSIONS_WORKSPACE):
-        shutil.rmtree(DEFAULT_SESSIONS_WORKSPACE)
+        shutil.rmtree(DEFAULT_SESSIONS_WORKSPACE, onexc=remove_readonly)
 
 @cl.action_callback("execute_steps")
 async def on_execute_steps(action :cl.Action):
