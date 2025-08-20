@@ -32,4 +32,5 @@ jobs:
           git remote add origin https://McLoviniTtt:$HF_TOKEN@huggingface.co/spaces/McLoviniTtt/AgentTideDemo
           git add .
           git commit -m "Deploy Agent Tide Demo to HF Space"
-          git push --force origin main
+          git filter-branch --index-filter --f "git rm -rf --cached --ignore-unmatch “agent-tide-demo.gif ” HEAD
+          git push --force --all origin main
