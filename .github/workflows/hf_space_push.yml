@@ -24,7 +24,6 @@ jobs:
         run: |
           rsync -av codetide/agents/tide/ui/.chainlit/ examples/hf_demo_space/.chainlit/
           rsync -av codetide/agents/tide/ui/public/ examples/hf_demo_space/public/
-          rsync -av codetide/agents/tide/ui/public/avatars examples/hf_demo_space/public/avatars
           cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
           cd examples/hf_demo_space
           git init --initial-branch=main
