@@ -39,7 +39,4 @@ jobs:
             git rm --cached --ignore-unmatch public/logo_dark.png
             git rm --cached --ignore-unmatch public/logo_light.png
           " HEAD
-          git for-each-ref --format="delete %(refname)" refs/original | git update-ref --stdin
-          git reflog expire --expire=now --all
-          git gc --prune=now
           git push --force --all
