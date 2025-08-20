@@ -1,10 +1,9 @@
-from .defaults import INSTALLATION_DIR
+from .defaults import DEFAULT_STORAGE_PATH
 from loguru import logger
-from pathlib import Path
 import sys
 
 # Ensure logs directory exists
-logs_dir = Path(INSTALLATION_DIR) / "logs"
+logs_dir = DEFAULT_STORAGE_PATH / "logs"
 logs_dir.mkdir(exist_ok=True, parents=True)
 
 # Configure logger
