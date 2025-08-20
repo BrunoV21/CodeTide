@@ -24,6 +24,7 @@ from pathlib import Path
 from ulid import ulid
 import chainlit as cl
 import subprocess
+import asyncio
 import shutil
 import json
 import stat
@@ -40,23 +41,30 @@ GIT_URL_PATTERN = re.compile(
     r'(?:[:/])([^/]+/[^/]+?)(?:\.git)?$'  # Repo path
 )
 
-def validate_git_url(url) -> None:
+async def validate_git_url(url) -> None:
     """Validate the Git repository URL using git ls-remote."""
 
     if not GIT_URL_PATTERN.match(url):
         raise ValueError(f"Invalid Git repository URL format: {url}")
         
     try:
-        result = subprocess.run(
-            ["git", "ls-remote", url],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10  # Add timeout to prevent hanging
+        process = await asyncio.create_subprocess_exec(
+            "git", "ls-remote", url,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
-        if not result.stdout.strip():
+        
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
+        
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, ["git", "ls-remote", url], stdout, stderr)
+            
+        if not stdout.strip():
             raise ValueError(f"URL {url} points to an empty repository")
-    except subprocess.TimeoutExpired:
+            
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
         raise ValueError(f"Timeout while validating URL {url}")
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Invalid Git repository URL: {url}. Error: {e.stderr}") from e
@@ -148,20 +156,30 @@ async def clone_repo(session_id):
                 content="Provide a valid github url to give AgentTide some context!"
             ).send()
             url = user_message.get("output")
-            validate_git_url(url)
+            await validate_git_url(url)
             exception = None
         except Exception as e:
             await cl.Message(f"Invalid url found, please provide only the url, if it is a private repo you can inlucde a PAT in the url: {e}").send()
             exception = e
 
     logger.info(f"executing cmd git clone --no-checkout {url} {DEFAULT_SESSIONS_WORKSPACE / session_id}")
-    subprocess.run(
-        ["git", "clone", url, DEFAULT_SESSIONS_WORKSPACE / session_id],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=300
+
+    process = await asyncio.create_subprocess_exec(
+        "git", "clone", url, str(DEFAULT_SESSIONS_WORKSPACE / session_id),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
     )
+    
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise
+    
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, ["git", "clone", url], stdout, stderr)
+    
     logger.info(f"finished cloning to {DEFAULT_SESSIONS_WORKSPACE / session_id}")
 
 
