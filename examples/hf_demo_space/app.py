@@ -10,6 +10,7 @@ from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConf
 from codetide.agents.tide.ui.utils import run_concurrent_tasks
 from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
 from codetide.core.defaults import DEFAULT_ENCODING
+from codetide.core.logs import logger
 from codetide.agents.tide.models import Step
 
 from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN
@@ -17,46 +18,21 @@ from aicore.models import AuthenticationError, ModelError
 from aicore.config import Config
 from aicore.llm import Llm
 
-from typing import Optional
+from git_utils import commit_and_push_changes, validate_git_url
 from chainlit.cli import run_chainlit
+from typing import Optional
 from pathlib import Path
 from ulid import ulid
 import chainlit as cl
 import subprocess
+import asyncio
 import shutil
-import yaml
 import json
+import stat
+import yaml
 import os
-import re
 
 DEFAULT_SESSIONS_WORKSPACE = Path(os.getcwd()) / "sessions"
-
-GIT_URL_PATTERN = re.compile(
-    r'^(?:http|https|git|ssh)://'  # Protocol
-    r'(?:\S+@)?'  # Optional username
-    r'([^/]+)'  # Domain
-    r'(?:[:/])([^/]+/[^/]+?)(?:\.git)?$'  # Repo path
-)
-
-def validate_git_url(url) -> None:
-    """Validate the Git repository URL using git ls-remote."""
-    if not GIT_URL_PATTERN.match(url):
-        raise ValueError(f"Invalid Git repository URL format: {url}")
-        
-    try:
-        result = subprocess.run(
-            ["git", "ls-remote", url],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=10  # Add timeout to prevent hanging
-        )
-        if not result.stdout.strip():
-            raise ValueError(f"URL {url} points to an empty repository")
-    except subprocess.TimeoutExpired:
-        raise ValueError(f"Timeout while validating URL {url}")
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Invalid Git repository URL: {url}. Error: {e.stderr}") from e
 
 async def validate_llm_config_hf(agent_tide_ui: AgentTideUi):
     exception = True
@@ -141,22 +117,35 @@ async def clone_repo(session_id):
     
     while exception:
         try:
-            url = await cl.AskUserMessage(
+            user_message = await cl.AskUserMessage(
                 content="Provide a valid github url to give AgentTide some context!"
             ).send()
-            validate_git_url(url)
+            url = user_message.get("output")
+            await validate_git_url(url)
             exception = None
         except Exception as e:
             await cl.Message(f"Invalid url found, please provide only the url, if it is a private repo you can inlucde a PAT in the url: {e}").send()
             exception = e
 
-    subprocess.run(
-        ["git", "clone", "--no-checkout", url, DEFAULT_SESSIONS_WORKSPACE / session_id],
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=300
+    logger.info(f"executing cmd git clone --no-checkout {url} {DEFAULT_SESSIONS_WORKSPACE / session_id}")
+
+    process = await asyncio.create_subprocess_exec(
+        "git", "clone", url, str(DEFAULT_SESSIONS_WORKSPACE / session_id),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
     )
+    
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise
+    
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, ["git", "clone", url], stdout, stderr)
+    
+    logger.info(f"finished cloning to {DEFAULT_SESSIONS_WORKSPACE / session_id}")
 
 
 @cl.on_chat_start
@@ -178,10 +167,15 @@ async def empty_current_session():
     if os.path.exists(session_path):
         shutil.rmtree(session_path)
 
+def remove_readonly(func, path, _):
+    """Clear the readonly bit and reattempt the removal"""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 @cl.on_app_shutdown
 async def empty_all_sessions():
     if os.path.exists(DEFAULT_SESSIONS_WORKSPACE):
-        shutil.rmtree(DEFAULT_SESSIONS_WORKSPACE)
+        shutil.rmtree(DEFAULT_SESSIONS_WORKSPACE, onexc=remove_readonly)
 
 @cl.action_callback("execute_steps")
 async def on_execute_steps(action :cl.Action):
@@ -249,6 +243,11 @@ async def on_stop_steps(action :cl.Action):
         agent_tide_ui.current_step = None 
         await task_list.remove()
 
+@cl.action_callback("checkout_commit_push")
+async def on_checkout_commit_push(action :cl.Action):
+    session_id = cl.user_session.get("session_id")
+    await commit_and_push_changes(DEFAULT_SESSIONS_WORKSPACE / session_id)
+
 @cl.on_message
 async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
     agent_tide_ui = await loadAgentTideUi()
@@ -256,7 +255,7 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
     chat_history = cl.user_session.get("chat_history")
 
     if message.command:
-        command_prompt = agent_tide_ui.get_command_prompt(message.command)
+        command_prompt = await agent_tide_ui.get_command_prompt(message.command)
         if command_prompt:
             message.content = "\n\n---\n\n".join([command_prompt, message.content])
 
@@ -313,6 +312,12 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                     name="execute_steps",
                     tooltip="Next step",
                     icon="fast-forward",
+                    payload={"msg_id": msg.id}
+                ),
+                cl.Action(
+                    name="checkout_commit_push",
+                    tooltip="A new branch will be created and the changes made so far will be commited and pushed to the upstream repository",
+                    icon="circle-fading-arrow-up",
                     payload={"msg_id": msg.id}
                 )
             ]

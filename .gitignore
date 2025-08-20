@@ -181,3 +181,5 @@ config/
 .files/
 
 codetide/agents/tide/ui/assets/
+examples/hf_demo_space/.chainlit/*
+examples/hf_demo_space/chainlit.md
