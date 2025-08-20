@@ -170,3 +170,8 @@ class AgentTide(BaseModel):
             pass
         finally:
             _logger.logger.info("Exited by user. Goodbye!")
+
+    async def _handle_commands(self, command :str):
+        # TODO add logic here to handlle git command, i.e stage files, write commit messages and checkout
+        # expand to support new branches
+        pass

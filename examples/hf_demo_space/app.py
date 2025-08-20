@@ -255,7 +255,7 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
     chat_history = cl.user_session.get("chat_history")
 
     if message.command:
-        command_prompt = agent_tide_ui.get_command_prompt(message.command)
+        command_prompt = await agent_tide_ui.get_command_prompt(message.command)
         if command_prompt:
             message.content = "\n\n---\n\n".join([command_prompt, message.content])
 

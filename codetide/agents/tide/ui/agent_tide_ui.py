@@ -126,5 +126,7 @@ class AgentTideUi(object):
             )
         ]
     
-    def get_command_prompt(self, command :str)->Optional[str]:
-       return self.commands_prompts.get(command)
+    async def get_command_prompt(self, command :str)->Optional[str]:
+        await self.agent_tide._handle_commands(command)
+
+        return self.commands_prompts.get(command)
