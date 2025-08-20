@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /app/.files && chmod 777 /app/.files
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 RUN mkdir -p /app/observability_data && chmod 777 /app/observability_data
+RUN mkdir -p /app/storage && chmod 777 /app/storage
 
 # Copy the current repository into the container
 COPY . /app
