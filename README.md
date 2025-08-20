@@ -89,12 +89,20 @@ You can request a plan, edit steps, and proceed step-by-step—see the [chainlit
 
 ## 🔌 VSCode Extension
 
+<div align="center">
+<img src="https://raw.githubusercontent.com/BrunoV21/CodeTide-vsExtension/main/assets/codetide-demo.gif" alt="codetide-vs-extension" width="100%" height="auto"/>
+</div>
+
+---
+
 CodeTide is available as a native [**Visual Studio Code extension**](https://marketplace.visualstudio.com/items?itemName=BrunoV21.codetide), giving you direct access to structural code understanding inside your editor.
 
 - Navigate code intelligently
 - Retrieve context-aware snippets
 - Send context directly to LLMs like Copilot or GPT
 - Works seamlessly with any other extensions
+
+---
 
 🔗 **Install it now**: [CodeTide on VSCode Marketplace](https://marketplace.visualstudio.com/items?itemName=BrunoV21.codetide)  
 🔧 **Extension source code**: [CodeTide VSCode Extension on GitHub](https://github.com/BrunoV21/CodeTide-vsExtension/tree/main)
