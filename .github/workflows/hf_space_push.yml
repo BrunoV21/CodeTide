@@ -25,6 +25,8 @@ jobs:
           rsync -av codetide/agents/tide/ui/.chainlit/ examples/hf_demo_space/.chainlit/
           rsync -av codetide/agents/tide/ui/public/ examples/hf_demo_space/public/
           cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
+          cp codetide/agents/tide/ui/chainlit.md examples/hf_demo_space/
+          cp .gitattributes examples/hf_demo_space
           cd examples/hf_demo_space
           git lfs install
           git init --initial-branch=main
