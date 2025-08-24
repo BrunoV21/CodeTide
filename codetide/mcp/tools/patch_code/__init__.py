@@ -109,7 +109,7 @@ def process_patch(
     write_fn: Callable[[str, str], None],
     remove_fn: Callable[[str], None],
     exists_fn: Callable[[str], bool]
-) -> str:
+) -> List[str]:
     """The main entrypoint function to process a patch from text to filesystem."""
     if not os.path.exists(patch_path):
         raise DiffError("Patch path {patch_path} does not exist.")
@@ -136,7 +136,7 @@ def process_patch(
     apply_commit(commit, write_fn, remove_fn, exists_fn)
 
     remove_fn(patch_path)
-    return "Patch applied successfully."
+    return paths_needed
 
 # --------------------------------------------------------------------------- #
 #  Default FS wrappers

@@ -23,7 +23,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
-from typing import List, Optional
+from typing import List, Optional, Set
 from datetime import date
 from pathlib import Path
 from ulid import ulid
@@ -44,6 +44,8 @@ class AgentTide(BaseModel):
     history :Optional[list]=None
     steps :Optional[Steps]=None
     session_id :str=Field(default_factory=ulid)
+    _last_code_identifers :Optional[Set[str]]=set()
+    _last_code_context :Optional[str] = None
 
     @model_validator(mode="after")
     def pass_custom_logger_fn(self)->Self:
@@ -85,7 +87,7 @@ class AgentTide(BaseModel):
 
         codeContext = None
         if codeIdentifiers:
-            autocomplete = AutoComplete(self.tide.cached_ids)    
+            autocomplete = AutoComplete(self.tide.cached_ids)
             # Validate each code identifier
             validatedCodeIdentifiers = []
             for codeId in codeIdentifiers:
@@ -96,7 +98,9 @@ class AgentTide(BaseModel):
                 elif result.get("matching_identifiers"):
                     validatedCodeIdentifiers.append(result.get("matching_identifiers")[0])
 
+            self._last_code_identifers = set(validatedCodeIdentifiers)
             codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
+            self._last_code_context = codeContext
 
         response = await self.llm.acomplete(
             self.history,
