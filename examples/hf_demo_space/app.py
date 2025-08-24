@@ -18,7 +18,7 @@ from aicore.models import AuthenticationError, ModelError
 from aicore.config import Config
 from aicore.llm import Llm
 
-from git_utils import commit_and_push_changes, validate_git_url
+from git_utils import push_new_branch, validate_git_url, checkout_new_branch
 from chainlit.cli import run_chainlit
 from typing import Optional
 from pathlib import Path
@@ -90,6 +90,8 @@ async def validate_llm_config_hf(agent_tide_ui: AgentTideUi):
 async def loadAgentTideUi()->AgentTideUi:
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
     session_id = cl.user_session.get("session_id")
+    new_branch_name = f"agent-tide-{ulid()}"
+    cl.user_session.set("current_branch_name", new_branch_name)
     if agent_tide_ui is None:
         await clone_repo(session_id)
 
@@ -101,6 +103,7 @@ async def loadAgentTideUi()->AgentTideUi:
                 session_id=session_id
             )
             await agent_tide_ui.load()
+            checkout_new_branch(agent_tide_ui.agent_tide.tide.repo, new_branch_name=new_branch_name)
 
         except FileNotFoundError:
             ...
@@ -245,8 +248,11 @@ async def on_stop_steps(action :cl.Action):
 
 @cl.action_callback("checkout_commit_push")
 async def on_checkout_commit_push(action :cl.Action):
-    session_id = cl.user_session.get("session_id")
-    await commit_and_push_changes(DEFAULT_SESSIONS_WORKSPACE / session_id)
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    await agent_tide_ui.agent_tide.prepare_commit()
+    agent_tide_ui.agent_tide.commit("AgentTide - add all and push")
+
+    push_new_branch(agent_tide_ui.agent_tide.tide.repo, branch_name=cl.user_session.get("current_branch_name"))
 
 @cl.action_callback("inspect_code_context")
 async def on_inspect_context(action :cl.Action):
