@@ -248,6 +248,33 @@ async def on_checkout_commit_push(action :cl.Action):
     session_id = cl.user_session.get("session_id")
     await commit_and_push_changes(DEFAULT_SESSIONS_WORKSPACE / session_id)
 
+@cl.action_callback("inspect_code_context")
+async def on_inspect_context(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+    inspect_msg = cl.Message(
+        content="",
+        author="Agent Tide",
+        elements= [
+            cl.Text(
+                name="CodeTIde Retrieved Identifiers",
+                content=f"""```json{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
+            )
+        ]
+    )    
+    agent_tide_ui.agent_tide._last_code_identifers = None
+
+    if agent_tide_ui.agent_tide._last_code_context:
+        inspect_msg.elements.append(
+            cl.File(
+                name=f"codetide_context_{ulid()}.txt",
+                content=agent_tide_ui.agent_tide._last_code_context
+            )
+        )
+        agent_tide_ui.agent_tide._last_code_context = None
+
+    await inspect_msg.send()
+
 @cl.on_message
 async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
     agent_tide_ui = await loadAgentTideUi()
@@ -270,6 +297,13 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
         # Initialize the stream processor
         stream_processor = StreamProcessor(
             marker_configs=[
+                MarkerConfig(
+                    begin_marker="*** Begin Commit",
+                    end_marker="*** End Commit",
+                    start_wrapper="\n```shell\n",
+                    end_wrapper="\n```\n",
+                    target_step=msg
+                ),
                 MarkerConfig(
                     begin_marker="*** Begin Patch",
                     end_marker="*** End Patch",
@@ -315,6 +349,16 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                     payload={"msg_id": msg.id}
                 )
             ]
+
+        if agent_tide_ui.agent_tide._last_code_identifers:
+            msg.actions.append(
+                cl.Action(
+                    name="inspect_code_context",
+                    tooltip="Inspect CodeContext",
+                    icon= "telescope",
+                    payload={"msg_id": msg.id}
+                )
+            )
 
         msg.actions.append(
             cl.Action(
