@@ -173,8 +173,12 @@ async def applyPatch(patch_text: str) -> str:
     patch_path = f"./storage/{ulid()}.txt"    
     writeFile(patch_text, patch_path)
     try:
-        result = process_patch(patch_path, open_file, write_file, remove_file, file_exists)
+        paths_changed = process_patch(patch_path, open_file, write_file, remove_file, file_exists)
         _ = await initCodeTide()
+        if paths_changed:
+            result = "Patch applied successfully."
+        else:
+            result = None
 
     except DiffError as exc:
         result = f"Error applying patch:\n{exc}"
