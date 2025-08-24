@@ -1,7 +1,8 @@
 from pathlib import Path
+from ulid import ulid
 import subprocess
-import pygit2
 import asyncio
+import pygit2
 import re
 
 
@@ -48,8 +49,7 @@ async def commit_and_push_changes(repo_path: Path, branch_name: str = None, comm
     try:
         # Create new branch with Agent Tide + ULID name if not provided
         if not branch_name:
-            import ulid
-            branch_name = f"agent-tide-{ulid.new()}"
+            branch_name = f"agent-tide-{ulid()}"
         
         # Create and checkout new branch
         process = await asyncio.create_subprocess_exec(
