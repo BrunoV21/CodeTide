@@ -1,7 +1,8 @@
-import asyncio
 from pathlib import Path
-import re
 import subprocess
+import pygit2
+import asyncio
+import re
 
 
 GIT_URL_PATTERN = re.compile(
@@ -115,3 +116,65 @@ async def commit_and_push_changes(repo_path: Path, branch_name: str = None, comm
         raise ValueError(f"Timeout during git operation in {repo_path}")
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Git operation failed in {repo_path}. Error: {e.stderr}") from e
+
+def push_new_branch(repo :pygit2.Repository, branch_name :str, remote_name :str='origin'):
+    """
+    Push a new branch to remote origin (equivalent to 'git push origin branch_name')
+    
+    Args:
+        repo (pygit2.Repository): Repo Obj
+        branch_name (str): Name of the branch to push
+        remote_name (str): Name of the remote (default: 'origin')
+    
+    Returns:
+        bool: True if push was successful, False otherwise
+    """
+    
+    # Get the remote
+    remote = repo.remotes[remote_name]
+    
+    # Create refspec for pushing new branch
+    # Format: local_branch:remote_branch (this publishes the new branch)
+    refspec = f'refs/heads/{branch_name}:refs/heads/{branch_name}'
+    
+    # Push to remote
+    result = remote.push([refspec])
+    
+    # Check if push was successful (no error message means success)
+    return not result.error_message
+
+def checkout_new_branch(repo :pygit2.Repository, new_branch_name :str, start_point=None):
+    """
+    Create and checkout a new branch from the current HEAD or specified start point.
+    
+    Args:
+        repo_path (str): Path to the git repository
+        new_branch_name (str): Name of the new branch to create and checkout
+        start_point (pygit2.Oid or Reference, optional): Commit or reference to start from. 
+                                                         If None, uses current HEAD.
+    
+    Returns:
+        pygit2.Reference: The newly created branch reference
+    
+    Raises:
+        ValueError: If branch already exists or invalid start point
+        Exception: For other git-related errors
+    """
+    
+    # Check if branch already exists
+    if new_branch_name in repo.branches.local:
+        raise ValueError(f"Branch '{new_branch_name}' already exists")
+    
+    # Get the start point commit (default to HEAD)
+    if start_point is None:
+        if repo.head_is_detached:
+            raise ValueError("HEAD is detached, please specify a start point")
+        start_point = repo.head.target
+    
+    # Create the new branch
+    new_branch = repo.branches.local.create(new_branch_name, repo[start_point])
+    
+    # Checkout the new branch
+    repo.checkout(new_branch, strategy=pygit2.GIT_CHECKOUT_SAFE)
+    
+    return new_branch
