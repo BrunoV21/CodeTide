@@ -5,9 +5,9 @@ from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
+    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
-from .utils import parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
+from .utils import parse_commit_blocks, parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
 
 try:
@@ -29,6 +29,7 @@ from pathlib import Path
 from ulid import ulid
 import aiofiles
 import asyncio
+import pygit2
 import os
 
 async def custom_logger_fn(message :str, session_id :str, filepath :str):
@@ -44,6 +45,8 @@ class AgentTide(BaseModel):
     history :Optional[list]=None
     steps :Optional[Steps]=None
     session_id :str=Field(default_factory=ulid)
+    changed_paths :List[str]=Field(default_factory=list)
+    _skip_context_retrieval :bool=False
     _last_code_identifers :Optional[Set[str]]=set()
     _last_code_context :Optional[str] = None
 
@@ -76,7 +79,7 @@ class AgentTide(BaseModel):
             include_types=True
         )
 
-        if codeIdentifiers is None:
+        if codeIdentifiers is None and not self._skip_context_retrieval:
             codeIdentifiers = await self.llm.acomplete(
                 self.history,
                 system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
@@ -114,7 +117,12 @@ class AgentTide(BaseModel):
 
         await trim_to_patch_section(self.patch_path)
         if os.path.exists(self.patch_path):
-            process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)
+            changed_paths = process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)            
+            self.changed_paths.extend(changed_paths)
+
+        commitMessage = parse_commit_blocks(response, multiple=False)
+        if commitMessage:
+            await self.commit(commitMessage)
 
         steps = parse_steps_markdown(response)
         if steps:
@@ -127,6 +135,102 @@ class AgentTide(BaseModel):
                 response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
 
         self.history.append(response)
+
+    @staticmethod
+    async def get_git_diff_staged_simple(directory: str) -> str:
+        """
+        Simple async function to get git diff --staged output
+        """
+        # Validate directory exists
+        if not Path(directory).is_dir():
+            raise FileNotFoundError(f"Directory not found: {directory}")
+        
+        process = await asyncio.create_subprocess_exec(
+            'git', 'diff', '--staged',
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=directory
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            raise Exception(f"Git command failed: {stderr.decode().strip()}")
+        
+        return stdout.decode()
+
+    async def _stage(self)->str:
+        index = self.tide.repo.index
+        for path in self.changed_paths:
+           index.add(path)
+
+        staged_diff = await self.get_git_diff_staged_simple(self.tide.rootpath)
+        staged_diff = staged_diff.strip()
+        return staged_diff if staged_diff else "No files were staged. Nothing to commit. Tell the user to request some changes so there is something to commit"
+
+    async def prepare_commit(self)->str:
+        staged_diff = await self._stage()
+        self.changed_paths = []
+        self._skip_context_retrieval = True
+        return STAGED_DIFFS_TEMPLATE.format(diffs=staged_diff)
+
+    async def commit(self, message :str):
+        """
+        Commit all staged files in a git repository with the given message.
+        
+        Args:
+            repo_path (str): Path to the git repository
+            message (str): Commit message
+            author_name (str, optional): Author name. If None, uses repo config
+            author_email (str, optional): Author email. If None, uses repo config
+        
+        Returns:
+            pygit2.Commit: The created commit object, or None if no changes to commit
+        
+        Raises:
+            ValueError: If no files are staged for commit
+            Exception: For other git-related errors
+        """
+        try:
+            # Open the repository
+            repo = self.repo
+            
+            # Get author and committer information
+            config = repo.config
+            author_name = config.get('user.name', 'Unknown Author')
+            author_email = config.get('user.email', 'unknown@example.com')
+            
+            author = pygit2.Signature(author_name, author_email)
+            committer = author  # Typically same as author
+            
+            # Get the current tree from the index
+            tree = repo.index.write_tree()
+            
+            # Get the parent commit (current HEAD)
+            parents = [repo.head.target] if repo.head else []
+            
+            # Create the commit
+            commit_oid = repo.create_commit(
+                'HEAD',  # Reference to update
+                author,
+                committer,
+                message,
+                tree,
+                parents
+            )
+            
+            # Clear the staging area after successful commit
+            repo.index.write()
+            
+            return repo[commit_oid]
+            
+        except pygit2.GitError as e:
+            raise Exception(f"Git error: {e}")
+        except KeyError as e:
+            raise Exception(f"Configuration error: {e}")
+        
+        finally:
+            self._skip_context_retrieval = False
 
     async def run(self, max_tokens: int = 48000):
         if self.history is None:
@@ -175,7 +279,11 @@ class AgentTide(BaseModel):
         finally:
             _logger.logger.info("Exited by user. Goodbye!")
 
-    async def _handle_commands(self, command :str):
+    async def _handle_commands(self, command :str) -> str:
         # TODO add logic here to handlle git command, i.e stage files, write commit messages and checkout
         # expand to support new branches
-        pass
+        context = ""
+        if command == "commit":
+            context = await self.prepare_commit()
+
+        return context
