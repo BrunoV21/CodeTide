@@ -152,7 +152,7 @@ Type `/command` (replace `command` with the actual command name) in the text inp
 ### Available Commands
 
 1. **/test**
-   - **Description:** Request test implmentations for a specific element.
+   - **Description:** Request test implementations for a specific element.
    - **Usage:**  
      `/test` add coverage for apply_patch tool.
 
@@ -162,11 +162,16 @@ Type `/command` (replace `command` with the actual command name) in the text inp
      `/review` codetide/agents/tide/ui/app.py
 
 3. **/commit**
-   - **Description:** Generate a concise, production-ready commit message for the most recent patch or set of changes.
+   - **Description:** Commit changed files. This command will stage and commit all recent changes, generating a conventional commit message.
    - **Usage:**  
      `/commit` the changes we just made
 
-You can use these commands at any time to guide Agent Tide's workflow, request reviews, or generate commit messages. More commands may be added in the future—refer to this section for updates.
+4. **/plan**
+   - **Description:** Create a step-by-step task plan for your request. This command will instruct Agent Tide to decompose your request into actionable steps, which you can review and edit before execution.
+   - **Usage:**  
+     `/plan` add a new authentication system to the project
+
+You can use these commands at any time to guide Agent Tide's workflow, request reviews, generate commit messages, or create implementation plans. More commands may be added in the future—refer to this section for updates.
   
 ---
 
