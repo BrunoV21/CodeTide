@@ -237,13 +237,15 @@ async def on_stop_steps(action :cl.Action):
 async def on_inspect_context(action :cl.Action):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
 
+    await action.remove()
+    
     inspect_msg = cl.Message(
         content="",
         author="Agent Tide",
         elements= [
             cl.Text(
                 name="CodeTIde Retrieved Identifiers",
-                content=f"""```json{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
+                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
             )
         ]
     )    
@@ -432,3 +434,5 @@ if __name__ == "__main__":
     # TODO pre release, create hf orchestrator that launches temp dir, clones repo there and stores api config there
     # TODO or just deactivate pre data persistance for hf release
     # TODO need to test project path is working as expected...
+
+    # TODO need to revisit logic
