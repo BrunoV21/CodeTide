@@ -1,3 +1,4 @@
+from codetide.core.defaults import DEFAULT_ENCODING
 
 from typing import List, Union
 import aiofiles
@@ -12,7 +13,7 @@ async def trim_to_patch_section(filename):
     if not os.path.exists(filename):
         return
     
-    async with aiofiles.open(filename, 'r') as f:
+    async with aiofiles.open(filename, 'r', encoding=DEFAULT_ENCODING) as f:
         async for line in f:
             if '*** Begin Patch' in line:
                 capturing = True
@@ -24,7 +25,7 @@ async def trim_to_patch_section(filename):
                 lines_to_keep.append(line)
     
     if lines_to_keep: # Write back only the lines we want to keep
-        async with aiofiles.open(filename, 'w') as f:
+        async with aiofiles.open(filename, 'w', encoding=DEFAULT_ENCODING) as f:
             await f.writelines(lines_to_keep)
     else: # Otherwise, delete the file
         try:
