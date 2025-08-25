@@ -10,7 +10,7 @@ from codetide.core.logs import logger
 from codetide.parsers import BaseParser
 from codetide import parsers
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List, Tuple, Union, Dict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +27,11 @@ class CodeTide(BaseModel):
     codebase :CodeBase = Field(default_factory=CodeBase)
     files :Dict[Path, datetime]= Field(default_factory=dict)
     _instantiated_parsers :Dict[str, BaseParser] = {}
+    _repo :pygit2.Repository = None
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True
+    )
 
     @field_validator("rootpath", mode="after")
     @classmethod
@@ -93,6 +98,34 @@ class CodeTide(BaseModel):
     @property
     def cached_ids(self)->List[str]:
         return self.codebase.unique_ids+self.relative_filepaths
+    
+    @property
+    def repo(self)->Optional[pygit2.Repository]:
+        """
+        Lazily initializes and returns the Git repository for the given root path.
+
+        If the repository has not yet been loaded (`self._repo is None`), this 
+        property attempts to open a `pygit2.Repository` at `self.rootpath`. 
+        If the root path does not exist or is not a directory, an error is logged 
+        and `None` is returned. If the repository's working directory differs 
+        from `self.rootpath`, the root path is updated to match the repository's 
+        actual working directory.
+
+        Returns:
+            Optional[pygit2.Repository]: The initialized Git repository if 
+            successful, otherwise `None`.
+        """
+        if self._repo is None:
+            
+            if not self.rootpath.exists() or not self.rootpath.is_dir():
+                logger.error(f"Root path does not exist or is not a directory: {self.rootpath}")
+                return None
+            
+            self._repo = pygit2.Repository(self.rootpath)
+            if not Path(self._repo.workdir) == self.rootpath:
+                self.rootpath = Path(self._repo.workdir)
+
+        return self._repo
     
     async def _reset(self):
         self = await self.from_path(self.rootpath)
@@ -296,9 +329,7 @@ class CodeTide(BaseModel):
         
         try:
             # Try to open the repository
-            repo = pygit2.Repository(self.rootpath)
-            if not Path(repo.workdir) == self.rootpath:
-                self.rootpath = Path(repo.workdir)
+            repo = self.repo
             
             # Get the repository's index (staging area)
             index = repo.index

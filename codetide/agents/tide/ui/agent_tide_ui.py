@@ -9,7 +9,7 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
-from codetide.agents.tide.prompts import CMD_CODE_REVIEW_PROMPT, CMD_COMMIT_PROMPT, CMD_WRITE_TESTS_PROMPT
+from codetide.agents.tide.prompts import CMD_CODE_REVIEW_PROMPT, CMD_COMMIT_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.ui.defaults import PLACEHOLDER_LLM_CONFIG
 from codetide.agents.tide.agent import AgentTide
@@ -39,6 +39,7 @@ class AgentTideUi(object):
         self.history = [] if history is None else history
         self.current_step :Optional[int] = None
         self.commands_prompts = {
+            "plan": CMD_TRIGGER_PLANNING_STEPS,
             "review": CMD_CODE_REVIEW_PROMPT,
             "test": CMD_WRITE_TESTS_PROMPT,
             "commit": CMD_COMMIT_PROMPT
@@ -48,7 +49,8 @@ class AgentTideUi(object):
     commands = [
         {"id": "review", "icon": "search-check", "description": "Review file(s) or object(s)"},
         {"id": "test", "icon": "flask-conical", "description": "Test file(s) or object(s)"},
-        {"id": "commit", "icon": "git-commit", "description": "Generate commit message"},
+        {"id": "commit", "icon": "git-commit", "description": "Commit changed files"},
+        {"id": "plan", "icon": "notepad-text-dashed", "description": "Create a step-by-step task plan"}
     ]
 
     async def load(self):
@@ -127,6 +129,5 @@ class AgentTideUi(object):
         ]
     
     async def get_command_prompt(self, command :str)->Optional[str]:
-        await self.agent_tide._handle_commands(command)
-
-        return self.commands_prompts.get(command)
+        context = await self.agent_tide._handle_commands(command)
+        return f"{self.commands_prompts.get(command)} {context}" 

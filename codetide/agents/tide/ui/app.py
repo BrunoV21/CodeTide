@@ -27,9 +27,11 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
-from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
+from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
+from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.core.defaults import DEFAULT_ENCODING
 from codetide.agents.data_layer import init_db
+from ulid import ulid
 import argparse
 import getpass
 import asyncio
@@ -139,7 +141,6 @@ async def on_chat_resume(thread: ThreadDict):
 
 async def loadAgentTideUi()->AgentTideUi:
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
-    print(f"{agent_tide_ui=}")
     if agent_tide_ui is None:
         try:
             agent_tide_ui = AgentTideUi(
@@ -232,6 +233,35 @@ async def on_stop_steps(action :cl.Action):
     
         # await cl.send_window_message("Current Steps have beed discarded")
 
+@cl.action_callback("inspect_code_context")
+async def on_inspect_context(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+    await action.remove()
+    
+    inspect_msg = cl.Message(
+        content="",
+        author="Agent Tide",
+        elements= [
+            cl.Text(
+                name="CodeTIde Retrieved Identifiers",
+                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
+            )
+        ]
+    )    
+    agent_tide_ui.agent_tide._last_code_identifers = None
+
+    if agent_tide_ui.agent_tide._last_code_context:
+        inspect_msg.elements.append(
+            cl.File(
+                name=f"codetide_context_{ulid()}.txt",
+                content=agent_tide_ui.agent_tide._last_code_context
+            )
+        )
+        agent_tide_ui.agent_tide._last_code_context = None
+
+    await inspect_msg.send()
+
 
 @cl.on_message
 async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
@@ -248,7 +278,6 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
     await agent_tide_ui.add_to_history(message.content)
 
     msg = cl.Message(content="", author="Agent Tide")
-
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
 
@@ -268,7 +297,14 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                     start_wrapper="\n```shell\n",
                     end_wrapper="\n```\n",
                     target_step=msg
-                )
+                ),
+                MarkerConfig(
+                    begin_marker="*** Begin Commit",
+                    end_marker="*** End Commit",
+                    start_wrapper="\n```shell\n",
+                    end_wrapper="\n```\n",
+                    target_step=msg
+                ), 
             ],
             global_fallback_msg=msg
         )
@@ -289,7 +325,7 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
             msg.actions = [
                 cl.Action(
                     name="stop_steps",
-                    tooltip="stop",
+                    tooltip="Stop",
                     icon="octagon-x",
                     payload={"msg_id": msg.id}
                 ),
@@ -300,6 +336,16 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                     payload={"msg_id": msg.id}
                 )
             ]
+
+        if agent_tide_ui.agent_tide._last_code_identifers:
+            msg.actions.append(
+                cl.Action(
+                    name="inspect_code_context",
+                    tooltip="Inspect CodeContext",
+                    icon= "telescope",
+                    payload={"msg_id": msg.id}
+                )
+            )
 
         # # Send the final message
         await msg.send()
@@ -388,3 +434,5 @@ if __name__ == "__main__":
     # TODO pre release, create hf orchestrator that launches temp dir, clones repo there and stores api config there
     # TODO or just deactivate pre data persistance for hf release
     # TODO need to test project path is working as expected...
+
+    # TODO need to revisit logic

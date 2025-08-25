@@ -1,3 +1,4 @@
+from codetide.core.defaults import DEFAULT_ENCODING
 
 from typing import List, Union
 import aiofiles
@@ -12,7 +13,7 @@ async def trim_to_patch_section(filename):
     if not os.path.exists(filename):
         return
     
-    async with aiofiles.open(filename, 'r') as f:
+    async with aiofiles.open(filename, 'r', encoding=DEFAULT_ENCODING) as f:
         async for line in f:
             if '*** Begin Patch' in line:
                 capturing = True
@@ -24,7 +25,7 @@ async def trim_to_patch_section(filename):
                 lines_to_keep.append(line)
     
     if lines_to_keep: # Write back only the lines we want to keep
-        async with aiofiles.open(filename, 'w') as f:
+        async with aiofiles.open(filename, 'w', encoding=DEFAULT_ENCODING) as f:
             await f.writelines(lines_to_keep)
     else: # Otherwise, delete the file
         try:
@@ -46,6 +47,27 @@ def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str]
     """
     
     pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
+    matches = re.findall(pattern, text)
+
+    if not matches:
+        return None
+
+    return matches if multiple else matches[0]
+
+def parse_commit_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
+    """
+    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
+    ensuring that both markers are at zero indentation (start of line, no leading spaces).
+
+    Args:
+        text: Full input text containing one or more patch blocks.
+        multiple: If True, return a list of all patch blocks. If False, return the first match.
+
+    Returns:
+        A string (single patch), list of strings (multiple patches), or None if not found.
+    """
+    
+    pattern = r"(?m)^(\*\*\* Begin Commit[\s\S]*?^\*\*\* End Commit)$"
     matches = re.findall(pattern, text)
 
     if not matches:

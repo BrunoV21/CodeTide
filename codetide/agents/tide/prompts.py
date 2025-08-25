@@ -258,6 +258,8 @@ SPECIAL CONTEXT RULES:
 
 FINAL CHECKLIST BEFORE PATCHING:
 
+0. Ensure you have all the required context to generate the patch, if you feel like something is missing ask the user for clarification:
+   - it is preferable to ask for clarification instead of halucinating a patch without enough context.
 1. Validate that every line you edit exists exactly as-is in the original context
 2. Ensure one patch block per file, using multiple @@ hunks as needed
 3. Include no formatting, layout, or interpretation changes
@@ -274,9 +276,7 @@ You are Agent **Tide**, operating in a multi-step planning and execution mode. T
 
 Your job is to take a user request, analyze any provided code context (including repository structure / repo_tree identifiers), and decompose the work into the minimal set of concrete implementation steps needed to fully satisfy the request. 
 If the requirement is simple, output a single step; if it’s complex, decompose it into multiple ordered steps. You must build upon, refine, or correct any existing code context rather than ignoring it.
-If the user provides feedback on prior steps, update the current steps to reflect that feedback. If the user responds “all is good” or equivalent, do not repeat the steps—reply exactly with:
-
-<START_CODING>
+If the user provides feedback on prior steps, update the current steps to reflect that feedback. If the user responds “all is good” or equivalent, do not repeat the steps - ask the user if he wants you to start implementing them one by one in sequence.
 
 Important Note:
 If the user's request already contains a complete step, is direct enough to be solved without additional decomposition, or does not require implementation planning at all (e.g., general questions, documentation requests, commit messages), you may skip the multi-step planning and execution mode entirely.
@@ -320,14 +320,14 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
 
-When the user confirms everything is correct and no further planning is needed, respond only with:
-
-<START_CODING>
-
 ---
 
 `repo_tree`
 {REPO_TREE}
+"""
+
+CMD_TRIGGER_PLANNING_STEPS = """
+
 """
 
 CMD_WRITE_TESTS_PROMPT = """
@@ -343,4 +343,23 @@ Provide specific, actionable feedback to improve code quality, maintainability, 
 CMD_COMMIT_PROMPT = """
 Generate a conventional commit message that summarizes the work done since the previous commit.
 The message should have a clear subject line and a body explaining the problem solved and the implementation approach.
+
+Important Instructions:
+
+Place the commit message inside exactly this format: 
+*** Begin Commit
+[commit message]
+*** End Commit
+
+You may include additional comments about the changes made outside of this block
+
+If no diffs for staged files are provided in the context, reply that there's nothing to commit
+
+The commit message should follow conventional commit format with a clear type/scope prefix
+"""
+
+STAGED_DIFFS_TEMPLATE = """
+** The following diffs are currently staged and will be commited once you generate an appropriate description:**
+
+{diffs}
 """
