@@ -15,8 +15,8 @@ from codetide.agents.tide.models import Step
 
 from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN
 from aicore.models import AuthenticationError, ModelError
+from aicore.llm import Llm, LlmConfig
 from aicore.config import Config
-from aicore.llm import Llm
 
 from git_utils import push_new_branch, validate_git_url, checkout_new_branch
 from chainlit.cli import run_chainlit
@@ -34,94 +34,21 @@ import os
 
 DEFAULT_SESSIONS_WORKSPACE = Path(os.getcwd()) / "sessions"
 
-async def validate_llm_config_hf(agent_tide_ui: AgentTideUi):
+@cl.on_chat_start
+async def start_chatr():
+    ### create new dir to clone repo
+    ### and yeah force agentTide llm_config to be zreo
+    session_id = ulid()
+    cl.user_session.set("session_id", session_id)
+    await cl.context.emitter.set_commands(AgentTideUi.commands)
+    cl.user_session.set("chat_history", [])
+
     exception = True
-    session_id = cl.user_session.get("session_id")
-    while exception:
-        try:
-            agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
-            exception = None
-
-        except (AuthenticationError, ModelError) as e:
-            exception = e
-            await cl.Message(
-                content=MISSING_CONFIG_MESSAGE.format(
-                    agent_tide_config_path="because-we-dont-actually-store-it-it-only-exists-while-this-session-is-alive",
-                    config_file="config-file-in-yaml",
-                    example_config=AICORE_CONFIG_EXAMPLE
-                ),
-                elements=[
-                    cl.File(
-                        name="config.yml",
-                        display="inline",
-                        content=AICORE_CONFIG_EXAMPLE,
-                        size="small"
-                    ),
-                ]
-            ).send()
-
-            _config_files = None
-            while _config_files is None:
-                _config_files = await cl.AskFileMessage(
-                    content=EXCEPTION_MESSAGE.format(exception=json.dumps(exception.__dict__, indent=4)),
-                    accept=[".yml", ".yaml"],
-                    timeout=3600
-                ).send()
-
-            if _config_files:
-                _config_file = _config_files[0]
-
-                try:
-                    with open(_config_file.path, "r", encoding=DEFAULT_ENCODING) as _file:
-                        config_raw = _file.read()
-                        config_dict = yaml.safe_load(config_raw)
-                        config = Config(**config_dict)
-
-                    agent_tide_ui.agent_tide.llm = Llm.from_config(config.llm)
-                    agent_tide_ui.agent_tide.llm.provider.session_id = agent_tide_ui.agent_tide.session_id
-
-                    session_dir_path = DEFAULT_SESSIONS_WORKSPACE / session_id
-                    if not os.path.exists(session_dir_path):
-                        os.makedirs(session_dir_path, exist_ok=True)
-
-                except Exception as e:
-                    exception = e
-
-async def loadAgentTideUi()->AgentTideUi:
-    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
-    session_id = cl.user_session.get("session_id")
-    new_branch_name = f"agent-tide-{ulid()}"
-    cl.user_session.set("current_branch_name", new_branch_name)
-    if agent_tide_ui is None:
-        await clone_repo(session_id)
-
-        try:
-            agent_tide_ui = AgentTideUi(
-                DEFAULT_SESSIONS_WORKSPACE / session_id,
-                history=cl.user_session.get("chat_history"),
-                llm_config=cl.user_session.get("settings"),
-                session_id=session_id
-            )
-            await agent_tide_ui.load()
-            checkout_new_branch(agent_tide_ui.agent_tide.tide.repo, new_branch_name=new_branch_name)
-
-        except FileNotFoundError:
-            ...
-
-        await validate_llm_config_hf(agent_tide_ui)
-
-        cl.user_session.set("AgentTideUi", agent_tide_ui)
-
-    return agent_tide_ui
-
-async def clone_repo(session_id):
-    # TODO ask user actions to get PAT and attempt to clone git repo contents
-    exception = True
-    
     while exception:
         try:
             user_message = await cl.AskUserMessage(
-                content="Provide a valid github url to give AgentTide some context!"
+                content="Provide a valid github url to give AgentTide some context!",
+                timeout=3600
             ).send()
             url = user_message.get("output")
             await validate_git_url(url)
@@ -130,14 +57,12 @@ async def clone_repo(session_id):
             await cl.Message(f"Invalid url found, please provide only the url, if it is a private repo you can inlucde a PAT in the url: {e}").send()
             exception = e
 
-    logger.info(f"executing cmd git clone --no-checkout {url} {DEFAULT_SESSIONS_WORKSPACE / session_id}")
-
     process = await asyncio.create_subprocess_exec(
         "git", "clone", url, str(DEFAULT_SESSIONS_WORKSPACE / session_id),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE
     )
-    
+
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=300)
     except asyncio.TimeoutError:
@@ -150,14 +75,101 @@ async def clone_repo(session_id):
     
     logger.info(f"finished cloning to {DEFAULT_SESSIONS_WORKSPACE / session_id}")
 
+    res = await cl.AskActionMessage(
+        content="Select the LLM to power Agent Tide! You can use one of the following free options or configure your own via api key! We recommend `gpt-4.1` or `sonnet-4` for ultimate performance (don't worry we are not logging api keys, you can check the code yourself)! Bear in mind that free alternatives can be context and rate limited.",
+        actions=[
+            cl.Action(name="kimi-k2", payload={"model": "moonshotai/kimi-k2:free"}, label="kimi-k2"),
+            cl.Action(name="qwen3-coder", payload={"model": "qwen/qwen3-coder:free"}, label="qwen3-coder"),
+            cl.Action(name="gpt-oss-20b", payload={"model": "openai/gpt-oss-20b:free"}, label="gpt-oss-20b"),
+            cl.Action(name="custom", payload={"model": "custom"}, label="bring your model")
+        ],
+    ).send()
+    
 
-@cl.on_chat_start
-async def start_chatr():
-    ### create new dir to clone repo
-    ### and yeah force agentTide llm_config to be zreo
-    cl.user_session.set("session_id", ulid())
-    await cl.context.emitter.set_commands(AgentTideUi.commands)
-    cl.user_session.set("chat_history", [])
+    if res and res.get("payload").get("model") != "custom":
+        llm_config = LlmConfig(
+            provider="openrouter",
+            model=res.get("payload").get("model"),
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            max_tokens=int(os.getenv("OPENROUTER_MAX_TOKENS"))
+        )
+        agent_tide_ui = AgentTideUi(
+            DEFAULT_SESSIONS_WORKSPACE / session_id,
+            history=cl.user_session.get("chat_history"),
+            llm_config=llm_config,
+            session_id=session_id
+        )
+        await agent_tide_ui.load()
+
+    elif  res.get("payload").get("model") == "custom":
+        agent_tide_ui = AgentTideUi(
+            DEFAULT_SESSIONS_WORKSPACE / session_id,
+            history=cl.user_session.get("chat_history"),
+            llm_config=cl.user_session.get("settings"),
+            session_id=session_id
+        )
+        await agent_tide_ui.load()
+
+        exception = True
+        
+        while exception:
+            try:
+                agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
+                exception = None
+
+            except (AuthenticationError, ModelError) as e:
+                exception = e
+                await cl.Message(
+                    content=MISSING_CONFIG_MESSAGE.format(
+                        agent_tide_config_path="because-we-dont-actually-store-it-it-only-exists-while-this-session-is-alive",
+                        config_file="config-file-in-yaml",
+                        example_config=AICORE_CONFIG_EXAMPLE
+                    ),
+                    elements=[
+                        cl.File(
+                            name="config.yml",
+                            display="inline",
+                            content=AICORE_CONFIG_EXAMPLE,
+                            size="small"
+                        ),
+                    ]
+                ).send()
+
+                _config_files = None
+                while _config_files is None:
+                    _config_files = await cl.AskFileMessage(
+                        content=EXCEPTION_MESSAGE.format(exception=json.dumps(exception.__dict__, indent=4)),
+                        accept=[".yml", ".yaml"],
+                        timeout=3600
+                    ).send()
+
+                if _config_files:
+                    _config_file = _config_files[0]
+
+                    try:
+                        with open(_config_file.path, "r", encoding=DEFAULT_ENCODING) as _file:
+                            config_raw = _file.read()
+                            config_dict = yaml.safe_load(config_raw)
+                            config = Config(**config_dict)
+
+                        agent_tide_ui.agent_tide.llm = Llm.from_config(config.llm)
+                        agent_tide_ui.agent_tide.llm.provider.session_id = agent_tide_ui.agent_tide.session_id
+
+                        session_dir_path = DEFAULT_SESSIONS_WORKSPACE / session_id
+                        if not os.path.exists(session_dir_path):
+                            os.makedirs(session_dir_path, exist_ok=True)
+
+                    except Exception as e:
+                        exception = e
+    
+    await cl.Message(
+        content="Hi, I'm Tide! Nice to meet you."
+    ).send()
+    
+    new_branch_name = f"agent-tide-{ulid()}"
+    cl.user_session.set("current_branch_name", new_branch_name)
+    checkout_new_branch(agent_tide_ui.agent_tide.tide.repo, new_branch_name=new_branch_name)
+    cl.user_session.set("AgentTideUi", agent_tide_ui)
 
 @cl.set_starters
 async def set_starters():
@@ -258,13 +270,15 @@ async def on_checkout_commit_push(action :cl.Action):
 async def on_inspect_context(action :cl.Action):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
 
+    await action.remove()
+
     inspect_msg = cl.Message(
         content="",
         author="Agent Tide",
         elements= [
             cl.Text(
                 name="CodeTIde Retrieved Identifiers",
-                content=f"""```json{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
+                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
             )
         ]
     )    
@@ -283,7 +297,7 @@ async def on_inspect_context(action :cl.Action):
 
 @cl.on_message
 async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
-    agent_tide_ui = await loadAgentTideUi()
+    agent_tide_ui = cl.user_session.get("AgentTideUi")
 
     chat_history = cl.user_session.get("chat_history")
 
@@ -368,11 +382,11 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
 
         msg.actions.append(
             cl.Action(
-                    name="checkout_commit_push",
-                    tooltip="A new branch will be created and the changes made so far will be commited and pushed to the upstream repository",
-                    icon="circle-fading-arrow-up",
-                    payload={"msg_id": msg.id}
-                )
+                name="checkout_commit_push",
+                tooltip="A new branch will be created and the changes made so far will be commited and pushed to the upstream repository",
+                icon="circle-fading-arrow-up",
+                payload={"msg_id": msg.id}
+            )
         )
         # # Send the final message
         await msg.send()
@@ -381,6 +395,8 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
         await agent_tide_ui.add_to_history(msg.content)
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
     
     # TODO add button button to ckeckout and push
     run_chainlit(os.path.abspath(__file__))
