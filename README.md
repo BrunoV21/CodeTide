@@ -82,8 +82,11 @@ This will start a web server for the AgentTide UI. Follow the on-screen instruct
 - **Patch-Based Editing:** All changes are atomic diffs, not full file rewrites, for maximum clarity and efficiency.
 
 **Usage Tips:**  
-If you know the exact code context, specify identifiers directly in your request (e.g., `module.submodule.file_withoutextension.object`).  
-You can use the `plan` command to generate a step-by-step implementation plan for your request, review and edit the plan, and then proceed step-by-step. The `commit` command allows you to review and finalize changes before they are applied. See the [chainlit.md](codetide/agents/tide/ui/chainlit.md) for full details and advanced workflows, including the latest specifications for these commands!
+- If you know the exact code context, specify identifiers directly in your request (e.g., `module.submodule.file_withoutextension.object`).  
+- You can use the `plan` command to generate a step-by-step implementation plan for your request, review and edit the plan, and then proceed step-by-step.
+- The `commit` command allows you to review and finalize changes before they are applied.
+
+ See the [chainlit.md](codetide/agents/tide/ui/chainlit.md) for full details and advanced workflows, including the latest specifications for these commands!
 
 ---
 
