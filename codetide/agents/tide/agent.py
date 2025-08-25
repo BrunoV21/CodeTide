@@ -122,7 +122,7 @@ class AgentTide(BaseModel):
 
         commitMessage = parse_commit_blocks(response, multiple=False)
         if commitMessage:
-            await self.commit(commitMessage)
+            self.commit(commitMessage)
 
         steps = parse_steps_markdown(response)
         if steps:
@@ -174,7 +174,7 @@ class AgentTide(BaseModel):
         self._skip_context_retrieval = True
         return STAGED_DIFFS_TEMPLATE.format(diffs=staged_diff)
 
-    async def commit(self, message :str):
+    def commit(self, message :str):
         """
         Commit all staged files in a git repository with the given message.
         
