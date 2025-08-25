@@ -36,12 +36,20 @@ DEFAULT_SESSIONS_WORKSPACE = Path(os.getcwd()) / "sessions"
 
 @cl.on_chat_start
 async def start_chatr():
-    ### create new dir to clone repo
-    ### and yeah force agentTide llm_config to be zreo
     session_id = ulid()
     cl.user_session.set("session_id", session_id)
     await cl.context.emitter.set_commands(AgentTideUi.commands)
     cl.user_session.set("chat_history", [])
+
+    await cl.Message(
+        content="",
+        elements=[
+            cl.Image(
+                path=os.getenv("AGENT_TIDE_LOGO_PATH"),
+                size="large"
+            )
+        ]
+    ).send()
 
     exception = True
     while exception:
@@ -163,9 +171,9 @@ async def start_chatr():
                         exception = e
     
     await cl.Message(
-        content="Hi, I'm Tide! Nice to meet you."
+        content="Hi, I'm Tide... Nice to meet you!"
     ).send()
-    
+
     new_branch_name = f"agent-tide-{ulid()}"
     cl.user_session.set("current_branch_name", new_branch_name)
     checkout_new_branch(agent_tide_ui.agent_tide.tide.repo, new_branch_name=new_branch_name)
