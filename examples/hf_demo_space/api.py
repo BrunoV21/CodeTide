@@ -1,4 +1,4 @@
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, Request
@@ -15,6 +15,12 @@ app.mount("/static", StaticFiles(directory=F"{ROOT_PATH}/public"), name="static"
 templates = Jinja2Templates(directory=F"{ROOT_PATH}/static")
 
 @app.get("/", response_class=HTMLResponse)
+async def root(request: Request):    
+    """Serve the AgentTide landing page"""
+    demo_base_url = os.getenv("DEMO_BASE_URL", "")
+    return RedirectResponse(url=f"{demo_base_url}/landing_page")
+
+@app.get("/landing_page", response_class=HTMLResponse)
 async def landing_page(request: Request):    
     """Serve the AgentTide landing page"""
     demo_base_url = os.getenv("DEMO_BASE_URL", "")
