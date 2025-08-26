@@ -73,10 +73,10 @@ class AgentTide(BaseModel):
                     previous_response = previous_response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
                 self.history[-1] = previous_response
 
-    def reject(self, feeedback :str):
+    def reject(self, feedback :str):
         self._has_patch = False
         self.history.append(REJECT_PATCH_FEEDBACK_TEMPLATE.format(
-            FEEDBACK=feeedback
+            FEEDBACK=feedback
         ))
 
     @property
