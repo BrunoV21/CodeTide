@@ -5,9 +5,10 @@ from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
+    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
-from .utils import parse_commit_blocks, parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
+from .utils import delete_file, parse_commit_blocks, parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
 
 try:
@@ -46,14 +47,37 @@ class AgentTide(BaseModel):
     steps :Optional[Steps]=None
     session_id :str=Field(default_factory=ulid)
     changed_paths :List[str]=Field(default_factory=list)
+    request_human_confirmation :bool=False
+
     _skip_context_retrieval :bool=False
     _last_code_identifers :Optional[Set[str]]=set()
     _last_code_context :Optional[str] = None
+    _has_patch :bool=False
 
     @model_validator(mode="after")
     def pass_custom_logger_fn(self)->Self:
         self.llm.logger_fn = partial(custom_logger_fn, session_id=self.session_id, filepath=self.patch_path)
         return self
+    
+    def approve(self):
+        self._has_patch = False
+        if os.path.exists(self.patch_path):
+            changed_paths = process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)            
+            self.changed_paths.extend(changed_paths)
+
+            previous_response = self.history[-1]
+            diffPatches = parse_patch_blocks(previous_response, multiple=True)
+            if diffPatches:
+                for patch in diffPatches:
+                    # TODO this deletes previouspatches from history to make sure changes are always focused on the latest version of the file
+                    previous_response = previous_response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
+                self.history[-1] = previous_response
+
+    def reject(self, feeedback :str):
+        self._has_patch = False
+        self.history.append(REJECT_PATCH_FEEDBACK_TEMPLATE.format(
+            FEEDBACK=feeedback
+        ))
 
     @property
     def patch_path(self)->Path:
@@ -105,6 +129,7 @@ class AgentTide(BaseModel):
             codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
             self._last_code_context = codeContext
 
+        await delete_file(self.patch_path)
         response = await self.llm.acomplete(
             self.history,
             system_prompt=[
@@ -116,9 +141,8 @@ class AgentTide(BaseModel):
         )
 
         await trim_to_patch_section(self.patch_path)
-        if os.path.exists(self.patch_path):
-            changed_paths = process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)            
-            self.changed_paths.extend(changed_paths)
+        if not self.request_human_confirmation:
+            self.approve()
 
         commitMessage = parse_commit_blocks(response, multiple=False)
         if commitMessage:
@@ -130,9 +154,12 @@ class AgentTide(BaseModel):
 
         diffPatches = parse_patch_blocks(response, multiple=True)
         if diffPatches:
-            for patch in diffPatches:
-                # TODO this deletes previouspatches from history to make sure changes are always focused on the latest version of the file
-                response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
+            if self.request_human_confirmation:
+                self._has_patch = True
+            else:
+                for patch in diffPatches:
+                    # TODO this deletes previouspatches from history to make sure changes are always focused on the latest version of the file
+                    response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
 
         self.history.append(response)
 
