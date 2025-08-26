@@ -146,7 +146,7 @@ async def loadAgentTideUi()->AgentTideUi:
             agent_tide_ui = AgentTideUi(
                 os.getenv("AGENT_TIDE_PROJECT_PATH", "./"),
                 history=cl.user_session.get("chat_history"),
-                llm_config=cl.user_session.get("settings")
+                llm_config=cl.user_session.get("settings") or None
             )
             await agent_tide_ui.load()
 

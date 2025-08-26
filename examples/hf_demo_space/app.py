@@ -103,7 +103,7 @@ async def start_chatr():
         agent_tide_ui = AgentTideUi(
             DEFAULT_SESSIONS_WORKSPACE / session_id,
             history=cl.user_session.get("chat_history"),
-            llm_config=cl.user_session.get("settings"),
+            llm_config=cl.user_session.get("settings") or None,
             session_id=session_id
         )
         await agent_tide_ui.load()
