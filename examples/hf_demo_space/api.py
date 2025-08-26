@@ -17,7 +17,11 @@ templates = Jinja2Templates(directory=F"{ROOT_PATH}/static")
 @app.get("/", response_class=HTMLResponse)
 async def landing_page(request: Request):    
     """Serve the AgentTide landing page"""
-    return templates.TemplateResponse("landing_page.html", {"request": request})
+    demo_base_url = os.getenv("DEMO_BASE_URL", "")
+    return templates.TemplateResponse(
+        "landing_page.html", 
+        {"request": request, "DEMO_BASE_URL": demo_base_url}
+    )
     
 @app.get("/health")
 async def health_check():
