@@ -515,6 +515,17 @@
                 display: none;
             }
         }
+        /* Style for Try Now button in disclaimer */
+        .disclaimer .cta-button {
+            font-size: 1rem;
+            padding: 0.7rem 2rem !important;
+            margin: 0.5rem auto 1rem auto;
+            display: inline-block;
+            box-shadow: 0 2px 8px hsl(var(--primary) / 0.10);
+        }
+        .disclaimer div {
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -639,6 +650,8 @@
                     You can use one of our pre-configured free LLM providers or bring your own model. 
                     We do not persist any data regarding Git repositories or API keys - everything stays local and private.
                 </p>
+               <div style="text-align:center; margin-top: 1.5rem;">
+                   <a href="/tide" class="nav-link cta-button">Try Now</a>
             </div>
             
             <p>&copy; 2025 AgentTide. Built with CodeTide. Licensed under Apache 2.0.</p>
