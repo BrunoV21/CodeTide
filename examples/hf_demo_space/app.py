@@ -40,17 +40,7 @@ async def start_chatr():
     cl.user_session.set("session_id", session_id)
     await cl.context.emitter.set_commands(AgentTideUi.commands)
     cl.user_session.set("chat_history", [])
-
-    await cl.Message(
-        content="",
-        elements=[
-            cl.Image(
-                path=os.getenv("AGENT_TIDE_LOGO_PATH"),
-                size="large"
-            )
-        ]
-    ).send()
-
+    
     exception = True
     while exception:
         try:
