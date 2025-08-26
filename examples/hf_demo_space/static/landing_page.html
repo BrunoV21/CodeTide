@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentTide - Precision-Driven Software Engineering Agent</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-sans: 'Inter', sans-serif;
+            --font-mono: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+        }
+
+        .light {
+            --background: 210 100% 98%;
+            --foreground: 217 100% 12%;
+            --card: 210 100% 97%;
+            --card-foreground: 217 100% 15%;
+            --primary: 217 91% 60%;
+            --primary-foreground: 0 0% 100%;
+            --secondary: 210 60% 90%;
+            --secondary-foreground: 217 100% 20%;
+            --muted: 210 40% 85%;
+            --muted-foreground: 217 20% 35%;
+            --accent: 200 100% 94%;
+            --accent-foreground: 217 100% 20%;
+            --border: 210 40% 90%;
+            --radius: 0.75rem;
+        }
+
+        .dark {
+            --background: 217 100% 8%;
+            --foreground: 210 20% 90%;
+            --card: 217 100% 10%;
+            --card-foreground: 210 20% 95%;
+            --primary: 199 100% 55%;
+            --primary-foreground: 0 0% 100%;
+            --secondary: 217 50% 18%;
+            --secondary-foreground: 210 40% 95%;
+            --muted: 215 30% 25%;
+            --muted-foreground: 210 10% 70%;
+            --accent: 217 100% 15%;
+            --accent-foreground: 210 20% 95%;
+            --border: 217 50% 20%;
+            --radius: 0.75rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: hsl(var(--background));
+            color: hsl(var(--foreground));
+            line-height: 1.6;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated background elements */
+        .background-elements {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .floating-code {
+            position: absolute;
+            font-family: var(--font-mono);
+            color: hsl(var(--muted-foreground) / 0.1);
+            font-size: 0.875rem;
+            animation: float 20s infinite linear;
+        }
+
+        .floating-code:nth-child(1) {
+            top: 10%;
+            left: -10%;
+            animation-delay: 0s;
+        }
+
+        .floating-code:nth-child(2) {
+            top: 30%;
+            left: -15%;
+            animation-delay: -5s;
+        }
+
+        .floating-code:nth-child(3) {
+            top: 50%;
+            left: -12%;
+            animation-delay: -10s;
+        }
+
+        .floating-code:nth-child(4) {
+            top: 70%;
+            left: -8%;
+            animation-delay: -15s;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateX(-100px) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateX(calc(100vw + 100px)) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .header {
+            padding: 1.5rem 0 0.5rem;
+            text-align: center;
+            background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%);
+        }
+
+        .logo {
+            max-width: 650px;
+            height: auto;
+            margin-bottom: 0.5rem;
+            filter: drop-shadow(0 4px 8px hsl(var(--foreground) / 0.1));
+            animation: logoGlow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes logoGlow {
+            0% {
+                filter: drop-shadow(0 4px 8px hsl(var(--foreground) / 0.1));
+            }
+            100% {
+                filter: drop-shadow(0 6px 12px hsl(var(--primary) / 0.2));
+            }
+        }
+
+        .hero {
+            padding: 1rem 0 2rem;
+            text-align: center;
+            background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(var(--card)) 100%);
+            position: relative;
+        }
+
+        .hero-tagline {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent-foreground)));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hero .subtitle {
+            font-size: 1.1rem;
+            color: hsl(var(--muted-foreground));
+            margin-bottom: 2rem;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            font-weight: 400;
+            line-height: 1.7;
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+
+        .highlight {
+            color: hsl(var(--primary));
+            font-weight: 500;
+        }
+
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+
+        .nav-link {
+            padding: 0.875rem 2rem;
+            border-radius: var(--radius);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid hsl(var(--border));
+            background: hsl(var(--card));
+            color: hsl(var(--card-foreground));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-link:hover {
+            background: hsl(var(--accent));
+            color: hsl(var(--accent-foreground));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px hsl(var(--foreground) / 0.15);
+        }
+
+        .cta-button {
+            background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary) / 0.8));
+            color: hsl(var(--primary-foreground));
+            border: none !important;
+            font-size: 1.1rem;
+            padding: 1rem 2.5rem !important;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .cta-button:hover::before {
+            left: 100%;
+        }
+
+        .cta-button:hover {
+            background: linear-gradient(135deg, hsl(var(--primary) / 0.9), hsl(var(--primary)));
+            color: hsl(var(--primary-foreground));
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px hsl(var(--primary) / 0.4);
+        }
+
+        .code-snippet {
+            background: hsl(var(--muted));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            color: hsl(var(--primary));
+            margin: 0 auto;
+            overflow-x: auto;
+            max-width: 600px;
+            position: relative;
+            animation: fadeInUp 0.8s ease-out 0.6s both;
+        }
+
+        .code-snippet::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--primary) / 0.5));
+        }
+
+        /* Quick Features Row */
+        .quick-features {
+            padding: 3rem 0;
+            background: hsl(var(--background));
+            border-bottom: 1px solid hsl(var(--border));
+        }
+
+        .quick-features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .quick-feature {
+            text-align: center;
+            padding: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .quick-feature:hover {
+            transform: translateY(-5px);
+        }
+
+        .quick-feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .quick-feature h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: hsl(var(--foreground));
+        }
+
+        .quick-feature p {
+            color: hsl(var(--muted-foreground));
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* Wave Divider */
+        .wave-divider {
+            height: 100px;
+            background: hsl(var(--background));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .wave-divider::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: hsl(var(--card));
+            border-radius: 50%;
+            animation: wave 8s ease-in-out infinite;
+        }
+
+        @keyframes wave {
+            0%, 100% {
+                transform: translateX(-50%) translateY(60%);
+            }
+            50% {
+                transform: translateX(-50%) translateY(40%);
+            }
+        }
+
+        .features {
+            padding: 4rem 0;
+            background: hsl(var(--card));
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            padding: 2rem;
+            background: hsl(var(--background));
+            border: 1px solid hsl(var(--border));
+            border-radius: var(--radius);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, hsl(var(--primary) / 0.1), transparent, hsl(var(--primary) / 0.1));
+            border-radius: var(--radius);
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 50px hsl(var(--foreground) / 0.15);
+        }
+
+        .feature-icon {
+            width: 3rem;
+            height: 3rem;
+            background: linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.2));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: hsl(var(--primary));
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover .feature-icon {
+            transform: rotate(360deg) scale(1.1);
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: hsl(var(--card-foreground));
+        }
+
+        .feature-card p {
+            color: hsl(var(--muted-foreground));
+            line-height: 1.6;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--primary)));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section-subtitle {
+            text-align: center;
+            color: hsl(var(--muted-foreground));
+            font-size: 1.1rem;
+        }
+
+        .footer {
+            padding: 3rem 0;
+            border-top: 1px solid hsl(var(--border));
+            text-align: center;
+        }
+
+        .disclaimer {
+            background: hsl(var(--muted));
+            color: hsl(var(--muted-foreground));
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            margin-bottom: 2rem;
+            border-left: 4px solid hsl(var(--primary));
+        }
+
+        .disclaimer h4 {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: hsl(var(--foreground));
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: hsl(var(--card));
+            border: 1px solid hsl(var(--border));
+            color: hsl(var(--card-foreground));
+            padding: 0.75rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .theme-toggle:hover {
+            background: hsl(var(--accent));
+            transform: scale(1.1) rotate(180deg);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero-tagline {
+                font-size: 1.5rem;
+            }
+
+            .nav-links {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .nav-link {
+                width: 200px;
+                text-align: center;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+
+            .quick-features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .floating-code {
+                display: none;
+            }
+        }
+        /* Style for Try Now button in disclaimer */
+        .disclaimer .cta-button {
+            font-size: 1rem;
+            padding: 0.7rem 2rem !important;
+            margin: 0.5rem auto 1rem auto;
+            display: inline-block;
+            box-shadow: 0 2px 8px hsl(var(--primary) / 0.10);
+        }
+        .disclaimer div {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-elements">
+        <div class="floating-code">function analyzeCode() { return insights; }</div>
+        <div class="floating-code">const agent = new AgentTide();</div>
+        <div class="floating-code">// Precision-driven refactoring</div>
+        <div class="floating-code">import { structuralAnalysis } from 'codetide';</div>
+    </div>
+
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+
+    <header class="header">
+        <div class="container">
+            <img src="/static/logo_dark.png" alt="AgentTide Logo" class="logo">
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1 class="hero-tagline">AI Agents for Smarter Codebases</h1>
+            <p class="subtitle">
+                The next-generation, <span class="highlight">precision-driven</span> software engineering agent built on top of CodeTide.
+                Experience intelligent code generation with full <span class="highlight">structural understanding</span> of your codebase.
+            </p>
+            
+            <div class="nav-links">
+                <a href="https://github.com/BrunoV21/CodeTide" class="nav-link">GitHub</a>
+                <a href="https://docs.codetide.dev" class="nav-link">Documentation</a>
+                <a href="/tide" class="nav-link cta-button">Try Now</a>
+            </div>
+
+            <div class="code-snippet">
+                $ uvx --from codetide[agents-ui] agent-tide-ui
+            </div>
+        </div>
+    </section>
+
+    <section class="quick-features">
+        <div class="container">
+            <div class="quick-features-grid">
+                <div class="quick-feature">
+                    <span class="quick-feature-icon">🧠</span>
+                    <h3>Understands Your Codebase</h3>
+                    <p>Deep structural analysis of your entire project for context-aware modifications</p>
+                </div>
+                
+                <div class="quick-feature">
+                    <span class="quick-feature-icon">⚡</span>
+                    <h3>Intelligent Refactoring</h3>
+                    <p>Automated code improvements that maintain functionality while enhancing quality</p>
+                </div>
+                
+                <div class="quick-feature">
+                    <span class="quick-feature-icon">🔗</span>
+                    <h3>Seamless GitHub Integration</h3>
+                    <p>Direct repository analysis and patch generation with full version control support</p>
+                </div>
+                
+                <div class="quick-feature">
+                    <span class="quick-feature-icon">🌊</span>
+                    <h3>CodeTide MCP Support</h3>
+                    <p>Empower AI agents and tools with dynamic codebase interaction while keeping your data secure.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="wave-divider"></div>
+
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose AgentTide?</h2>
+            <p class="section-subtitle">Experience the power of context-aware, privacy-first software engineering</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Local-First & Private</h3>
+                    <p>All code analysis and patching is performed locally. Your code never leaves your machine, ensuring complete privacy and security.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">👁️</div>
+                    <h3>Transparent & Stepwise</h3>
+                    <p>See every plan and patch before it's applied. Edit, reorder, or approve steps-you're always in control of the process.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Context-Aware</h3>
+                    <p>AgentTide loads only the relevant code identifiers and dependencies for your request, making it fast and precise.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤝</div>
+                    <h3>Human-in-the-Loop</h3>
+                    <p>After each step, review the patch, provide feedback, or continue-no black-box agent behavior.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Patch-Based Editing</h3>
+                    <p>All changes are atomic diffs, not full file rewrites, for maximum clarity and efficiency.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Precision-Driven</h3>
+                    <p>Built on CodeTide's symbolic code understanding for accurate, context-aware code modifications.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="disclaimer">
+                <h4>Getting Started</h4>
+                <p>
+                    To use AgentTide, you'll need to provide a GitHub repository URL to give the agent context about your codebase. 
+                    You can use one of our pre-configured free LLM providers or bring your own model. 
+                    We do not persist any data regarding Git repositories or API keys - everything stays local and private.
+                </p>
+               <div style="text-align:center; margin-top: 1.5rem;">
+                   <a href="/tide" class="nav-link cta-button">Try Now</a>
+            </div>
+            
+            <p>&copy; 2025 AgentTide. Built with CodeTide. Licensed under Apache 2.0.</p>
+        </div>
+    </footer>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            const button = document.querySelector('.theme-toggle');
+            
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                button.textContent = '☀️';
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                button.textContent = '🌙';
+            }
+        }
+
+        // Initialize theme based on system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.querySelector('.theme-toggle').textContent = '☀️';
+        }
+    </script>
+</body>
+</html>
