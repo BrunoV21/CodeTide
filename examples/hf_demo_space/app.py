@@ -81,6 +81,7 @@ async def start_chatr():
             cl.Action(name="gpt-oss-20b", payload={"model": "openai/gpt-oss-20b:free"}, label="gpt-oss-20b"),
             cl.Action(name="custom", payload={"model": "custom"}, label="bring your model")
         ],
+        timeout=3600
     ).send()
     
 
@@ -238,7 +239,7 @@ async def on_execute_steps(action :cl.Action):
             author="Agent Tide"
         ).send()
 
-        await agent_loop(step_instructions_msg, codeIdentifiers=step.context_identifiers)
+        await agent_loop(step_instructions_msg, codeIdentifiers=step.context_identifiers, agent_tide_ui=agent_tide_ui)
         
         task_list.status = f"Waiting feedback on step {current_task_idx}"
         await task_list.send()
@@ -294,18 +295,21 @@ async def on_inspect_context(action :cl.Action):
     await inspect_msg.send()
 
 @cl.on_message
-async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None):
-    agent_tide_ui = cl.user_session.get("AgentTideUi")
+async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
+    if agent_tide_ui is None:
+        agent_tide_ui = cl.user_session.get("AgentTideUi")
 
     chat_history = cl.user_session.get("chat_history")
+    
+    if message is not None:
+        if message.command:
+            command_prompt = await agent_tide_ui.get_command_prompt(message.command)
+            if command_prompt:
+                message.content = "\n\n---\n\n".join([command_prompt, message.content])
 
-    if message.command:
-        command_prompt = await agent_tide_ui.get_command_prompt(message.command)
-        if command_prompt:
-            message.content = "\n\n---\n\n".join([command_prompt, message.content])
+        chat_history.append({"role": "user", "content": message.content})
+        await agent_tide_ui.add_to_history(message.content)
 
-    chat_history.append({"role": "user", "content": message.content})
-    await agent_tide_ui.add_to_history(message.content)
 
     msg = cl.Message(content="", author="Agent Tide")
 
@@ -386,11 +390,38 @@ async def agent_loop(message: cl.Message, codeIdentifiers: Optional[list] = None
                 payload={"msg_id": msg.id}
             )
         )
-        # # Send the final message
-        await msg.send()
 
-        chat_history.append({"role": "assistant", "content": msg.content})
-        await agent_tide_ui.add_to_history(msg.content)
+    # Send the final message
+    await msg.send()
+
+    chat_history.append({"role": "assistant", "content": msg.content})
+    await agent_tide_ui.add_to_history(msg.content)
+
+    await asyncio.sleep(0.5)
+    if agent_tide_ui.agent_tide._has_patch:
+        choice = await cl.AskActionMessage(
+            content="AgentTide is asking you to review the Patch before applying it.",
+            actions=[
+                cl.Action(name="approve_patch", payload={"lgtm": True}, label="✔️ Approve"),
+                cl.Action(name="reject_patch", payload={"lgtm": False}, label="❌ Reject"),
+            ],
+            timeout=3600
+        ).send()
+
+        if choice:
+            lgtm = choice.get("payload", []).get("lgtm")
+            if lgtm:
+                agent_tide_ui.agent_tide.approve()
+            else:
+                response = await cl.AskUserMessage(
+                    content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
+                    timeout=3600
+                ).send()
+
+                feedback = response.get("output")
+                agent_tide_ui.agent_tide.reject(feedback)
+                chat_history.append({"role": "user", "content": feedback})
+                await agent_loop(agent_tide_ui=agent_tide_ui)
 
 if __name__ == "__main__":
     from dotenv import load_dotenv

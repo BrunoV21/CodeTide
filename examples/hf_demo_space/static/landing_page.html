@@ -134,8 +134,9 @@
         }
 
         .logo {
-            max-width: 650px;
-            height: auto;
+            max-width: 650px;   /* won’t exceed 650px on big screens */
+            width: 100%;        /* scales down to fit smaller screens */
+            height: auto;       /* maintains aspect ratio */
             margin-bottom: 0.5rem;
             filter: drop-shadow(0 4px 8px hsl(var(--foreground) / 0.1));
             animation: logoGlow 3s ease-in-out infinite alternate;

@@ -185,3 +185,4 @@ examples/hf_demo_space/.chainlit/*
 examples/hf_demo_space/chainlit.md
 
 examples/hf_demo_space/public/
+.chainlit/
