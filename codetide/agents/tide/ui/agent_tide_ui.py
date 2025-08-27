@@ -59,7 +59,8 @@ class AgentTideUi(object):
             llm=llm,
             tide=await initCodeTide(workspace=self.project_path),
             history=self.history,
-            session_id=self.session_id
+            session_id=self.session_id,
+            request_human_confirmation=True
         )
         self.agent_tide.llm.session_id = self.agent_tide.session_id
 
