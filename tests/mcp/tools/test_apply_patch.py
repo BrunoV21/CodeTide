@@ -488,3 +488,389 @@ def test_error_move_to_existing_file(mock_fs):
 """
     with pytest.raises(DiffError, match="Cannot move 'utils.py' to 'main.py' because the target file already exists"):
         mock_fs.apply_patch(patch)
+
+def test_update_with_context_after_changes(mock_fs):
+    """Test update with context lines appearing after the changes"""
+    patch = """*** Begin Patch
+*** Update File: main.py
+@@ def hello():
+-    print('Hello, world!')
++    print('Greetings, universe!')
+ 
+ def goodbye():
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('main.py')
+    assert "Greetings, universe!" in content
+    assert "Hello, world!" not in content
+    # Verify the context after changes is preserved
+    assert "def goodbye():" in content
+
+
+def test_update_with_context_before_and_after(mock_fs):
+    """Test update with context lines both before and after the changes"""
+    patch = """*** Begin Patch
+*** Update File: main.py
+@@ def hello():
+ def hello():
+-    print('Hello, world!')
++    print('Hi there!')
+ 
+ def goodbye():
+    print('Goodbye, world!')
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('main.py')
+    assert "Hi there!" in content
+    assert "Hello, world!" not in content
+    # Verify both before and after context is preserved
+    assert "def hello():" in content
+    assert "def goodbye():" in content
+    assert "Goodbye, world!" in content
+
+
+def test_multiple_changes_with_trailing_context(mock_fs):
+    """Test multiple change blocks each followed by context lines"""
+    patch = """*** Begin Patch
+*** Update File: main.py
+@@ def hello():
+-    print('Hello, world!')
++    print('Howdy!')
+ 
+ def goodbye():
+-    print('Goodbye, world!')
++    print('See ya!')
+ 
+if __name__ == '__main__':
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('main.py')
+    assert "Howdy!" in content
+    assert "See ya!" in content
+    assert "Hello, world!" not in content
+    assert "Goodbye, world!" not in content
+    # Verify trailing context is preserved
+    assert "if __name__ == '__main__':" in content
+
+def test_complex_multi_section_with_mixed_context(mock_fs):
+    """Test multiple sections with complex context patterns and edge cases"""
+    # Create a more complex file to work with
+    mock_fs._create_file('complex.py', (
+        "# Header comment\n"
+        "import sys\n"
+        "import os\n"
+        "\n"
+        "class MyClass:\n"
+        "    def __init__(self):\n"
+        "        self.value = 0\n"
+        "\n"
+        "    def method_one(self):\n"
+        "        return self.value\n"
+        "\n"
+        "    def method_two(self):\n"
+        "        self.value += 1\n"
+        "\n"
+        "def global_func():\n"
+        "    return 'original'\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    obj = MyClass()\n"
+        "    print(obj.method_one())\n"
+    ))
+    
+    patch = """*** Begin Patch
+*** Update File: complex.py
+@@ import sys
+ import sys
+-import os
++import json
++import logging
+ 
+ class MyClass:
+@@ def method_one(self):
+-        return self.value
++        # Enhanced method with logging
++        logging.info("Getting value")
++        return self.value * 2
+ 
+     def method_two(self):
+@@ def global_func():
+-    return 'original'
++    return 'modified'
++
++def new_global_func():
++    return 'brand new'
+ 
+ if __name__ == '__main__':
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('complex.py')
+    
+    # Verify all changes applied correctly
+    assert "import json" in content
+    assert "import logging" in content
+    assert "import os" not in content
+    assert "logging.info(\"Getting value\")" in content
+    assert "return self.value * 2" in content
+    assert "return 'modified'" in content
+    assert "def new_global_func():" in content
+    assert "return 'brand new'" in content
+
+
+def test_nested_indentation_and_whitespace_sensitivity(mock_fs):
+    """Test complex indentation patterns and whitespace-sensitive changes"""
+    mock_fs._create_file('indented.py', (
+        "def outer():\n"
+        "    if True:\n"
+        "        def inner():\n"
+        "            x = 1\n"
+        "            y = 2\n"
+        "            return x + y\n"
+        "        return inner()\n"
+        "    else:\n"
+        "        return None\n"
+    ))
+    
+    patch = """*** Begin Patch
+*** Update File: indented.py
+@@ def inner():
+         def inner():
+-            x = 1
+-            y = 2
+-            return x + y
++            # More complex calculation
++            x, y = 1, 2
++            z = x * y
++            return x + y + z
+         return inner()
+@@ else:
+     else:
+-        return None
++        # Better default handling
++        return 0
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('indented.py')
+    
+    assert "# More complex calculation" in content
+    assert "x, y = 1, 2" in content
+    assert "z = x * y" in content
+    assert "return x + y + z" in content
+    assert "# Better default handling" in content
+    assert "return 0" in content
+    assert "return None" not in content
+
+
+def test_edge_case_empty_lines_and_special_characters(mock_fs):
+    """Test handling of empty lines, special characters, and edge cases"""
+    mock_fs._create_file('special.py', (
+        "#!/usr/bin/env python3\n"
+        "# -*- coding: utf-8 -*-\n"
+        "\n"
+        "import re\n"
+        "\n"
+        "def parse_string(text):\n"
+        "    # Handle quotes and escapes\n"
+        "    pattern = r'\".*?\"'\n"
+        "    return re.findall(pattern, text)\n"
+        "\n"
+        "\n"
+        "def main():\n"
+        "    pass\n"
+    ))
+    
+    patch = """*** Begin Patch
+*** Update File: special.py
+@@ #!/usr/bin/env python3
+ #!/usr/bin/env python3
+-# -*- coding: utf-8 -*-
++# -*- coding: utf-8 -*-
++# Author: Test Suite
+
+
+ import re
+@@ def parse_string(text):
+     # Handle quotes and escapes
+-    pattern = r'\".*?\"'
+-    return re.findall(pattern, text)
++    # Updated regex pattern with better handling
++    pattern = r'\"([^\"\\\\]|\\\\.)*?\"'
++    matches = re.findall(pattern, text)
++    return [m.strip('\"') for m in matches]
+
+
+@@ def main():
+-    pass
++    test_text = 'He said \"Hello, world!\"'
++    results = parse_string(test_text)
++    print(f"Found: {results}")
+*** End of File
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('special.py')
+    
+    assert "# Author: Test Suite" in content
+    assert 'r\'\"([^\"\\\\]|\\\\.)*?\"' in content
+    assert "test_text = 'He said \"Hello, world!\"'" in content
+    assert "Found: {results}" in content
+    assert "pass" not in content
+
+
+def test_complex_file_operations_with_dependencies(mock_fs):
+    """Test complex scenario with add, update, move, and delete operations"""
+    # Create additional files for this complex scenario
+    mock_fs._create_file('config.py', (
+        "DEBUG = True\n"
+        "VERSION = '1.0.0'\n"
+        "DATABASE_URL = 'sqlite:///app.db'\n"
+    ))
+    
+    mock_fs._create_file('models.py', (
+        "from config import DATABASE_URL\n"
+        "\n"
+        "class User:\n"
+        "    def __init__(self, name):\n"
+        "        self.name = name\n"
+    ))
+    
+    patch = '''*** Begin Patch
+*** Add File: settings/__init__.py
++# Settings package
+
+*** Add File: settings/base.py
++"""Base settings module"""
++
++# Core configuration
++DEBUG = False
++VERSION = '2.0.0'
++
++# Database settings
++DATABASE_CONFIG = {
++    'url': 'postgresql://localhost/app',
++    'pool_size': 10
++}
+
+*** Update File: config.py
+*** Move to: settings/legacy_config.py
+@@ DEBUG = True
+-DEBUG = True
++# Legacy debug setting - deprecated
++DEBUG = True  # TODO: Remove this
+ VERSION = '1.0.0'
+-DATABASE_URL = 'sqlite:///app.db'
++# Old database URL - migrated to base.py
++DATABASE_URL = 'sqlite:///app.db'  # DEPRECATED
+*** End of File
+
+*** Update File: models.py
+@@ from config import DATABASE_URL
+-from config import DATABASE_URL
++from settings.base import DATABASE_CONFIG
+ 
+ class User:
+@@ def __init__(self, name):
+     def __init__(self, name):
+         self.name = name
++        self.id = None
++    
++    def save(self):
++        # TODO: Implement database save
++        pass
+
+*** Delete File: empty.txt
+*** End Patch
+'''
+    
+    mock_fs.apply_patch(patch)
+    
+    # Verify all operations
+    assert mock_fs.file_exists('settings/__init__.py')
+    assert mock_fs.file_exists('settings/base.py')
+    assert mock_fs.file_exists('settings/legacy_config.py')
+    assert not mock_fs.file_exists('config.py')
+    assert not mock_fs.file_exists('empty.txt')
+    
+    # Verify content changes
+    settings_content = mock_fs.read_file('settings/base.py')
+    assert "DATABASE_CONFIG = {" in settings_content
+    assert "'pool_size': 10" in settings_content
+    
+    legacy_content = mock_fs.read_file('settings/legacy_config.py')
+    assert "# Legacy debug setting - deprecated" in legacy_content
+    assert "# DEPRECATED" in legacy_content
+    
+    models_content = mock_fs.read_file('models.py')
+    assert "from settings.base import DATABASE_CONFIG" in models_content
+    assert "self.id = None" in models_content
+    assert "def save(self):" in models_content
+    assert "from config import DATABASE_URL" not in models_content
+
+
+def test_boundary_conditions_and_fuzzy_matching_limits(mock_fs):
+    """Test boundary conditions for fuzzy matching and context finding"""
+    mock_fs._create_file('boundary.py', (
+        "# Very similar lines that test fuzzy matching limits\n"
+        "def function_a():\n"
+        "    x=1\n"
+        "    y=2\n"
+        "    return x+y\n"
+        "\n"
+        "def function_b():\n"
+        "    x = 1\n"
+        "    y = 2  \n"
+        "    return x + y\n"
+        "\n"
+        "def function_c():\n"
+        "    x  =  1\n"
+        "    y  =  2\n"
+        "    return  x  +  y\n"
+    ))
+    
+    patch = """*** Begin Patch
+*** Update File: boundary.py
+@@ def function_a():
+ def function_a():
+-    x=1
+-    y=2
+-    return x+y
++    # Tight spacing version
++    a=10
++    b=20
++    return a*b
+ 
+ def function_b():
+@@ def function_c():
+     x  =  1
+-    y  =  2
+-    return  x  +  y
++    # Extra wide spacing preserved  
++    y  =  20
++    z  =  30
++    return  x  +  y  +  z
+*** End of File
+*** End Patch
+"""
+    
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('boundary.py')
+    
+    # Verify function_a changes
+    assert "a=10" in content
+    assert "b=20" in content
+    assert "return a*b" in content
+    assert "x=1" not in content  # Only in function_a context
+    
+    # Verify function_b unchanged (middle function)
+    assert "def function_b():" in content
+    assert "    x = 1" in content  # This should still exist in function_b
+    
+    # Verify function_c changes with preserved spacing
+    assert "y  =  20" in content
+    assert "z  =  30" in content
+    assert "return  x  +  y  +  z" in content

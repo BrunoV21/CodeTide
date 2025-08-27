@@ -1,7 +1,7 @@
 <div align="center">
 
 <!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
-<img src="./codetide/agents/tide/ui/public/codetide-banner.png" alt="code-tide-logo" width="900" height="auto"/>
+<img src="https://mclovinittt-agenttidedemo.hf.space/codetide-banner.png" alt="code-tide-logo" width="900" height="auto"/>
 
 
 
@@ -48,7 +48,7 @@ AgentTide consists of a demo, showing how CodeTide can integrate with LLMs and a
 
 <div align="center">
 <!-- [![Docs](https://img.shields.io/badge/docs-CodeTide.github.io-red)](https://brunov21.github.io/CodeTide/) -->
-<img src="./codetide/agents/tide/ui/public/agent-tide-demo.gif" alt="agent-tide-demo" width="100%" height="auto"/>
+<img src="https://mclovinittt-agenttidedemo.hf.space/agent-tide-demo.gif" alt="agent-tide-demo" width="100%" height="auto"/>
 </div>
 
 ---
