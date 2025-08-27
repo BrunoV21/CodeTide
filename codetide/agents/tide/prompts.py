@@ -363,3 +363,13 @@ STAGED_DIFFS_TEMPLATE = """
 
 {diffs}
 """
+
+REJECT_PATCH_FEEDBACK_TEMPLATE = """
+**PATCH REJECTED** - The patch(es) you proposed in the previous message were **not applied** to the codebase.
+
+**Feedback to address:**
+
+{FEEDBACK}
+
+**Next steps:** Please revise your approach to fulfill the task requirements based on the feedback above.
+"""
