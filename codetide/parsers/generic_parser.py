@@ -1,5 +1,6 @@
 from ..core.models import CodeBase, CodeFileModel, ImportStatement
 from ..parsers.base_parser import BaseParser
+from ..core.common import readFile
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Union
@@ -45,17 +46,18 @@ class GenericParser(BaseParser):
         # Use aiofiles or run synchronous file IO in executor
         loop = asyncio.get_running_loop()
         with ThreadPoolExecutor() as pool:
-            
+            code = await loop.run_in_executor(pool, readFile, file_path, "rb")
             if root_path is not None:
                 file_path = file_path.relative_to(Path(root_path))
 
-            codeFile = await loop.run_in_executor(pool, self.parse_code, file_path)
+            codeFile = await loop.run_in_executor(pool, self.parse_code, file_path, code)
 
         return codeFile
     
-    def parse_code(self, file_path :Path):
+    def parse_code(self, file_path :Path, code :str):
         codeFile = CodeFileModel(
-            file_path=str(file_path)
+            file_path=str(file_path),
+            raw=code
         )
         return codeFile
     

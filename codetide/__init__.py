@@ -7,6 +7,7 @@ from codetide.core.models import CodeFileModel, CodeBase, CodeContextStructure
 from codetide.core.common import readFile, writeFile
 from codetide.core.logs import logger
 
+from codetide.parsers.generic_parser import GenericParser
 from codetide.parsers import BaseParser
 from codetide import parsers
 
@@ -224,7 +225,7 @@ class CodeTide(BaseModel):
         """Initialize parsers for all required languages."""
         for language in languages:
             if language not in self._instantiated_parsers:
-                parser_obj = getattr(parsers, self.parserId(language), None)
+                parser_obj = getattr(parsers, self.parserId(language), GenericParser)
                 if parser_obj is not None:
                     self._instantiated_parsers[language] = parser_obj()
                     logger.debug(f"Initialized parser for {language}")
