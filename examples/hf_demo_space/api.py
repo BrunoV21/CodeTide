@@ -54,6 +54,26 @@ async def logo_dark():
         # Return 204 No Content if favicon doesn't exist
         return HTMLResponse(status_code=204)
 
+@app.get("/codetide-banner.png", include_in_schema=False)
+async def codetide_banner():
+    """Serve favicon"""
+    favicon_path = Path(F"{ROOT_PATH}/public/codetide-banner.png")
+    if favicon_path.exists():
+        return FileResponse(favicon_path)
+    else:
+        # Return 204 No Content if favicon doesn't exist
+        return HTMLResponse(status_code=204)
+
+@app.get("/agent-tide-demo.gif", include_in_schema=False)
+async def agent_tide_deo_gif():
+    """Serve favicon"""
+    favicon_path = Path(F"{ROOT_PATH}/public/agent-tide-demo.gif")
+    if favicon_path.exists():
+        return FileResponse(favicon_path)
+    else:
+        # Return 204 No Content if favicon doesn't exist
+        return HTMLResponse(status_code=204)
+
 mount_chainlit(app=app, target=F"{ROOT_PATH}/app.py", path="/tide")
 
 if __name__ == "__main__":
