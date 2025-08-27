@@ -25,7 +25,7 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
         elif (line.startswith("---") and len(line) == 3) or not line.startswith(("+", "-", " ")):
             lines[i] = f" {line}"
 
-        elif line.startswith(("+", "-")) and i + 1 < len(lines) and lines[i+1].startswith(" ") and lines[i+1].strip():
+        elif line.startswith(("+", "-")) and 1 < i + 1 < len(lines) and lines[i+1].startswith(" ") and not lines[i-1].startswith(("+", "-")) and lines[i+1].strip():
             lines[i] = f" {line}"
     
     # Debug output
