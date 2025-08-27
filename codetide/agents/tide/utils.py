@@ -1,6 +1,7 @@
 from codetide.core.defaults import DEFAULT_ENCODING
 
 from typing import List, Union
+import aiofiles.os
 import aiofiles
 import os
 import re
@@ -114,3 +115,30 @@ def parse_steps_markdown(md: str):
         })
 
     return steps
+
+async def delete_file(file_path: str) -> bool:
+    """
+    Safely delete a file asynchronously.
+    
+    Args:
+        file_path: Path to the file to delete
+        
+    Returns:
+        bool: True if file was deleted, False if it didn't exist
+        
+    Raises:
+        PermissionError: If lacking permissions to delete
+        OSError: For other OS-related errors
+    """
+    try:
+        await aiofiles.os.remove(file_path)
+        return True
+    except FileNotFoundError:
+        # File doesn't exist - consider this "success"
+        return False
+    except PermissionError:
+        # Handle permission issues
+        raise
+    except OSError:
+        # Handle other OS errors (disk full, etc.)
+        raise
