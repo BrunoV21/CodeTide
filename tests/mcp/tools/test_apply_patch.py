@@ -488,3 +488,69 @@ def test_error_move_to_existing_file(mock_fs):
 """
     with pytest.raises(DiffError, match="Cannot move 'utils.py' to 'main.py' because the target file already exists"):
         mock_fs.apply_patch(patch)
+
+def test_update_with_context_after_changes(mock_fs):
+    """Test update with context lines appearing after the changes"""
+    patch = """*** Begin Patch
+*** Update File: main.py
+@@ def hello():
+-    print('Hello, world!')
++    print('Greetings, universe!')
+ 
+ def goodbye():
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('main.py')
+    assert "Greetings, universe!" in content
+    assert "Hello, world!" not in content
+    # Verify the context after changes is preserved
+    assert "def goodbye():" in content
+
+
+def test_update_with_context_before_and_after(mock_fs):
+    """Test update with context lines both before and after the changes"""
+    patch = """*** Begin Patch
+*** Update File: main.py
+@@ def hello():
+ def hello():
+-    print('Hello, world!')
++    print('Hi there!')
+ 
+ def goodbye():
+    print('Goodbye, world!')
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('main.py')
+    assert "Hi there!" in content
+    assert "Hello, world!" not in content
+    # Verify both before and after context is preserved
+    assert "def hello():" in content
+    assert "def goodbye():" in content
+    assert "Goodbye, world!" in content
+
+
+def test_multiple_changes_with_trailing_context(mock_fs):
+    """Test multiple change blocks each followed by context lines"""
+    patch = """*** Begin Patch
+*** Update File: main.py
+@@ def hello():
+-    print('Hello, world!')
++    print('Howdy!')
+ 
+ def goodbye():
+-    print('Goodbye, world!')
++    print('See ya!')
+ 
+if __name__ == '__main__':
+*** End Patch
+"""
+    mock_fs.apply_patch(patch)
+    content = mock_fs.read_file('main.py')
+    assert "Howdy!" in content
+    assert "See ya!" in content
+    assert "Hello, world!" not in content
+    assert "Goodbye, world!" not in content
+    # Verify trailing context is preserved
+    assert "if __name__ == '__main__':" in content
