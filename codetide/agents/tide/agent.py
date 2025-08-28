@@ -224,8 +224,8 @@ class AgentTide(BaseModel):
             
             # Get author and committer information
             config = repo.config
-            author_name = config.get('user.name', 'Unknown Author')
-            author_email = config.get('user.email', 'unknown@example.com')
+            author_name = config._get('user.name')[1].value or 'Unknown Author'
+            author_email = config._get('user.email')[1].value or 'unknown@example.com'
             
             author = pygit2.Signature(author_name, author_email)
             committer = author  # Typically same as author
