@@ -89,6 +89,8 @@ DEFAULT_CACHED_IDS_FILE = "cached_ids.json"
 
 BREAKLINE = "\n"
 
+DEFAULT_BYTES_CONTENT_PLACEHOLDERS = "< suppressed bytes content >"
+
 CODETIDE_ASCII_ART = """
 
 ███████╗ ██████╗ ██████╗ ███████╗████████╗██╗██████╗ ███████╗
