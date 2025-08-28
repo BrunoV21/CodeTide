@@ -327,7 +327,8 @@ Proceed directly with fulfilling the request or returning the appropriate output
 """
 
 CMD_TRIGGER_PLANNING_STEPS = """
-
+You must operate in a multi-step planning and execution mode: first outline the plan step by step in a sequential way, then ask for my revision.
+Do not start implementing the steps without my approval.
 """
 
 CMD_WRITE_TESTS_PROMPT = """

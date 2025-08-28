@@ -1,4 +1,5 @@
 from ..core.models import CodeBase, CodeFileModel, ImportStatement
+from ..core.defaults import DEFAULT_BYTES_CONTENT_PLACEHOLDERS
 from ..parsers.base_parser import BaseParser
 from ..core.common import readFile
 
@@ -54,10 +55,10 @@ class GenericParser(BaseParser):
 
         return codeFile
     
-    def parse_code(self, file_path :Path, code :str):
+    def parse_code(self, file_path :Path, code :Optional[str]=None):
         codeFile = CodeFileModel(
             file_path=str(file_path),
-            raw=code
+            raw=code if not isinstance(code, bytes) else DEFAULT_BYTES_CONTENT_PLACEHOLDERS
         )
         return codeFile
     

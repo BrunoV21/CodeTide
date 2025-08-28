@@ -41,7 +41,7 @@ async def validate_git_url(url) -> None:
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Invalid Git repository URL: {url}. Error: {e.stderr}") from e
 
-async def commit_and_push_changes(repo_path: Path, branch_name: str = None, commit_message: str = "Auto-commit: Save changes") -> None:
+async def commit_and_push_changes(repo_path: Path, branch_name: str = None, commit_message: str = "Auto-commit: Save changes", checkout :bool=True) -> None:
     """Add all changes, commit with default message, and push to remote."""
     
     repo_path_str = str(repo_path)
@@ -51,27 +51,26 @@ async def commit_and_push_changes(repo_path: Path, branch_name: str = None, comm
         if not branch_name:
             branch_name = f"agent-tide-{ulid()}"
         
-        # Create and checkout new branch
-        process = await asyncio.create_subprocess_exec(
-            "git", "checkout", "-b", branch_name,
-            cwd=repo_path_str,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            text=True
-        )
-        
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
-        
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, ["git", "checkout", "-b", branch_name], stdout, stderr)
-        
+        if checkout:
+            # Create and checkout new branch
+            process = await asyncio.create_subprocess_exec(
+                "git", "checkout", "-b", branch_name,
+                cwd=repo_path_str,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
+            
+            if process.returncode != 0:
+                raise subprocess.CalledProcessError(process.returncode, ["git", "checkout", "-b", branch_name], stdout, stderr)
+            
         # Add all changes
         process = await asyncio.create_subprocess_exec(
             "git", "add", ".",
             cwd=repo_path_str,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            text=True
+            stderr=asyncio.subprocess.PIPE
         )
         
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
@@ -84,8 +83,7 @@ async def commit_and_push_changes(repo_path: Path, branch_name: str = None, comm
             "git", "commit", "-m", commit_message,
             cwd=repo_path_str,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            text=True
+            stderr=asyncio.subprocess.PIPE
         )
         
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=30)
@@ -101,8 +99,7 @@ async def commit_and_push_changes(repo_path: Path, branch_name: str = None, comm
             "git", "push", "origin", branch_name,
             cwd=repo_path_str,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            text=True
+            stderr=asyncio.subprocess.PIPE
         )
         
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=60)
