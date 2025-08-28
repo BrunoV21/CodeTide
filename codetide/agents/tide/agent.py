@@ -62,7 +62,7 @@ class AgentTide(BaseModel):
     def approve(self):
         self._has_patch = False
         if os.path.exists(self.patch_path):
-            changed_paths = process_patch(self.patch_path, open_file, write_file, remove_file, file_exists)            
+            changed_paths = process_patch(self.patch_path, open_file, write_file, remove_file, file_exists, root_path=self.tide.rootpath)
             self.changed_paths.extend(changed_paths)
 
             previous_response = self.history[-1]
@@ -81,10 +81,10 @@ class AgentTide(BaseModel):
 
     @property
     def patch_path(self)->Path:
-        if not os.path.exists(DEFAULT_STORAGE_PATH):
-            os.makedirs(DEFAULT_STORAGE_PATH, exist_ok=True)
+        if not os.path.exists(self.tide.rootpath / DEFAULT_STORAGE_PATH):
+            os.makedirs(self.tide.rootpath / DEFAULT_STORAGE_PATH, exist_ok=True)
         
-        return DEFAULT_STORAGE_PATH / f"{self.session_id}.bash"
+        return self.tide.rootpath / DEFAULT_STORAGE_PATH / f"{self.session_id}.bash"
 
     @staticmethod
     def trim_messages(messages, tokenizer_fn, max_tokens :Optional[int]=None):
