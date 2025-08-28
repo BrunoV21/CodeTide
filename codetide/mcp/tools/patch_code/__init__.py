@@ -3,7 +3,7 @@ from ....core.defaults import DEFAULT_ENCODING
 from .parser import Parser, patch_to_commit
 # from ....core.common import writeFile
 
-from typing import Dict, Tuple, List, Callable
+from typing import Dict, Optional, Tuple, List, Callable, Union
 import pathlib
 import os
 
@@ -108,11 +108,15 @@ def process_patch(
     open_fn: Callable[[str], str],
     write_fn: Callable[[str, str], None],
     remove_fn: Callable[[str], None],
-    exists_fn: Callable[[str], bool]
+    exists_fn: Callable[[str], bool],
+    root_path: Optional[Union[str, pathlib.Path]]=None
 ) -> List[str]:
     """The main entrypoint function to process a patch from text to filesystem."""
     if not os.path.exists(patch_path):
         raise DiffError("Patch path {patch_path} does not exist.")
+    
+    if root_path is not None:
+        root_path = pathlib.Path(root_path)
     
     # Normalize line endings before processing
     text = open_fn(patch_path)
@@ -120,6 +124,8 @@ def process_patch(
     # FIX: Check for existence of files to be added before parsing.
     paths_to_add = identify_files_added(text)
     for p in paths_to_add:
+        if root_path is not None:
+            p = str(root_path / p)
         if exists_fn(p):
             raise DiffError(f"Add File Error - file already exists: {p}")
 
@@ -128,6 +134,8 @@ def process_patch(
     # Load files with normalized line endings
     orig_files = {}
     for path in paths_needed:
+        if root_path is not None:
+            path = str(root_path / path)
         orig_files[path] = open_fn(path)
     
     patch, _fuzz = text_to_patch(text, orig_files)
