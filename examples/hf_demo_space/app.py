@@ -18,7 +18,7 @@ from aicore.models import AuthenticationError, ModelError
 from aicore.llm import Llm, LlmConfig
 from aicore.config import Config
 
-from git_utils import push_new_branch, validate_git_url, checkout_new_branch
+from git_utils import commit_and_push_changes, validate_git_url, checkout_new_branch
 from chainlit.cli import run_chainlit
 from typing import Optional
 from pathlib import Path
@@ -260,10 +260,9 @@ async def on_stop_steps(action :cl.Action):
 @cl.action_callback("checkout_commit_push")
 async def on_checkout_commit_push(action :cl.Action):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
-    await agent_tide_ui.agent_tide.prepare_commit()
-    agent_tide_ui.agent_tide.commit("AgentTide - add all and push")
-
-    push_new_branch(agent_tide_ui.agent_tide.tide.repo, branch_name=cl.user_session.get("current_branch_name"))
+    # await agent_tide_ui.agent_tide.prepare_commit()
+    # agent_tide_ui.agent_tide.commit("AgentTide - add all and push")
+    await commit_and_push_changes(agent_tide_ui.agent_tide.tide.rootpath, branch_name=cl.user_session.get("current_branch_name"), commit_message="AgentTide - add all and push", checkout=False)
 
 @cl.action_callback("inspect_code_context")
 async def on_inspect_context(action :cl.Action):
