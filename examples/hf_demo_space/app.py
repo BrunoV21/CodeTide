@@ -153,6 +153,7 @@ async def start_chatr():
 
                         agent_tide_ui.agent_tide.llm = Llm.from_config(config.llm)
                         agent_tide_ui.agent_tide.llm.provider.session_id = agent_tide_ui.agent_tide.session_id
+                        agent_tide_ui.agent_tide.pass_custom_logger_fn()
 
                         session_dir_path = DEFAULT_SESSIONS_WORKSPACE / session_id
                         if not os.path.exists(session_dir_path):
