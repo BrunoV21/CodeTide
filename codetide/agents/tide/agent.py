@@ -220,7 +220,7 @@ class AgentTide(BaseModel):
         """
         try:
             # Open the repository
-            repo = self.repo
+            repo = self.tide.repo
             
             # Get author and committer information
             config = repo.config
