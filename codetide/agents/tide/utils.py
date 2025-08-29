@@ -57,24 +57,24 @@ def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str]
 
 def parse_commit_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
     """
-    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
+    Extract content between *** Begin Commit and *** End Commit markers (exclusive),
     ensuring that both markers are at zero indentation (start of line, no leading spaces).
 
     Args:
-        text: Full input text containing one or more patch blocks.
-        multiple: If True, return a list of all patch blocks. If False, return the first match.
+        text: Full input text containing one or more commit blocks.
+        multiple: If True, return a list of all commit blocks. If False, return the first match.
 
     Returns:
-        A string (single patch), list of strings (multiple patches), or None if not found.
+        A string (single commit), list of strings (multiple commits), or None if not found.
     """
     
-    pattern = r"(?m)^(\*\*\* Begin Commit[\s\S]*?^\*\*\* End Commit)$"
+    pattern = r"(?m)^\*\*\* Begin Commit\n([\s\S]*?)^\*\*\* End Commit$"
     matches = re.findall(pattern, text)
 
     if not matches:
         return None
 
-    return matches if multiple else matches[0]
+    return matches if multiple else matches[0].strip()
 
 def parse_steps_markdown(md: str):
     steps = []
