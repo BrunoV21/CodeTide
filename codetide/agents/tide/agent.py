@@ -275,7 +275,8 @@ class AgentTide(BaseModel):
         # 2. Create a prompt session with the custom key bindings
         session = PromptSession(key_bindings=bindings)
 
-        _logger.logger.info(f"\n{AGENT_TIDE_ASCII_ART}\nReady to surf. Press ESC to exit.\n")
+        print(f"\n{AGENT_TIDE_ASCII_ART}\n")
+        _logger.logger.info("Ready to surf. Press ESC to exit.")
         try:
             while True:
                 try:

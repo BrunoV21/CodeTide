@@ -86,7 +86,8 @@ class CodeTide(BaseModel):
 
         codeTide._add_results_to_codebase(results)
         codeTide._resolve_files_dependencies()
-        logger.info(f"\n{CODETIDE_ASCII_ART}\nInitialized with {len(results)} files processed in {time.time() - st:.2f}s")
+        print(f"\n{CODETIDE_ASCII_ART}\n")
+        logger.info(f"Initialized with {len(results)} files processed in {time.time() - st:.2f}s")
 
         return codeTide
     
