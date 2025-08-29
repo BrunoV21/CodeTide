@@ -10,7 +10,7 @@ import os
 # --------------------------------------------------------------------------- #
 #  User-facing API
 # --------------------------------------------------------------------------- #
-def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
+def text_to_patch(text: str, orig: Dict[str, str], rootpath: Optional[pathlib.Path]=None) -> Tuple[Patch, int]:
     """Improved version with better splitlines handling."""
     lines = text.splitlines()
 
@@ -37,7 +37,7 @@ def text_to_patch(text: str, orig: Dict[str, str]) -> Tuple[Patch, int]:
     if not lines or not Parser._norm(lines[-1]) == "*** End Patch":
         raise DiffError(f"Invalid patch text - must end with '*** End Patch'. Found: '{lines[-1] if lines else 'empty'}'")
 
-    parser = Parser(current_files=orig, lines=lines, index=1)
+    parser = Parser(current_files=orig, lines=lines, index=1, rootpath=rootpath)
     parser.parse()
     return parser.patch, parser.fuzz
 
@@ -138,7 +138,7 @@ def process_patch(
             path = str(root_path / path)
         orig_files[path] = open_fn(path)
     
-    patch, _fuzz = text_to_patch(text, orig_files)
+    patch, _fuzz = text_to_patch(text, orig_files, rootpath=root_path)
     commit = patch_to_commit(patch, orig_files)
     
     apply_commit(commit, write_fn, remove_fn, exists_fn)

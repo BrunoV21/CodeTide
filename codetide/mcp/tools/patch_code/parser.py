@@ -2,6 +2,7 @@ from .models import Patch, DiffError, PatchAction, ActionType,  FileChange, Comm
 
 from typing import Dict, List, Optional, Tuple, Union
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # --------------------------------------------------------------------------- #
 #  Helper functions for parsing update chunks
@@ -218,6 +219,7 @@ class Parser:
     index: int = 0
     patch: Patch = field(default_factory=Patch)
     fuzz: int = 0
+    rootpath: Optional[Path]=None
 
     def _cur_line(self) -> str:
         if self.index >= len(self.lines):
@@ -261,6 +263,8 @@ class Parser:
         while not self.is_done(("*** End Patch",)):
             # ---------- UPDATE ---------- #
             if path := self.read_str("*** Update File: "):
+                if self.rootpath is not None:
+                    path = str(self.rootpath / path)
                 if path in self.patch.actions:
                     raise DiffError(f"Duplicate update for file: {path}")
                 move_to = self.read_str("*** Move to: ")
