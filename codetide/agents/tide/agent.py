@@ -191,6 +191,8 @@ class AgentTide(BaseModel):
         for path in self.changed_paths:
            index.add(path)
 
+        index.write()
+
         staged_diff = await self.get_git_diff_staged_simple(self.tide.rootpath)
         staged_diff = staged_diff.strip()
         return staged_diff if staged_diff else "No files were staged. Nothing to commit. Tell the user to request some changes so there is something to commit"
