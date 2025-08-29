@@ -355,6 +355,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
             await stream_processor.process_chunk(chunk)
 
+        await asyncio.sleep(0.5)
         if agent_tide_ui.agent_tide.steps:
             cl.user_session.set("latest_step_message", msg)
             msg.actions = [
@@ -397,7 +398,6 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
     chat_history.append({"role": "assistant", "content": msg.content})
     await agent_tide_ui.add_to_history(msg.content)
 
-    await asyncio.sleep(0.5)
     if agent_tide_ui.agent_tide._has_patch:
         choice = await cl.AskActionMessage(
             content="AgentTide is asking you to review the Patch before applying it.",
