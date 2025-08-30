@@ -37,6 +37,7 @@ import getpass
 import asyncio
 import json
 import yaml
+import time
 
 @cl.password_auth_callback
 def auth():
@@ -278,7 +279,9 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         chat_history.append({"role": "user", "content": message.content})
         await agent_tide_ui.add_to_history(message.content)
-
+    
+    context_msg = cl.Message(content="", author="AgentTide")
+    # context_stream_msg = cl.Message(content="", author="AgentTide")
     msg = cl.Message(content="", author="Agent Tide")
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
@@ -311,8 +314,28 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             global_fallback_msg=msg
         )
 
+        st = time.time()
         async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
             if chunk == STREAM_START_TOKEN:
+                
+                context_data = {
+                    key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
+                    if (value := getattr(agent_tide_ui.agent_tide, key, None))
+                }
+                context_msg.elements.append(
+                    cl.CustomElement(
+                        name="ReasoningMessage",
+                        props={
+                            "reasoning": agent_tide_ui.agent_tide.reasoning,
+                            "data": context_data,
+                            "title": f"Thought for {time.time()-st:.2f} seconds",
+                            "defaultExpanded": False,
+                            "showControls": False
+                        }
+                    )
+                )
+                await context_msg.send()
+
                 continue
 
             if chunk == STREAM_END_TOKEN:
