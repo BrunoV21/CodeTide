@@ -266,6 +266,21 @@ async def on_inspect_context(action :cl.Action):
 
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
+
+    loading_msg = await cl.Message(
+        content="",
+        elements=[
+            cl.CustomElement(
+                name="LoadingMessage",
+                props={
+                    "messages": ["Working", "Syncing CodeTide", "Thinking", "Looking for context"],
+                    "interval": 1500,  # 1.5 seconds between messages
+                    "showIcon": True
+                }
+            )
+    ]
+    ).send()
+
     if agent_tide_ui is None:
         agent_tide_ui = await loadAgentTideUi()
 
@@ -281,7 +296,6 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         await agent_tide_ui.add_to_history(message.content)
     
     context_msg = cl.Message(content="", author="AgentTide")
-    # context_stream_msg = cl.Message(content="", author="AgentTide")
     msg = cl.Message(content="", author="Agent Tide")
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
@@ -317,7 +331,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         st = time.time()
         async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
             if chunk == STREAM_START_TOKEN:
-                
+                await loading_msg.remove()
+
                 context_data = {
                     key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
                     if (value := getattr(agent_tide_ui.agent_tide, key, None))
