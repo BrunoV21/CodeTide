@@ -55,26 +55,34 @@ def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str]
 
     return matches if multiple else matches[0]
 
-def parse_commit_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
+def parse_blocks(text: str, block_word: str = "Commit", multiple: bool = True) -> Union[str, List[str], None]:
     """
-    Extract content between *** Begin Commit and *** End Commit markers (exclusive),
+    Extract content between *** Begin <block_word> and *** End <block_word> markers (exclusive),
     ensuring that both markers are at zero indentation (start of line, no leading spaces).
 
     Args:
-        text: Full input text containing one or more commit blocks.
-        multiple: If True, return a list of all commit blocks. If False, return the first match.
+        text: Full input text containing one or more blocks.
+        block_word: The word to use in the block markers (e.g., "Commit", "Section", "Code").
+        multiple: If True, return a list of all blocks. If False, return the first match.
 
     Returns:
-        A string (single commit), list of strings (multiple commits), or None if not found.
+        A string (single block), list of strings (multiple blocks), or None if not found.
     """
     
-    pattern = r"(?m)^\*\*\* Begin Commit\n([\s\S]*?)^\*\*\* End Commit$"
+    # Escape the block_word to handle any special regex characters
+    escaped_word = re.escape(block_word)
+    
+    # Create pattern with the parameterized block word
+    pattern = rf"(?m)^\*\*\* Begin {escaped_word}\n([\s\S]*?)^\*\*\* End {escaped_word}$"
     matches = re.findall(pattern, text)
 
     if not matches:
         return None
 
-    return matches if multiple else matches[0].strip()
+    if multiple:
+        return [match.strip() for match in matches]
+    else:
+        return matches[0].strip()
 
 def parse_steps_markdown(md: str):
     steps = []
