@@ -61,34 +61,46 @@ You are operating under a strict **single-call constraint**: the repository tree
 **Instructions:**
 
 1. Carefully read and interpret the user's request, identifying any references to files, modules, submodules, or code elements—either explicit or implied.
-2. **Prioritize returning fully qualified code identifiers** (such as functions, classes, methods, variables, or attributes) that are directly related to the user's request or are elements of interest. The identifier format must use dot notation to represent the path-like structure, e.g., `module.submodule.Class.method` or `module.function`, without file extensions.
-3. Only include full file paths (relative to the repository root) if:
+2. **Segregate identifiers into two categories:**
+   - **Context Identifiers:** Code elements (functions, classes, methods, variables, attributes, or file paths) that are required to understand, reference, or provide context for the requested change, but are not themselves expected to be modified.
+   - **Modify Identifiers:** Code elements (functions, classes, methods, variables, attributes, or file paths) that are likely to require direct modification to fulfill the user's request.
+3. **Prioritize returning fully qualified code identifiers** (using dot notation, e.g., `module.submodule.Class.method`), without file extensions. Only include file paths (relative to the repository root) if:
    - The user explicitly requests file-level operations (such as adding, deleting, or renaming files), or
    - No valid or relevant code identifiers can be determined for the request.
 4. If the user refers to a file by name or path and the request is about code elements within that file, extract and include the relevant code identifiers from that file instead of the file path, unless the user specifically asks for the file path.
-5. If fulfilling the request would likely depend on additional symbols or files—based on naming, structure, required context from other files/modules, or conventional design patterns—include those code identifiers as well.
-6. Only include identifiers or paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
-7. If no relevant code identifiers or file paths can be confidently identified, return an empty list.
+5. If fulfilling the request would likely depend on additional symbols or files—based on naming, structure, required context from other files/modules, or conventional design patterns—include those code identifiers as context identifiers.
+6. Only include identifiers or2025-08-30 18:45:26 - Translation file for pt-PT not found. Using default translation en-US.
+ paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
+7. If no relevant code identifiers or file paths can be confidently identified, leave the relevant section(s) empty.
 
 ---
 
-**Output Format (Strict JSON Only):**
+**Output Format:**
 
-Return a JSON array of strings. Each string must be:
-- A fully qualified code identifier using dot notation (e.g., `module.submodule.Class.method`), without file extensions, or
-- A valid file path relative to the repository root (only if explicitly required or no code identifiers are available).
+Your response must include:
 
-Your output must be a pure JSON list of strings. Do **not** include any explanation, comments, or formatting outside the JSON block.
+1. A brief explanation (1-3 sentences) describing your reasoning and search process for selecting the identifiers.
+2. The following delimited sections, each containing a newline-separated list of identifiers (or left empty if none):
+
+*** Begin Context Identifiers
+<one per line, or empty>
+*** End Context Identifiers
+
+*** Begin Modify Identifiers
+<one per line, or empty>
+*** End Modify Identifiers
+
+Do **not** include any additional commentary, formatting, or output outside these sections.
 
 ---
 
 **Evaluation Criteria:**
 
-- You must identify all code identifiers directly referenced or implied in the user request, prioritizing them over file paths.
+- You must identify all code identifiers directly referenced or implied in the user request, and correctly categorize them as context or modify identifiers.
 - You must include any internal code elements that are clearly involved or required for the task.
 - You must consider logical dependencies that may need to be modified together (e.g., helper modules, config files, related class methods).
 - You must consider files that can be relevant as context to complete the user request, but only include their paths if code identifiers are not available or explicitly requested.
-- You must return a clean and complete list of all relevant code identifiers and, if necessary, file paths.
+- You must return a clean and complete list of all relevant code identifiers and, if necessary, file paths, in the correct section.
 - Do not over-include; be minimal but thorough. Return only what is truly required.
 
 """
