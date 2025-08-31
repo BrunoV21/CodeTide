@@ -126,7 +126,10 @@ class AgentTide(BaseModel):
 
             self.contextIdentifiers = contextIdentifiers.splitlines() or None
             self.modifyIdentifiers = modifyIdentifiers.splitlines() or None
-            # TODO need fo finsih implementing context and modify identifiers into codetide logic
+            codeIdentifiers = self.contextIdentifiers
+            
+            if self.modifyIdentifiers:
+                codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
 
         codeContext = None
         if codeIdentifiers:
