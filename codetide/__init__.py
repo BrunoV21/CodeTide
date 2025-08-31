@@ -589,5 +589,7 @@ class CodeTide(BaseModel):
                 as_file_paths.append(code_identifier)
             elif element := self.codebase.cached_elements.get(code_identifier):
                 as_file_paths.append(element.file_path)
+            else: ### covers new files
+                as_file_paths.append(element)
 
         return as_file_paths
