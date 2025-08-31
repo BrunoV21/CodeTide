@@ -25,11 +25,8 @@ export default function ReasoningMessage() {
         let html = `
         <div class="reasoning-message">
             <div class="p-4 space-y-4">
-                <div class="reasoning-block">
-                    <h4 class="font-semibold text-sm mb-2 text-primary">Reasoning</h4>
-                    <div class="text-sm text-muted-foreground bg-muted/30 p-3 rounded-md border-l-4 border-primary/30">
-                        ${reasoning}
-                    </div>
+                <div class="reasoning-block text-sm text-muted-foreground bg-muted/30 p-3 rounded-md">
+                    ${reasoning}
                 </div>`;
 
         // Add key-value entries if they exist
