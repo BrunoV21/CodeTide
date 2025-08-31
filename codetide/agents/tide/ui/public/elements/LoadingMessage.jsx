@@ -1,67 +1,81 @@
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from 'react';
 
-export default function LoadingMessages() {
-    const defaultMessages = [
-        "Working",
-        "Syncing CodeTide",
-        "Thinking", 
-        "Looking for context"
-    ];
-    
-    const messages = props.messages || defaultMessages;
-    const interval = props.interval || 2000; // 2 seconds default
-    const showIcon = props.showIcon !== false; // default true
-    
-    const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-    
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentMessageIndex((prevIndex) => 
-                (prevIndex + 1) % messages.length
-            );
-        }, interval);
-        
-        return () => clearInterval(timer);
-    }, [messages.length, interval]);
-    
-    return (
-        <div className="flex items-center gap-3 p-3" style={{ fontFamily: 'Inter, sans-serif' }}>
-            {showIcon && (
-                <div className="flex space-x-1.5 items-center">
-                    <div className="w-3 h-3 bg-primary rounded-full animate-wave-1"></div>
-                    <div className="w-3 h-3 bg-primary rounded-full animate-wave-2"></div>
-                    <div className="w-3 h-3 bg-primary rounded-full animate-wave-3"></div>
-                </div>
-            )}
-            
-            <span className="text-base text-muted-foreground font-medium min-w-0 transition-opacity duration-300" style={{ fontFamily: 'Inter, sans-serif' }}>
-                {messages[currentMessageIndex]}...
-            </span>
-            
-            <style jsx>{`
-                @keyframes wave {
-                    0%, 40%, 100% {
-                        transform: translateY(0);
-                    }
-                    20% {
-                        transform: translateY(-10px);
-                    }
-                }
-                
-                .animate-wave-1 {
-                    animation: wave 1.4s ease-in-out infinite;
-                }
-                
-                .animate-wave-2 {
-                    animation: wave 1.4s ease-in-out infinite;
-                    animation-delay: 0.16s;
-                }
-                
-                .animate-wave-3 {
-                    animation: wave 1.4s ease-in-out infinite;
-                    animation-delay: 0.32s;
-                }
-            `}</style>
+const LoadingMessage = ({ messages = ['Working...', 'Syncing CodeTide', 'Thinking...', 'Looking for context'], interval = 3000 }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % messages.length);
+    }, interval);
+
+    return () => clearInterval(timer);
+  }, [messages.length, interval]);
+
+  /* TODO update styles and fonts to match current - increase size a bit*/
+  const loadingWaveStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    borderRadius: '20px',
+    backdropFilter: 'blur(10px)',
+    color: '#e0e0e0',
+    fontSize: '12px',
+    fontWeight: '500',
+    letterSpacing: '0.3px',
+    minHeight: '20px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+  };
+
+  const waveContainerStyle = {
+    display: 'flex',
+    gap: '2px'
+  };
+
+  const waveDotStyle = {
+    width: '3px',
+    height: '3px',
+    background: '#00d4ff',
+    borderRadius: '50%',
+    animation: 'wave 1.2s ease-in-out infinite'
+  };
+
+  const loadingTextStyle = {
+    minWidth: '120px',
+    transition: 'opacity 0.3s ease-in-out'
+  };
+
+  return (
+    <>
+      <style>
+        {`
+          @keyframes wave {
+            0%, 60%, 100% {
+              transform: scaleY(1);
+              opacity: 0.4;
+            }
+            30% {
+              transform: scaleY(2.5);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
+      <div style={loadingWaveStyle}>
+        <div style={waveContainerStyle}>
+          <div style={{...waveDotStyle, animationDelay: '0s'}}></div>
+          <div style={{...waveDotStyle, animationDelay: '0.15s'}}></div>
+          <div style={{...waveDotStyle, animationDelay: '0.3s'}}></div>
+          <div style={{...waveDotStyle, animationDelay: '0.45s'}}></div>
         </div>
-    );
-}
+        <div style={loadingTextStyle}>
+          {messages[currentIndex]}
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default LoadingMessage;
