@@ -69,9 +69,8 @@ You are operating under a strict **single-call constraint**: the repository tree
    - No valid or relevant code identifiers can be determined for the request.
 4. If the user refers to a file by name or path and the request is about code elements within that file, extract and include the relevant code identifiers from that file instead of the file path, unless the user specifically asks for the file path.
 5. If fulfilling the request would likely depend on additional symbols or files—based on naming, structure, required context from other files/modules, or conventional design patterns—include those code identifiers as context identifiers.
-6. Only include identifiers or2025-08-30 18:45:26 - Translation file for pt-PT not found. Using default translation en-US.
- paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
-7. If no relevant code identifiers or file paths can be confidently identified, leave the relevant section(s) empty.
+6. Only include identifiers or paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
+7. If no relevant code identifiers or file paths can be confidently identified, leave the relevant section(s) empty - without any contents or lines, not even the word empty.
 
 ---
 
@@ -324,7 +323,7 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 4. **Granularity:** Break complex requirements into logical sub-steps. Order them so dependencies are respected (e.g., setup → implementation → validation → integration).
 
-5. **Traceability:** Each step’s `context_identifiers` and `modify_identifiers` must clearly tie that step to specific code areas; this enables downstream mapping to actual implementation targets.
+5. **Traceability:** Each step's `context_identifiers` and `modify_identifiers` must clearly tie that step to specific code areas; this enables downstream mapping to actual implementation targets.
 
 6. **Single-Responsibility per Step:** Aim for each numbered step to encapsulate a coherent unit of work. Avoid mixing unrelated concerns in one step.
 
@@ -332,7 +331,7 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 8. **Testing & Validation:** Where appropriate, include in steps the need for testing, how to validate success, and any edge cases to cover.
 
-9. **Failure Modes & Corrections:** If the user’s request implies potential pitfalls (e.g., backward compatibility, race conditions, security), surface those in early steps or in the comments and include remediation as part of the plan.
+9. **Failure Modes & Corrections:** If the use's request implies potential pitfalls (e.g., backward compatibility, race conditions, security), surface those in early steps or in the comments and include remediation as part of the plan.
 
 10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
 
