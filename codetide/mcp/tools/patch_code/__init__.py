@@ -12,6 +12,10 @@ def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str]
     """
     Extract content between *** Begin Patch and *** End Patch markers (inclusive),
     ensuring that both markers are at zero indentation (start of line, no leading spaces).
+    
+    If only one identifier is present:
+    - If only "Begin Patch" exists: returns from Begin Patch to end of text
+    - If only "End Patch" exists: returns from start of text to End Patch
 
     Args:
         text: Full input text containing one or more patch blocks.
@@ -21,13 +25,72 @@ def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str]
         A string (single patch), list of strings (multiple patches), or None if not found.
     """
     
-    pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
-    matches = re.findall(pattern, text)
-
-    if not matches:
+    # First, try to find complete blocks (both Begin and End markers)
+    complete_pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
+    complete_matches = re.findall(complete_pattern, text)
+    
+    # If we found complete matches, return them (preserving original behavior)
+    if complete_matches:
+        return complete_matches if multiple else complete_matches[0]
+    
+    # If no complete matches, look for partial identifiers
+    begin_pattern = r"(?m)^(\*\*\* Begin Patch).*$"
+    end_pattern = r"(?m)^(\*\*\* End Patch).*$"
+    
+    begin_matches = list(re.finditer(begin_pattern, text))
+    end_matches = list(re.finditer(end_pattern, text))
+    
+    partial_matches = []
+    
+    # Handle cases with only Begin markers (from Begin to end of text)
+    if begin_matches and not end_matches:
+        for match in begin_matches:
+            start_pos = match.start()
+            partial_content = text[start_pos:]
+            partial_matches.append(partial_content)
+    
+    # Handle cases with only End markers (from start of text to End)
+    elif end_matches and not begin_matches:
+        for match in end_matches:
+            end_pos = match.end()
+            partial_content = text[:end_pos]
+            partial_matches.append(partial_content)
+    
+    # Handle mixed cases (some begins without ends, some ends without begins)
+    elif begin_matches or end_matches:
+        # Get all Begin positions
+        begin_positions = [m.start() for m in begin_matches]
+        end_positions = [m.end() for m in end_matches]
+        
+        # For each Begin, try to find corresponding End
+        for begin_pos in begin_positions:
+            corresponding_end = None
+            for end_pos in end_positions:
+                if end_pos > begin_pos:
+                    corresponding_end = end_pos
+                    break
+            
+            if corresponding_end:
+                # Complete pair found
+                partial_content = text[begin_pos:corresponding_end]
+            else:
+                # Begin without End - go to end of text
+                partial_content = text[begin_pos:]
+            
+            partial_matches.append(partial_content)
+        
+        # Handle orphaned End markers (Ends that don't have corresponding Begins)
+        for end_pos in end_positions:
+            has_corresponding_begin = any(begin_pos < end_pos for begin_pos in begin_positions)
+            if not has_corresponding_begin:
+                # End without Begin - from start of text
+                partial_content = text[:end_pos]
+                partial_matches.append(partial_content)
+    
+    if not partial_matches:
         return None
-
-    return matches if multiple else matches[0]
+    
+    return partial_matches if multiple else partial_matches[0]
 
 # --------------------------------------------------------------------------- #
 #  User-facing API
@@ -144,7 +207,9 @@ def process_patch(
     
     # Normalize line endings before processing
     patches_text = open_fn(patch_path)
-    patches = parse_patch_blocks(patches_text) or [""]
+    print(f"{patches_text=}")
+    patches = parse_patch_blocks(patches_text)#or [""]
+    print(f"{patches=}")
 
     all_paths_needed = []
     for text in patches:
