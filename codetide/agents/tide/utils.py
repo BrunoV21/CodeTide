@@ -65,36 +65,49 @@ def parse_blocks(text: str, block_word: str = "Commit", multiple: bool = True) -
         return matches[0].strip()
 
 def parse_steps_markdown(md: str):
-    """
-    Parse the markdown steps block and return a list of step dicts.
-    Now supports both context_identifiers and modify_identifiers.
-    """
     steps = []
-    step_blocks = re.split(r'---\s*', md)
-    for block in step_blocks:
-        block = block.strip()
-        if not block or block.startswith("*** End Steps"):
+    
+    # Extract only content between *** Begin Steps and *** End Steps
+    match = re.search(r"\*\*\* Begin Steps(.*?)\*\*\* End Steps", md, re.DOTALL)
+    if not match:
+        return []
+    
+    steps_block = match.group(1).strip()
+
+    # Split steps by '---'
+    raw_steps = [s.strip() for s in steps_block.split('---') if s.strip()]
+    
+    for raw_step in raw_steps:
+        # Match step number and description
+        step_header = re.match(r"(\d+)\.\s+\*\*(.*?)\*\*", raw_step)
+        if not step_header:
             continue
-        # Parse step number and description
-        m = re.match(
-            r'(\d+)\.\s+\*\*(.*?)\*\*\s*\n\s*\*\*instructions\*\*:\s*(.*?)\n\s*\*\*context_identifiers\*\*:\s*((?:- .*\n?)*)\s*\*\*modify_identifiers\*\*:\s*((?:- .*\n?)*)',
-            block, re.DOTALL)
-        if not m:
-            continue
-        step_num = int(m.group(1))
-        description = m.group(2).strip()
-        instructions = m.group(3).strip()
-        context_block = m.group(4)
-        modify_block = m.group(5)
-        context_identifiers = [line[2:].strip() for line in context_block.strip().splitlines() if line.strip().startswith('-')]
-        modify_identifiers = [line[2:].strip() for line in modify_block.strip().splitlines() if line.strip().startswith('-')]
+
+        step_num = int(step_header.group(1))
+        description = step_header.group(2).strip()
+
+        # Match instructions
+        instructions_match = re.search(r"\*\*instructions\*\*:\s*(.*?)(?=\*\*context_identifiers\*\*:)", raw_step, re.DOTALL)
+        instructions = instructions_match.group(1).strip() if instructions_match else ""
+
+        # Match context identifiers
+        context_match = re.search(r"\*\*context_identifiers\*\*:\s*(.*?)(?=\*\*modify_identifiers\*\*:)", raw_step, re.DOTALL)
+        context_block = context_match.group(1).strip() if context_match else ""
+        context_identifiers = re.findall(r"- (.+)", context_block)
+
+        # Match modifying identifiers
+        modify_match = re.search(r"\*\*modify_identifiers\*\*:\s*(.*)", raw_step, re.DOTALL)
+        modify_match = modify_match.group(1).strip() if modify_match else ""
+        modify_identifiers = re.findall(r"- (.+)", modify_match)
+
         steps.append({
             "step": step_num,
             "description": description,
             "instructions": instructions,
-            "context_identifiers": context_identifiers,
-            "modify_identifiers": modify_identifiers
+            "context_identifiers": [identifier.strip() for identifier in context_identifiers],
+            "modify_identifiers": [identifier.strip() for identifier in modify_identifiers]
         })
+
     return steps
 
 async def delete_file(file_path: str) -> bool:
