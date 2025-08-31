@@ -173,6 +173,7 @@ async def on_execute_steps(action :cl.Action):
     latest_step_message :cl.Message = cl.user_session.get("latest_step_message")
     if latest_step_message and latest_step_message.id == action.payload.get("msg_id"):
         await latest_step_message.remove_actions()
+        await latest_step_message.send() # close message ?
 
     if agent_tide_ui.current_step is None:
         task_list = cl.TaskList("Steps")
@@ -226,6 +227,7 @@ async def on_stop_steps(action :cl.Action):
     latest_step_message :cl.Message = cl.user_session.get("latest_step_message")
     if latest_step_message and latest_step_message.id == action.payload.get("msg_id"):
         await latest_step_message.remove_actions()
+        await latest_step_message.send() # close message ?
     
     task_list = cl.user_session.get("StepsTaskList")
     if task_list:
