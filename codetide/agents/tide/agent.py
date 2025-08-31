@@ -124,8 +124,8 @@ class AgentTide(BaseModel):
                 reasoning = [context_response]
             self.reasoning = reasoning[0].strip()
 
-            self.contextIdentifiers = contextIdentifiers.splitlines() or None
-            self.modifyIdentifiers = modifyIdentifiers.splitlines() or None
+            self.contextIdentifiers = contextIdentifiers.splitlines() if isinstance(contextIdentifiers, str) else None
+            self.modifyIdentifiers = modifyIdentifiers.splitlines() if isinstance(modifyIdentifiers, str) else None
             codeIdentifiers = self.contextIdentifiers or []
             
             if self.modifyIdentifiers:
