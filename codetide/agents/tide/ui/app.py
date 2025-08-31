@@ -263,6 +263,27 @@ async def on_inspect_context(action :cl.Action):
 
     await inspect_msg.send()
 
+async def send_reasoning_msg(loading_msg :cl.message, context_msg :cl.Message, agent_tide_ui :AgentTideUi, st :float)->bool:
+    await loading_msg.remove()
+
+    context_data = {
+        key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
+        if (value := getattr(agent_tide_ui.agent_tide, key, None))
+    }
+    context_msg.elements.append(
+        cl.CustomElement(
+            name="ReasoningMessage",
+            props={
+                "reasoning": agent_tide_ui.agent_tide.reasoning,
+                "data": context_data,
+                "title": f"Thought for {time.time()-st:.2f} seconds",
+                "defaultExpanded": False,
+                "showControls": False
+            }
+        )
+    )
+    await context_msg.send()
+    return True
 
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
@@ -278,7 +299,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     "showIcon": True
                 }
             )
-    ]
+        ]
     ).send()
 
     if agent_tide_ui is None:
@@ -329,31 +350,16 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         )
 
         st = time.time()
+        is_reasonig_sent = False
         async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
             if chunk == STREAM_START_TOKEN:
-                await loading_msg.remove()
-
-                context_data = {
-                    key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
-                    if (value := getattr(agent_tide_ui.agent_tide, key, None))
-                }
-                context_msg.elements.append(
-                    cl.CustomElement(
-                        name="ReasoningMessage",
-                        props={
-                            "reasoning": agent_tide_ui.agent_tide.reasoning,
-                            "data": context_data,
-                            "title": f"Thought for {time.time()-st:.2f} seconds",
-                            "defaultExpanded": False,
-                            "showControls": False
-                        }
-                    )
-                )
-                await context_msg.send()
-
+                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
 
-            if chunk == STREAM_END_TOKEN:
+            elif not is_reasonig_sent:
+                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+
+            elif chunk == STREAM_END_TOKEN:
                 #  Handle any remaining content
                 await stream_processor.finalize()
                 break
