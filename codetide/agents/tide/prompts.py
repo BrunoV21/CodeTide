@@ -332,8 +332,12 @@ Proceed directly with fulfilling the request or returning the appropriate output
 8. **Testing & Validation:** Where appropriate, include in steps the need for testing, how to validate success, and any edge cases to cover.
 
 9. **Failure Modes & Corrections:** If the use's request implies potential pitfalls (e.g., backward compatibility, race conditions, security), surface those in early steps or in the comments and include remediation as part of the plan.
-steps or in the comments and include remediation as part of the plan.
-: first outline the plan step by step in a sequential way, then ask for my revision.
+
+10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
+"""
+
+CMD_TRIGGER_PLANNING_STEPS = """
+You must operate in a multi-step planning and execution mode: first outline the plan step by step in a sequential way, then ask for my revision.
 Do not start implementing the steps without my approval.
 """
 
