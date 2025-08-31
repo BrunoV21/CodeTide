@@ -332,17 +332,8 @@ Proceed directly with fulfilling the request or returning the appropriate output
 8. **Testing & Validation:** Where appropriate, include in steps the need for testing, how to validate success, and any edge cases to cover.
 
 9. **Failure Modes & Corrections:** If the use's request implies potential pitfalls (e.g., backward compatibility, race conditions, security), surface those in early steps or in the comments and include remediation as part of the plan.
-
-10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
-
----
-
-`repo_tree`
-{REPO_TREE}
-"""
-
-CMD_TRIGGER_PLANNING_STEPS = """
-You must operate in a multi-step planning and execution mode: first outline the plan step by step in a sequential way, then ask for my revision.
+steps or in the comments and include remediation as part of the plan.
+: first outline the plan step by step in a sequential way, then ask for my revision.
 Do not start implementing the steps without my approval.
 """
 
@@ -358,18 +349,17 @@ Provide specific, actionable feedback to improve code quality, maintainability, 
 
 CMD_COMMIT_PROMPT = """
 Generate a conventional commit message that summarizes the work done since the previous commit.
-The message should have a clear subject line and a body explaining the problem solved and the implementation approach.
 
-Important Instructions:
+**Instructions:**
 
-Place the commit message inside exactly this format: 
-*** Begin Commit
-[commit message]
-*** End Commit
-
-You may include additional comments about the changes made outside of this block
-
-If no diffs for staged files are provided in the context, reply that there's nothing to commit
+1. First, write a body (before the commit block) that explains the problem solved and the implementation approach. This should be clear, concise, and provide context for the change.
+2. Then, place the commit subject line (only) inside the commit block, using this format:
+   *** Begin Commit
+   [subject line only, up to 3 lines, straight to the point and descriptive of the broad changes]
+   *** End Commit
+3. The subject line should follow the conventional commit format with a clear type/scope prefix, and summarize the broad changes made. Do not include the body or any explanation inside the commit block—only the subject line.
+4. You may include additional comments about the changes made outside of this block, if needed.
+5. If no diffs for staged files are provided in the context, reply that there's nothing to commit.context, reply that there's nothing to commit
 
 The commit message should follow conventional commit format with a clear type/scope prefix
 """
