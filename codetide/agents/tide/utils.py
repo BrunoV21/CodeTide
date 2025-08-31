@@ -21,7 +21,7 @@ async def trim_to_patch_section(filename):
                 lines_to_keep.append(line)  # Include the begin marker
             elif '*** End Patch' in line:
                 lines_to_keep.append(line)  # Include the end marker
-                break  # Stop after end marker
+                capturing = False  # Stop capturing but continue processing
             elif capturing:
                 lines_to_keep.append(line)
     
@@ -34,26 +34,6 @@ async def trim_to_patch_section(filename):
         except FileNotFoundError:
             pass
 
-def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
-    """
-    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
-    ensuring that both markers are at zero indentation (start of line, no leading spaces).
-
-    Args:
-        text: Full input text containing one or more patch blocks.
-        multiple: If True, return a list of all patch blocks. If False, return the first match.
-
-    Returns:
-        A string (single patch), list of strings (multiple patches), or None if not found.
-    """
-    
-    pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
-    matches = re.findall(pattern, text)
-
-    if not matches:
-        return None
-
-    return matches if multiple else matches[0]
 
 def parse_blocks(text: str, block_word: str = "Commit", multiple: bool = True) -> Union[str, List[str], None]:
     """

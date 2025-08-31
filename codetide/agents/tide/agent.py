@@ -1,6 +1,6 @@
 from functools import partial
 from codetide import CodeTide
-from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
+from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
 from .models import Steps
@@ -8,7 +8,7 @@ from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
     STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
-from .utils import delete_file, parse_blocks, parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
+from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
 
 try:

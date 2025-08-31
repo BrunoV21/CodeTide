@@ -5,7 +5,29 @@ from .parser import Parser, patch_to_commit
 
 from typing import Dict, Optional, Tuple, List, Callable, Union
 import pathlib
+import re
 import os
+
+def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
+    """
+    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
+    ensuring that both markers are at zero indentation (start of line, no leading spaces).
+
+    Args:
+        text: Full input text containing one or more patch blocks.
+        multiple: If True, return a list of all patch blocks. If False, return the first match.
+
+    Returns:
+        A string (single patch), list of strings (multiple patches), or None if not found.
+    """
+    
+    pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
+    matches = re.findall(pattern, text)
+
+    if not matches:
+        return None
+
+    return matches if multiple else matches[0]
 
 # --------------------------------------------------------------------------- #
 #  User-facing API
@@ -115,36 +137,43 @@ def process_patch(
     if not os.path.exists(patch_path):
         raise DiffError("Patch path {patch_path} does not exist.")
     
+    ### TODO might need to update this to process multiple patches in line
+    
     if root_path is not None:
         root_path = pathlib.Path(root_path)
     
     # Normalize line endings before processing
-    text = open_fn(patch_path)
-    
-    # FIX: Check for existence of files to be added before parsing.
-    paths_to_add = identify_files_added(text)
-    for p in paths_to_add:
-        if root_path is not None:
-            p = str(root_path / p)
-        if exists_fn(p):
-            raise DiffError(f"Add File Error - file already exists: {p}")
+    patches_text = open_fn(patch_path)
+    patches = parse_patch_blocks(patches_text)
 
-    paths_needed = identify_files_needed(text)
+    all_paths_needed = []
+    for text in patches:
+        # FIX: Check for existence of files to be added before parsing.
+        paths_to_add = identify_files_added(text)
+        for p in paths_to_add:
+            if root_path is not None:
+                p = str(root_path / p)
+            if exists_fn(p):
+                raise DiffError(f"Add File Error - file already exists: {p}")
 
-    # Load files with normalized line endings
-    orig_files = {}
-    for path in paths_needed:
-        if root_path is not None:
-            path = str(root_path / path)
-        orig_files[path] = open_fn(path)
-    
-    patch, _fuzz = text_to_patch(text, orig_files, rootpath=root_path)
-    commit = patch_to_commit(patch, orig_files)
-    
-    apply_commit(commit, write_fn, remove_fn, exists_fn)
+        paths_needed = identify_files_needed(text)
+        all_paths_needed.extend(paths_needed)
 
-    remove_fn(patch_path)
-    return paths_needed
+        # Load files with normalized line endings
+        orig_files = {}
+        for path in paths_needed:
+            if root_path is not None:
+                path = str(root_path / path)
+            orig_files[path] = open_fn(path)
+        
+        patch, _fuzz = text_to_patch(text, orig_files, rootpath=root_path)
+        commit = patch_to_commit(patch, orig_files)
+        
+        apply_commit(commit, write_fn, remove_fn, exists_fn)
+
+        remove_fn(patch_path)
+
+    return all_paths_needed
 
 # --------------------------------------------------------------------------- #
 #  Default FS wrappers
