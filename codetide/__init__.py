@@ -578,3 +578,16 @@ class CodeTide(BaseModel):
             as_list_str=as_string_list,
             preloaded_files=requested_files
         )
+
+    def _as_file_paths(self, code_identifiers: Union[str, List[str]])->List[str]:
+        if isinstance(code_identifiers, str):
+            code_identifiers = [code_identifiers]
+        
+        as_file_paths = []
+        for code_identifier in code_identifiers:
+            if self.rootpath / code_identifier in self.files:
+                as_file_paths.append(code_identifier)
+            elif element := self.codebase.cached_elements.get(code_identifier):
+                as_file_paths.append(element.file_path)
+
+        return as_file_paths
