@@ -144,7 +144,7 @@ def process_patch(
     
     # Normalize line endings before processing
     patches_text = open_fn(patch_path)
-    patches = parse_patch_blocks(patches_text) or []
+    patches = parse_patch_blocks(patches_text) or [""]
 
     all_paths_needed = []
     for text in patches:
