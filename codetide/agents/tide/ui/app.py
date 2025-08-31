@@ -214,7 +214,7 @@ async def on_execute_steps(action :cl.Action):
             author="Agent Tide"
         ).send()
 
-        await agent_loop(step_instructions_msg, codeIdentifiers=step.context_identifiers, agent_tide_ui=agent_tide_ui)
+        await agent_loop(step_instructions_msg, codeIdentifiers=step.get_code_identifiers(agent_tide_ui.agent_tide.tide._as_file_paths), agent_tide_ui=agent_tide_ui)
         
         task_list.status = f"Waiting feedback on step {current_task_idx}"
         await task_list.send()
