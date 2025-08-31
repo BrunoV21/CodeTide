@@ -539,7 +539,13 @@ class CodeContextStructure(BaseModel):
 class CodeBase(BaseModel):
     """Root model representing complete codebase with file hierarchy and caching."""
     root: List[CodeFileModel] = Field(default_factory=list)
-    _cached_elements :Dict[str, Any] = dict()
+    _cached_elements :Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]] = dict()
+
+    @property
+    def cached_elements(self)->Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]]:
+        if not self._cached_elements:
+            self._build_cached_elements()
+        return self._cached_elements
 
     def _build_cached_elements(self, force_update :bool=False):
         """Builds cache of all elements with unique IDs across entire codebase."""
