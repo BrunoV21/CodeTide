@@ -300,11 +300,15 @@ Proceed directly with fulfilling the request or returning the appropriate output
 1. **step_description**
    **instructions**: precise instructions of the task to be implemented in this step
    **context_identifiers**:
-     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step touches, depends on, or must update
+     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step depends on for context (read/reference only)
+   **modify_identifiers**:
+     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step will directly modify or update
 ---
 2. **next_step_description**
    **instructions**: ...
    **context_identifiers**:
+     - ...
+   **modify_identifiers**:
      - ...
 ---
 ...  
@@ -320,7 +324,7 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 4. **Granularity:** Break complex requirements into logical sub-steps. Order them so dependencies are respected (e.g., setup → implementation → validation → integration).
 
-5. **Traceability:** Each step’s `context_identifiers` must clearly tie that step to specific code areas; this enables downstream mapping to actual implementation targets.
+5. **Traceability:** Each step’s `context_identifiers` and `modify_identifiers` must clearly tie that step to specific code areas; this enables downstream mapping to actual implementation targets.
 
 6. **Single-Responsibility per Step:** Aim for each numbered step to encapsulate a coherent unit of work. Avoid mixing unrelated concerns in one step.
 
