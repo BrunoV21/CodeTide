@@ -157,6 +157,7 @@ def process_patch(
                 raise DiffError(f"Add File Error - file already exists: {p}")
 
         paths_needed = identify_files_needed(text)
+        all_paths_needed.extend(paths_to_add)
         all_paths_needed.extend(paths_needed)
 
         # Load files with normalized line endings
