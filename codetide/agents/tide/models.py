@@ -1,6 +1,5 @@
-
+from typing import Callable, Dict, List, Optional
 from pydantic import BaseModel, RootModel
-from typing import Dict, List, Optional
 
 STEP_INSTRUCTION_TEMPLATE = """
 ## Step {step}:
@@ -23,6 +22,7 @@ class Step(BaseModel):
     description :str
     instructions :str
     context_identifiers :Optional[List[str]]=None
+    modify_identifiers: Optional[List[str]]=None
 
     def as_instruction(self)->str:
         return STEP_INSTRUCTION_TEMPLATE.format(
@@ -30,6 +30,14 @@ class Step(BaseModel):
             description=self.description,
             instructions=self.instructions
         )
+
+    def get_code_identifiers(self, validate_identifiers_fn :Callable)->Optional[List[str]]:
+        code_identifiers = self.context_identifiers or []
+
+        if self.modify_identifiers:
+            code_identifiers.extend(validate_identifiers_fn(code_identifiers))
+        
+        return None or code_identifiers
 
 class Steps(RootModel):
     root :List[Step]

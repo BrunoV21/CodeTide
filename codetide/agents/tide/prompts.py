@@ -61,34 +61,45 @@ You are operating under a strict **single-call constraint**: the repository tree
 **Instructions:**
 
 1. Carefully read and interpret the user's request, identifying any references to files, modules, submodules, or code elements—either explicit or implied.
-2. **Prioritize returning fully qualified code identifiers** (such as functions, classes, methods, variables, or attributes) that are directly related to the user's request or are elements of interest. The identifier format must use dot notation to represent the path-like structure, e.g., `module.submodule.Class.method` or `module.function`, without file extensions.
-3. Only include full file paths (relative to the repository root) if:
+2. **Segregate identifiers into two categories:**
+   - **Context Identifiers:** Code elements (functions, classes, methods, variables, attributes, or file paths) that are required to understand, reference, or provide context for the requested change, but are not themselves expected to be modified.
+   - **Modify Identifiers:** Code elements (functions, classes, methods, variables, attributes, or file paths) that are likely to require direct modification to fulfill the user's request.
+3. **Prioritize returning fully qualified code identifiers** (using dot notation, e.g., `module.submodule.Class.method`), without file extensions. Only include file paths (relative to the repository root) if:
    - The user explicitly requests file-level operations (such as adding, deleting, or renaming files), or
    - No valid or relevant code identifiers can be determined for the request.
 4. If the user refers to a file by name or path and the request is about code elements within that file, extract and include the relevant code identifiers from that file instead of the file path, unless the user specifically asks for the file path.
-5. If fulfilling the request would likely depend on additional symbols or files—based on naming, structure, required context from other files/modules, or conventional design patterns—include those code identifiers as well.
+5. If fulfilling the request would likely depend on additional symbols or files—based on naming, structure, required context from other files/modules, or conventional design patterns—include those code identifiers as context identifiers.
 6. Only include identifiers or paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
-7. If no relevant code identifiers or file paths can be confidently identified, return an empty list.
+7. If no relevant code identifiers or file paths can be confidently identified, leave the relevant section(s) empty - without any contents or lines, not even the word empty.
 
 ---
 
-**Output Format (Strict JSON Only):**
+**Output Format:**
 
-Return a JSON array of strings. Each string must be:
-- A fully qualified code identifier using dot notation (e.g., `module.submodule.Class.method`), without file extensions, or
-- A valid file path relative to the repository root (only if explicitly required or no code identifiers are available).
+Your response must include:
 
-Your output must be a pure JSON list of strings. Do **not** include any explanation, comments, or formatting outside the JSON block.
+1. A brief explanation (1-3 sentences) describing your reasoning and search process for selecting the identifiers.
+2. The following delimited sections, each containing a newline-separated list of identifiers (or left empty if none):
+
+*** Begin Context Identifiers
+<one per line, or empty>
+*** End Context Identifiers
+
+*** Begin Modify Identifiers
+<one per line, or empty>
+*** End Modify Identifiers
+
+Do **not** include any additional commentary, formatting, or output outside these sections.
 
 ---
 
 **Evaluation Criteria:**
 
-- You must identify all code identifiers directly referenced or implied in the user request, prioritizing them over file paths.
+- You must identify all code identifiers directly referenced or implied in the user request, and correctly categorize them as context or modify identifiers.
 - You must include any internal code elements that are clearly involved or required for the task.
 - You must consider logical dependencies that may need to be modified together (e.g., helper modules, config files, related class methods).
 - You must consider files that can be relevant as context to complete the user request, but only include their paths if code identifiers are not available or explicitly requested.
-- You must return a clean and complete list of all relevant code identifiers and, if necessary, file paths.
+- You must return a clean and complete list of all relevant code identifiers and, if necessary, file paths, in the correct section.
 - Do not over-include; be minimal but thorough. Return only what is truly required.
 
 """
@@ -288,11 +299,15 @@ Proceed directly with fulfilling the request or returning the appropriate output
 1. **step_description**
    **instructions**: precise instructions of the task to be implemented in this step
    **context_identifiers**:
-     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step touches, depends on, or must update
+     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step depends on for context (read/reference only)
+   **modify_identifiers**:
+     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step will directly modify or update
 ---
 2. **next_step_description**
    **instructions**: ...
    **context_identifiers**:
+     - ...
+   **modify_identifiers**:
      - ...
 ---
 ...  
@@ -308,7 +323,7 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 4. **Granularity:** Break complex requirements into logical sub-steps. Order them so dependencies are respected (e.g., setup → implementation → validation → integration).
 
-5. **Traceability:** Each step’s `context_identifiers` must clearly tie that step to specific code areas; this enables downstream mapping to actual implementation targets.
+5. **Traceability:** Each step's `context_identifiers` and `modify_identifiers` must clearly tie that step to specific code areas; this enables downstream mapping to actual implementation targets.
 
 6. **Single-Responsibility per Step:** Aim for each numbered step to encapsulate a coherent unit of work. Avoid mixing unrelated concerns in one step.
 
@@ -316,14 +331,9 @@ Proceed directly with fulfilling the request or returning the appropriate output
 
 8. **Testing & Validation:** Where appropriate, include in steps the need for testing, how to validate success, and any edge cases to cover.
 
-9. **Failure Modes & Corrections:** If the user’s request implies potential pitfalls (e.g., backward compatibility, race conditions, security), surface those in early steps or in the comments and include remediation as part of the plan.
+9. **Failure Modes & Corrections:** If the use's request implies potential pitfalls (e.g., backward compatibility, race conditions, security), surface those in early steps or in the comments and include remediation as part of the plan.
 
 10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
-
----
-
-`repo_tree`
-{REPO_TREE}
 """
 
 CMD_TRIGGER_PLANNING_STEPS = """
@@ -343,18 +353,17 @@ Provide specific, actionable feedback to improve code quality, maintainability, 
 
 CMD_COMMIT_PROMPT = """
 Generate a conventional commit message that summarizes the work done since the previous commit.
-The message should have a clear subject line and a body explaining the problem solved and the implementation approach.
 
-Important Instructions:
+**Instructions:**
 
-Place the commit message inside exactly this format: 
-*** Begin Commit
-[commit message]
-*** End Commit
-
-You may include additional comments about the changes made outside of this block
-
-If no diffs for staged files are provided in the context, reply that there's nothing to commit
+1. First, write a body (before the commit block) that explains the problem solved and the implementation approach. This should be clear, concise, and provide context for the change.
+2. Then, place the commit subject line (only) inside the commit block, using this format:
+   *** Begin Commit
+   [subject line only, up to 3 lines, straight to the point and descriptive of the broad changes]
+   *** End Commit
+3. The subject line should follow the conventional commit format with a clear type/scope prefix, and summarize the broad changes made. Do not include the body or any explanation inside the commit block—only the subject line.
+4. You may include additional comments about the changes made outside of this block, if needed.
+5. If no diffs for staged files are provided in the context, reply that there's nothing to commit.context, reply that there's nothing to commit
 
 The commit message should follow conventional commit format with a clear type/scope prefix
 """

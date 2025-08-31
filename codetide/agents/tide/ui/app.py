@@ -37,6 +37,7 @@ import getpass
 import asyncio
 import json
 import yaml
+import time
 
 @cl.password_auth_callback
 def auth():
@@ -172,6 +173,7 @@ async def on_execute_steps(action :cl.Action):
     latest_step_message :cl.Message = cl.user_session.get("latest_step_message")
     if latest_step_message and latest_step_message.id == action.payload.get("msg_id"):
         await latest_step_message.remove_actions()
+        await latest_step_message.send() # close message ?
 
     if agent_tide_ui.current_step is None:
         task_list = cl.TaskList("Steps")
@@ -213,7 +215,7 @@ async def on_execute_steps(action :cl.Action):
             author="Agent Tide"
         ).send()
 
-        await agent_loop(step_instructions_msg, codeIdentifiers=step.context_identifiers, agent_tide_ui=agent_tide_ui)
+        await agent_loop(step_instructions_msg, codeIdentifiers=step.get_code_identifiers(agent_tide_ui.agent_tide.tide._as_file_paths), agent_tide_ui=agent_tide_ui)
         
         task_list.status = f"Waiting feedback on step {current_task_idx}"
         await task_list.send()
@@ -225,6 +227,7 @@ async def on_stop_steps(action :cl.Action):
     latest_step_message :cl.Message = cl.user_session.get("latest_step_message")
     if latest_step_message and latest_step_message.id == action.payload.get("msg_id"):
         await latest_step_message.remove_actions()
+        await latest_step_message.send() # close message ?
     
     task_list = cl.user_session.get("StepsTaskList")
     if task_list:
@@ -262,9 +265,45 @@ async def on_inspect_context(action :cl.Action):
 
     await inspect_msg.send()
 
+async def send_reasoning_msg(loading_msg :cl.message, context_msg :cl.Message, agent_tide_ui :AgentTideUi, st :float)->bool:
+    await loading_msg.remove()
+
+    context_data = {
+        key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
+        if (value := getattr(agent_tide_ui.agent_tide, key, None))
+    }
+    context_msg.elements.append(
+        cl.CustomElement(
+            name="ReasoningMessage",
+            props={
+                "reasoning": agent_tide_ui.agent_tide.reasoning,
+                "data": context_data,
+                "title": f"Thought for {time.time()-st:.2f} seconds",
+                "defaultExpanded": False,
+                "showControls": False
+            }
+        )
+    )
+    await context_msg.send()
+    return True
 
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
+
+    loading_msg = await cl.Message(
+        content="",
+        elements=[
+            cl.CustomElement(
+                name="LoadingMessage",
+                props={
+                    "messages": ["Working", "Syncing CodeTide", "Thinking", "Looking for context"],
+                    "interval": 1500,  # 1.5 seconds between messages
+                    "showIcon": True
+                }
+            )
+        ]
+    ).send()
+
     if agent_tide_ui is None:
         agent_tide_ui = await loadAgentTideUi()
 
@@ -278,7 +317,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         chat_history.append({"role": "user", "content": message.content})
         await agent_tide_ui.add_to_history(message.content)
-
+    
+    context_msg = cl.Message(content="", author="AgentTide")
     msg = cl.Message(content="", author="Agent Tide")
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
@@ -311,11 +351,17 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             global_fallback_msg=msg
         )
 
+        st = time.time()
+        is_reasonig_sent = False
         async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
             if chunk == STREAM_START_TOKEN:
+                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
 
-            if chunk == STREAM_END_TOKEN:
+            elif not is_reasonig_sent:
+                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+
+            elif chunk == STREAM_END_TOKEN:
                 #  Handle any remaining content
                 await stream_processor.finalize()
                 break

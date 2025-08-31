@@ -21,7 +21,7 @@ async def trim_to_patch_section(filename):
                 lines_to_keep.append(line)  # Include the begin marker
             elif '*** End Patch' in line:
                 lines_to_keep.append(line)  # Include the end marker
-                break  # Stop after end marker
+                capturing = False  # Stop capturing but continue processing
             elif capturing:
                 lines_to_keep.append(line)
     
@@ -34,47 +34,35 @@ async def trim_to_patch_section(filename):
         except FileNotFoundError:
             pass
 
-def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
+
+def parse_blocks(text: str, block_word: str = "Commit", multiple: bool = True) -> Union[str, List[str], None]:
     """
-    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
+    Extract content between *** Begin <block_word> and *** End <block_word> markers (exclusive),
     ensuring that both markers are at zero indentation (start of line, no leading spaces).
 
     Args:
-        text: Full input text containing one or more patch blocks.
-        multiple: If True, return a list of all patch blocks. If False, return the first match.
+        text: Full input text containing one or more blocks.
+        block_word: The word to use in the block markers (e.g., "Commit", "Section", "Code").
+        multiple: If True, return a list of all blocks. If False, return the first match.
 
     Returns:
-        A string (single patch), list of strings (multiple patches), or None if not found.
+        A string (single block), list of strings (multiple blocks), or None if not found.
     """
     
-    pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
+    # Escape the block_word to handle any special regex characters
+    escaped_word = re.escape(block_word)
+    
+    # Create pattern with the parameterized block word
+    pattern = rf"(?m)^\*\*\* Begin {escaped_word}\n([\s\S]*?)^\*\*\* End {escaped_word}$"
     matches = re.findall(pattern, text)
 
     if not matches:
         return None
 
-    return matches if multiple else matches[0]
-
-def parse_commit_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
-    """
-    Extract content between *** Begin Commit and *** End Commit markers (exclusive),
-    ensuring that both markers are at zero indentation (start of line, no leading spaces).
-
-    Args:
-        text: Full input text containing one or more commit blocks.
-        multiple: If True, return a list of all commit blocks. If False, return the first match.
-
-    Returns:
-        A string (single commit), list of strings (multiple commits), or None if not found.
-    """
-    
-    pattern = r"(?m)^\*\*\* Begin Commit\n([\s\S]*?)^\*\*\* End Commit$"
-    matches = re.findall(pattern, text)
-
-    if not matches:
-        return None
-
-    return matches if multiple else matches[0].strip()
+    if multiple:
+        return [match.strip() for match in matches]
+    else:
+        return matches[0].strip()
 
 def parse_steps_markdown(md: str):
     steps = []
@@ -103,15 +91,21 @@ def parse_steps_markdown(md: str):
         instructions = instructions_match.group(1).strip() if instructions_match else ""
 
         # Match context identifiers
-        context_match = re.search(r"\*\*context_identifiers\*\*:\s*(.*)", raw_step, re.DOTALL)
+        context_match = re.search(r"\*\*context_identifiers\*\*:\s*(.*?)(?=\*\*modify_identifiers\*\*:)", raw_step, re.DOTALL)
         context_block = context_match.group(1).strip() if context_match else ""
         context_identifiers = re.findall(r"- (.+)", context_block)
+
+        # Match modifying identifiers
+        modify_match = re.search(r"\*\*modify_identifiers\*\*:\s*(.*)", raw_step, re.DOTALL)
+        modify_match = modify_match.group(1).strip() if modify_match else ""
+        modify_identifiers = re.findall(r"- (.+)", modify_match)
 
         steps.append({
             "step": step_num,
             "description": description,
             "instructions": instructions,
-            "context_identifiers": context_identifiers
+            "context_identifiers": [identifier.strip() for identifier in context_identifiers],
+            "modify_identifiers": [identifier.strip() for identifier in modify_identifiers]
         })
 
     return steps

@@ -5,7 +5,92 @@ from .parser import Parser, patch_to_commit
 
 from typing import Dict, Optional, Tuple, List, Callable, Union
 import pathlib
+import re
 import os
+
+def parse_patch_blocks(text: str, multiple: bool = True) -> Union[str, List[str], None]:
+    """
+    Extract content between *** Begin Patch and *** End Patch markers (inclusive),
+    ensuring that both markers are at zero indentation (start of line, no leading spaces).
+    
+    If only one identifier is present:
+    - If only "Begin Patch" exists: returns from Begin Patch to end of text
+    - If only "End Patch" exists: returns from start of text to End Patch
+
+    Args:
+        text: Full input text containing one or more patch blocks.
+        multiple: If True, return a list of all patch blocks. If False, return the first match.
+
+    Returns:
+        A string (single patch), list of strings (multiple patches), or None if not found.
+    """
+    
+    # First, try to find complete blocks (both Begin and End markers)
+    complete_pattern = r"(?m)^(\*\*\* Begin Patch[\s\S]*?^\*\*\* End Patch)$"
+    complete_matches = re.findall(complete_pattern, text)
+    
+    # If we found complete matches, return them (preserving original behavior)
+    if complete_matches:
+        return complete_matches if multiple else complete_matches[0]
+    
+    # If no complete matches, look for partial identifiers
+    begin_pattern = r"(?m)^(\*\*\* Begin Patch).*$"
+    end_pattern = r"(?m)^(\*\*\* End Patch).*$"
+    
+    begin_matches = list(re.finditer(begin_pattern, text))
+    end_matches = list(re.finditer(end_pattern, text))
+    
+    partial_matches = []
+    
+    # Handle cases with only Begin markers (from Begin to end of text)
+    if begin_matches and not end_matches:
+        for match in begin_matches:
+            start_pos = match.start()
+            partial_content = text[start_pos:]
+            partial_matches.append(partial_content)
+    
+    # Handle cases with only End markers (from start of text to End)
+    elif end_matches and not begin_matches:
+        for match in end_matches:
+            end_pos = match.end()
+            partial_content = text[:end_pos]
+            partial_matches.append(partial_content)
+    
+    # Handle mixed cases (some begins without ends, some ends without begins)
+    elif begin_matches or end_matches:
+        # Get all Begin positions
+        begin_positions = [m.start() for m in begin_matches]
+        end_positions = [m.end() for m in end_matches]
+        
+        # For each Begin, try to find corresponding End
+        for begin_pos in begin_positions:
+            corresponding_end = None
+            for end_pos in end_positions:
+                if end_pos > begin_pos:
+                    corresponding_end = end_pos
+                    break
+            
+            if corresponding_end:
+                # Complete pair found
+                partial_content = text[begin_pos:corresponding_end]
+            else:
+                # Begin without End - go to end of text
+                partial_content = text[begin_pos:]
+            
+            partial_matches.append(partial_content)
+        
+        # Handle orphaned End markers (Ends that don't have corresponding Begins)
+        for end_pos in end_positions:
+            has_corresponding_begin = any(begin_pos < end_pos for begin_pos in begin_positions)
+            if not has_corresponding_begin:
+                # End without Begin - from start of text
+                partial_content = text[:end_pos]
+                partial_matches.append(partial_content)
+    
+    if not partial_matches:
+        return None
+    
+    return partial_matches if multiple else partial_matches[0]
 
 # --------------------------------------------------------------------------- #
 #  User-facing API
@@ -115,36 +200,46 @@ def process_patch(
     if not os.path.exists(patch_path):
         raise DiffError("Patch path {patch_path} does not exist.")
     
+    ### TODO might need to update this to process multiple patches in line
+    
     if root_path is not None:
         root_path = pathlib.Path(root_path)
     
     # Normalize line endings before processing
-    text = open_fn(patch_path)
-    
-    # FIX: Check for existence of files to be added before parsing.
-    paths_to_add = identify_files_added(text)
-    for p in paths_to_add:
-        if root_path is not None:
-            p = str(root_path / p)
-        if exists_fn(p):
-            raise DiffError(f"Add File Error - file already exists: {p}")
+    patches_text = open_fn(patch_path)
+    print(f"{patches_text=}")
+    patches = parse_patch_blocks(patches_text)#or [""]
+    print(f"{patches=}")
 
-    paths_needed = identify_files_needed(text)
+    all_paths_needed = []
+    for text in patches:
+        # FIX: Check for existence of files to be added before parsing.
+        paths_to_add = identify_files_added(text)
+        for p in paths_to_add:
+            if root_path is not None:
+                p = str(root_path / p)
+            if exists_fn(p):
+                raise DiffError(f"Add File Error - file already exists: {p}")
 
-    # Load files with normalized line endings
-    orig_files = {}
-    for path in paths_needed:
-        if root_path is not None:
-            path = str(root_path / path)
-        orig_files[path] = open_fn(path)
-    
-    patch, _fuzz = text_to_patch(text, orig_files, rootpath=root_path)
-    commit = patch_to_commit(patch, orig_files)
-    
-    apply_commit(commit, write_fn, remove_fn, exists_fn)
+        paths_needed = identify_files_needed(text)
+        all_paths_needed.extend(paths_to_add)
+        all_paths_needed.extend(paths_needed)
 
-    remove_fn(patch_path)
-    return paths_needed
+        # Load files with normalized line endings
+        orig_files = {}
+        for path in paths_needed:
+            if root_path is not None:
+                path = str(root_path / path)
+            orig_files[path] = open_fn(path)
+        
+        patch, _fuzz = text_to_patch(text, orig_files, rootpath=root_path)
+        commit = patch_to_commit(patch, orig_files)
+        
+        apply_commit(commit, write_fn, remove_fn, exists_fn)
+
+        remove_fn(patch_path)
+
+    return all_paths_needed
 
 # --------------------------------------------------------------------------- #
 #  Default FS wrappers

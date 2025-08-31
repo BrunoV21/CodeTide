@@ -1,6 +1,6 @@
 from functools import partial
 from codetide import CodeTide
-from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file
+from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...autocomplete import AutoComplete
 from .models import Steps
@@ -8,7 +8,7 @@ from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
     STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
-from .utils import delete_file, parse_commit_blocks, parse_patch_blocks, parse_steps_markdown, trim_to_patch_section
+from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
 
 try:
@@ -48,6 +48,10 @@ class AgentTide(BaseModel):
     session_id :str=Field(default_factory=ulid)
     changed_paths :List[str]=Field(default_factory=list)
     request_human_confirmation :bool=False
+
+    contextIdentifiers :Optional[List[str]]=None
+    modifyIdentifiers :Optional[List[str]]=None
+    reasoning :Optional[str]=None
 
     _skip_context_retrieval :bool=False
     _last_code_identifers :Optional[Set[str]]=set()
@@ -104,13 +108,28 @@ class AgentTide(BaseModel):
         )
 
         if codeIdentifiers is None and not self._skip_context_retrieval:
-            codeIdentifiers = await self.llm.acomplete(
+            context_response = await self.llm.acomplete(
                 self.history,
                 system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
                 prefix_prompt=repo_tree,
-                stream=False,
-                json_output=True
+                stream=False
+                # json_output=True
             )
+
+            contextIdentifiers = parse_blocks(context_response, block_word="Context Identifiers", multiple=False)
+            modifyIdentifiers = parse_blocks(context_response, block_word="Modify Identifiers", multiple=False)
+
+            reasoning = context_response.split("*** Begin")
+            if not reasoning:
+                reasoning = [context_response]
+            self.reasoning = reasoning[0].strip()
+
+            self.contextIdentifiers = contextIdentifiers.splitlines() if isinstance(contextIdentifiers, str) else None
+            self.modifyIdentifiers = modifyIdentifiers.splitlines() if isinstance(modifyIdentifiers, str) else None
+            codeIdentifiers = self.contextIdentifiers or []
+            
+            if self.modifyIdentifiers:
+                codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
 
         codeContext = None
         if codeIdentifiers:
@@ -144,7 +163,7 @@ class AgentTide(BaseModel):
         if not self.request_human_confirmation:
             self.approve()
 
-        commitMessage = parse_commit_blocks(response, multiple=False)
+        commitMessage = parse_blocks(response, multiple=False, block_word="Commit")
         if commitMessage:
             self.commit(commitMessage)
 
