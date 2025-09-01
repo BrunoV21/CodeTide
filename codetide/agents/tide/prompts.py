@@ -343,6 +343,13 @@ Here is a **tree representation of current state of the codebase** - you can ref
 
 """
 
+README_CONTEXT_PROMPT = """
+Here is the README of the project for further context:
+
+{README}
+
+"""
+
 CMD_TRIGGER_PLANNING_STEPS = """
 You must operate in a multi-step planning and execution mode: first outline the plan step by step in a sequential way, then ask for my revision.
 Do not start implementing the steps without my approval.
