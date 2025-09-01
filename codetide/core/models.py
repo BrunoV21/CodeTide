@@ -649,21 +649,51 @@ class CodeBase(BaseModel):
         # If no filter paths provided, include all files (original behavior)
         if filter_paths is None:
             relevant_files = self.root
+            sibling_files = []
         else:
             # Convert filter paths to normalized format for comparison
             normalized_filter_paths = set()
-            for path in filter_paths:
-                normalized_filter_paths.add(path.replace("\\", "/"))
+            filter_directories = set()
             
-            # Only include files that match the filter paths
-            relevant_files = []
+            for path in filter_paths:
+                normalized_path = path.replace("\\", "/")
+                normalized_filter_paths.add(normalized_path)
+                
+                # Extract directory path for this file
+                path_parts = normalized_path.split("/")
+                if len(path_parts) > 1:
+                    dir_path = "/".join(path_parts[:-1])
+                    filter_directories.add(dir_path)
+                else:
+                    # File is at root level
+                    filter_directories.add("")
+            
+            # Find all files that are siblings (in the same directories as filtered files)
+            relevant_files = []  # Files that should show full content
+            sibling_files = []   # Files that should show as siblings only
+            
             for code_file in self.root:
-                if code_file.file_path:
-                    normalized_file_path = code_file.file_path.replace("\\", "/")
-                    if normalized_file_path in normalized_filter_paths:
-                        relevant_files.append(code_file)
+                if not code_file.file_path:
+                    continue
+                    
+                normalized_file_path = code_file.file_path.replace("\\", "/")
+                
+                # Check if this is a filtered file (should show full content)
+                if normalized_file_path in normalized_filter_paths:
+                    relevant_files.append(code_file)
+                    continue
+                
+                # Check if this file is a sibling of any filtered file
+                file_parts = normalized_file_path.split("/")
+                if len(file_parts) > 1:
+                    file_dir = "/".join(file_parts[:-1])
+                else:
+                    file_dir = ""
+                
+                if file_dir in filter_directories:
+                    sibling_files.append(code_file)
         
-        # Build tree structure from relevant files
+        # Build tree structure from relevant files (with full content)
         for code_file in relevant_files:
             if not code_file.file_path:
                 continue
@@ -675,7 +705,25 @@ class CodeBase(BaseModel):
             current_level = tree
             for i, part in enumerate(path_parts):
                 if i == len(path_parts) - 1:  # This is the file
-                    current_level[part] = {"_type": "file", "_data": code_file}
+                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
+                else:  # This is a directory
+                    if part not in current_level:
+                        current_level[part] = {"_type": "directory"}
+                    current_level = current_level[part]
+        
+        # Add sibling files (without full content)
+        for code_file in sibling_files:
+            if not code_file.file_path:
+                continue
+                
+            # Split the file path into parts
+            path_parts = code_file.file_path.replace("\\", "/").split("/")
+            
+            # Navigate/create the nested dictionary structure
+            current_level = tree
+            for i, part in enumerate(path_parts):
+                if i == len(path_parts) - 1:  # This is the file
+                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": False}
                 else:  # This is a directory
                     if part not in current_level:
                         current_level[part] = {"_type": "directory"}
@@ -785,8 +833,10 @@ class CodeBase(BaseModel):
             
             # Handle file contents if requested
             if data.get("_type") == "file" and include_modules:
-                code_file = data["_data"]
-                self._render_file_contents(code_file, next_prefix, lines, include_types)
+                # Only show content for files that should show full content
+                if data.get("_show_content", True):  # Default True for backward compatibility
+                    code_file = data["_data"]
+                    self._render_file_contents(code_file, next_prefix, lines, include_types)
             elif data.get("_type") != "file":
                 # This is a directory - recursively render its contents
                 self._render_tree_node(data, next_prefix, is_last_item, lines, 
