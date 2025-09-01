@@ -69,8 +69,9 @@ You are operating under a strict **single-call constraint**: the repository tree
    - No valid or relevant code identifiers can be determined for the request.
 4. If the user refers to a file by name or path and the request is about code elements within that file, extract and include the relevant code identifiers from that file instead of the file path, unless the user specifically asks for the file path.
 5. If fulfilling the request would likely depend on additional symbols or files—based on naming, structure, required context from other files/modules, or conventional design patterns—include those code identifiers as context identifiers.
-6. Only include identifiers or paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
-7. If no relevant code identifiers or file paths can be confidently identified, leave the relevant section(s) empty - without any contents or lines, not even the word empty.
+6. **For broad, general, or transversal questions** (such as requests for general information about a file, architecture, or project-wide knowledge), it is recommended to include the `README` file and any configuration files (such as `pyproject.toml`, `setup.py`, or similar) in the context identifiers to ensure sufficient general knowledge is available. **In case of doubt, always include the README to provide a guiding line.**
+7. Only include identifiers or paths that are present in the provided tree structure. Never fabricate or guess paths or names that do not exist.
+8. If no relevant code identifiers or file paths can be confidently identified, leave the relevant section(s) empty - without any contents or lines, not even the word empty.
 
 ---
 
