@@ -7,7 +7,7 @@ from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
     AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
-    STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
+    REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
 from .consts import AGENT_TIDE_ASCII_ART
@@ -152,7 +152,6 @@ class AgentTide(BaseModel):
             if self.modifyIdentifiers:
                 codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
 
-        codeContext = None
         if codeIdentifiers:
             autocomplete = AutoComplete(self.tide.cached_ids)
             # Validate each code identifier
@@ -168,13 +167,16 @@ class AgentTide(BaseModel):
             self._last_code_identifers = set(validatedCodeIdentifiers)
             codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
             self._last_code_context = codeContext
+        
+        else:
+            codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
 
         await delete_file(self.patch_path)
         response = await self.llm.acomplete(
             self.history,
             system_prompt=[
                 AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
-                STEPS_SYSTEM_PROMPT.format(DATE=TODAY, REPO_TREE=repo_tree),
+                STEPS_SYSTEM_PROMPT.format(DATE=TODAY),
                 WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
             ],
             prefix_prompt=codeContext

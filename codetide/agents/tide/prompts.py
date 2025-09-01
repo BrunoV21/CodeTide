@@ -336,6 +336,13 @@ Proceed directly with fulfilling the request or returning the appropriate output
 10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
 """
 
+REPO_TREE_CONTEXT_PROMPT = """
+Here is a **tree representation of current state of the codebase** - you can refer to if needed:
+
+{REPO_TREE}
+
+"""
+
 CMD_TRIGGER_PLANNING_STEPS = """
 You must operate in a multi-step planning and execution mode: first outline the plan step by step in a sequential way, then ask for my revision.
 Do not start implementing the steps without my approval.
