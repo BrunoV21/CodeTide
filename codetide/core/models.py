@@ -629,11 +629,11 @@ class CodeBase(BaseModel):
                 return match
         return match
 
-    def get_tree_view(self, include_modules: bool = False, include_types: bool = False) -> str:
-        """Generates ASCII tree view of codebase structure with optional details."""
-       
-        # Build the nested structure first
-        tree_dict = self._build_tree_dict()
+    def get_tree_view(self, include_modules: bool = False, include_types: bool = False, filter_paths: list = None) -> str:
+        """Generates ASCII tree view of codebase structure with optional details and path filtering."""
+    
+        # Build the nested structure first with optional filtering
+        tree_dict = self._build_tree_dict(filter_paths)
         
         # Convert to ASCII tree
         lines = []
@@ -641,12 +641,30 @@ class CodeBase(BaseModel):
         
         return "\n".join(lines)
 
-    def _build_tree_dict(self) -> dict:
-        """Creates nested dictionary representing codebase directory structure."""
+    def _build_tree_dict(self, filter_paths: list = None) -> dict:
+        """Creates nested dictionary representing codebase directory structure with optional filtering."""
 
         tree = {}
         
-        for code_file in self.root:
+        # If no filter paths provided, include all files (original behavior)
+        if filter_paths is None:
+            relevant_files = self.root
+        else:
+            # Convert filter paths to normalized format for comparison
+            normalized_filter_paths = set()
+            for path in filter_paths:
+                normalized_filter_paths.add(path.replace("\\", "/"))
+            
+            # Only include files that match the filter paths
+            relevant_files = []
+            for code_file in self.root:
+                if code_file.file_path:
+                    normalized_file_path = code_file.file_path.replace("\\", "/")
+                    if normalized_file_path in normalized_filter_paths:
+                        relevant_files.append(code_file)
+        
+        # Build tree structure from relevant files
+        for code_file in relevant_files:
             if not code_file.file_path:
                 continue
                 
@@ -663,13 +681,81 @@ class CodeBase(BaseModel):
                         current_level[part] = {"_type": "directory"}
                     current_level = current_level[part]
         
+        # Add placeholder for omitted content when filtering is applied
+        if filter_paths is not None:
+            tree = self._add_omitted_placeholders(tree, filter_paths)
+        
+        return tree
+
+    def _add_omitted_placeholders(self, tree: dict, filter_paths: list) -> dict:
+        """Adds '...' placeholders for directories that contain omitted files."""
+        
+        # Get all unique directory paths from the full codebase
+        all_dirs = set()
+        for code_file in self.root:
+            if code_file.file_path:
+                path_parts = code_file.file_path.replace("\\", "/").split("/")
+                for i in range(len(path_parts) - 1):  # Exclude the file itself
+                    dir_path = "/".join(path_parts[:i+1])
+                    all_dirs.add(dir_path)
+        
+        # Get directories that should be shown (contain filtered files)
+        shown_dirs = set()
+        for filter_path in filter_paths:
+            path_parts = filter_path.replace("\\", "/").split("/")
+            for i in range(len(path_parts) - 1):
+                dir_path = "/".join(path_parts[:i+1])
+                shown_dirs.add(dir_path)
+        
+        # Find directories that exist but aren't shown
+        omitted_dirs = all_dirs - shown_dirs
+        
+        # Add placeholders for omitted directories
+        def add_placeholders_recursive(current_tree: dict, current_path: str = ""):
+            # Check if any omitted directories should be represented at this level
+            for omitted_dir in omitted_dirs:
+                omitted_parts = omitted_dir.split("/")
+                current_parts = current_path.split("/") if current_path else []
+                
+                # Check if this omitted directory is a direct child of current path
+                if (len(omitted_parts) == len(current_parts) + 1 and 
+                    omitted_dir.startswith(current_path) and
+                    (not current_path or omitted_dir.startswith(current_path + "/"))):
+                    
+                    # Check if we don't already have this directory or a placeholder
+                    dir_name = omitted_parts[-1]
+                    has_content_in_dir = any(k for k in current_tree.keys() 
+                                        if not k.startswith("_") and k != "...")
+                    
+                    if dir_name not in current_tree and has_content_in_dir:
+                        current_tree["..."] = {"_type": "placeholder"}
+                        break
+            
+            # Recursively process subdirectories
+            for key, value in current_tree.items():
+                if not key.startswith("_") and key != "..." and value.get("_type") == "directory":
+                    new_path = f"{current_path}/{key}" if current_path else key
+                    add_placeholders_recursive(value, new_path)
+        
+        add_placeholders_recursive(tree)
         return tree
 
     def _render_tree_node(self, node: dict, prefix: str, is_last: bool, lines: list, include_modules: bool, include_types: bool, depth: int = 0):
         """Recursively renders tree node with ASCII art and optional type prefixes."""
         
         items = [(k, v) for k, v in node.items() if not k.startswith("_")]
-        items.sort(key=lambda x: (x[1].get("_type", "directory") == "file", x[0]))
+        
+        # Sort items: directories first, then files, with "..." placeholders at the end
+        def sort_key(x):
+            name, data = x
+            if name == "...":
+                return (2, name)  # Placeholders last
+            elif data.get("_type") == "file":
+                return (1, name)  # Files second
+            else:
+                return (0, name)  # Directories first
+        
+        items.sort(key=sort_key)
         
         for i, (name, data) in enumerate(items):
             is_last_item = i == len(items) - 1
@@ -682,13 +768,18 @@ class CodeBase(BaseModel):
                 current_prefix = "├── "
                 next_prefix = prefix + "│   "
             
+            # Handle placeholder
+            if name == "...":
+                lines.append(f"{prefix}{current_prefix}...")
+                continue
+            
             # Determine display name with optional type prefix
             display_name = name
             if include_types:
                 if data.get("_type") == "file":
-                    display_name = f" {name}"
+                    display_name = f"📄 {name}"
                 else:
-                    display_name = f"{name}"
+                    display_name = f"📁 {name}"
             
             lines.append(f"{prefix}{current_prefix}{display_name}")
             
