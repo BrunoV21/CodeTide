@@ -7,9 +7,8 @@ os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).p
 
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE, STARTERS
 from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
-from codetide.agents.tide.ui.utils import run_concurrent_tasks
+from codetide.agents.tide.ui.utils import run_concurrent_tasks, send_reasoning_msg
 from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
-from codetide.agents.tide.ui.app import send_reasoning_msg
 from codetide.core.defaults import DEFAULT_ENCODING
 from codetide.core.logs import logger
 from codetide.agents.tide.models import Step

@@ -9,9 +9,9 @@ try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
-    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
+    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN    
+    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks, send_reasoning_msg
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
-    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
@@ -265,28 +265,6 @@ async def on_inspect_context(action :cl.Action):
 
     await inspect_msg.send()
 
-async def send_reasoning_msg(loading_msg :cl.message, context_msg :cl.Message, agent_tide_ui :AgentTideUi, st :float)->bool:
-    await loading_msg.remove()
-
-    context_data = {
-        key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
-        if (value := getattr(agent_tide_ui.agent_tide, key, None))
-    }
-    context_msg.elements.append(
-        cl.CustomElement(
-            name="ReasoningMessage",
-            props={
-                "reasoning": agent_tide_ui.agent_tide.reasoning,
-                "data": context_data,
-                "title": f"Thought for {time.time()-st:.2f} seconds",
-                "defaultExpanded": False,
-                "showControls": False
-            }
-        )
-    )
-    await context_msg.send()
-    return True
-
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
 
@@ -510,3 +488,8 @@ if __name__ == "__main__":
     # TODO need to test project path is working as expected...
 
     # TODO need to revisit logic
+    # TODO there's a bug that is leaving step messages holding for some reason
+    # TODO check initialzie codetide logic, seems to be deserialzied a bit too often
+    # TODO review codetide check for updat4es - continously readding untracked files
+
+    # TODO check why HF-DEMO-SPACE Auth is being triggereds

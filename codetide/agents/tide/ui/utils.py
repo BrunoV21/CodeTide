@@ -4,8 +4,10 @@ from typing import List, Optional, Tuple
 from chainlit.types import ThreadDict
 from aicore.logger import _logger
 from aicore.llm import LlmConfig
+import chainlit as cl
 import asyncio
 import orjson
+import time
 
 def process_thread(thread :ThreadDict)->Tuple[List[dict], Optional[LlmConfig], str]:
     ### type: tool
@@ -70,3 +72,25 @@ async def run_concurrent_tasks(agent_tide_ui: AgentTideUi, codeIdentifiers :Opti
     while True:
         async for chunk in _logger.get_session_logs(agent_tide_ui.agent_tide.llm.session_id):
             yield chunk
+
+async def send_reasoning_msg(loading_msg :cl.message, context_msg :cl.Message, agent_tide_ui :AgentTideUi, st :float)->bool:
+    await loading_msg.remove()
+
+    context_data = {
+        key: value for key in ["contextIdentifiers", "modifyIdentifiers"]
+        if (value := getattr(agent_tide_ui.agent_tide, key, None))
+    }
+    context_msg.elements.append(
+        cl.CustomElement(
+            name="ReasoningMessage",
+            props={
+                "reasoning": agent_tide_ui.agent_tide.reasoning,
+                "data": context_data,
+                "title": f"Thought for {time.time()-st:.2f} seconds",
+                "defaultExpanded": False,
+                "showControls": False
+            }
+        )
+    )
+    await context_msg.send()
+    return True
