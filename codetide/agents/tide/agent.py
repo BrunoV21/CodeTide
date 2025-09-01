@@ -81,6 +81,10 @@ class AgentTide(BaseModel):
 
         relevant_paths = self.tfidf.get_filepaths(history_str)
 
+
+        if not relevant_paths:
+            return self.tide.codebase.get_tree_view()
+
         return self.tide.codebase.get_tree_view(
             include_modules=True,
             include_types=True,
@@ -131,7 +135,7 @@ class AgentTide(BaseModel):
         if codeIdentifiers is None and not self._skip_context_retrieval:
             context_response = await self.llm.acomplete(
                 self.history,
-                system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)],
+                system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)], # TODO improve this prompt to handle generic scenarios liek what does my porject do and so on
                 prefix_prompt=repo_tree,
                 stream=False
                 # json_output=True
@@ -152,7 +156,7 @@ class AgentTide(BaseModel):
             if self.modifyIdentifiers:
                 codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
 
-        if codeIdentifiers:
+        if self.contextIdentifiers:
             autocomplete = AutoComplete(self.tide.cached_ids)
             # Validate each code identifier
             validatedCodeIdentifiers = []
