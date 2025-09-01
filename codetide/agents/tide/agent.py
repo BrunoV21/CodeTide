@@ -2,6 +2,7 @@ from functools import partial
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
+from ...tf_idf_matcher import TfIdfFastMatcher
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
@@ -20,11 +21,11 @@ except ImportError as e:
         "Install it with: pip install codetide[agents]"
     ) from e
 
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
-from pydantic import BaseModel, Field, model_validator
-from typing_extensions import Self
 from typing import List, Optional, Set
+from typing_extensions import Self
 from datetime import date
 from pathlib import Path
 from ulid import ulid
@@ -53,16 +54,39 @@ class AgentTide(BaseModel):
     modifyIdentifiers :Optional[List[str]]=None
     reasoning :Optional[str]=None
 
+    _tfidf :Optional[TfIdfFastMatcher] = None
     _skip_context_retrieval :bool=False
     _last_code_identifers :Optional[Set[str]]=set()
     _last_code_context :Optional[str] = None
     _has_patch :bool=False
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
     def pass_custom_logger_fn(self)->Self:
         self.llm.logger_fn = partial(custom_logger_fn, session_id=self.session_id, filepath=self.patch_path)
         return self
     
+    @property
+    def tfidf(self)->TfIdfFastMatcher:
+        if self._tfidf is None:
+            self._tfidf = TfIdfFastMatcher()
+        return self._tfidf
+
+    def get_repo_tree_from_user_prompt(self, history :list)->str:
+
+        history_str = "\n\n".join([str(entry) for entry in history])
+
+        self.tfidf.fit(self.tide.relative_filepaths)
+
+        relevant_paths = self.tfidf.get_filepaths(history_str)
+
+        return self.tide.codebase.get_tree_view(
+            include_modules=True,
+            include_types=True,
+            filter_paths=relevant_paths
+        )
+
     def approve(self):
         self._has_patch = False
         if os.path.exists(self.patch_path):
@@ -102,10 +126,7 @@ class AgentTide(BaseModel):
         # update codetide with the latest changes made by the human and agent
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
 
-        repo_tree = self.tide.codebase.get_tree_view(
-            include_modules=True,
-            include_types=True
-        )
+        repo_tree = self.get_repo_tree_from_user_prompt(self.history)
 
         if codeIdentifiers is None and not self._skip_context_retrieval:
             context_response = await self.llm.acomplete(
