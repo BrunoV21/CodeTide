@@ -55,19 +55,26 @@ export default function ReasoningMessage() {
 
     return (
         <div className="w-full">
-            <div className="flex justify-between items-center mb-2">
+            <div
+                className="flex justify-between items-center mb-2 cursor-pointer select-none"
+                onClick={toggleExpanded}
+                tabIndex={0}
+                role="button"
+                aria-expanded={isExpanded}
+                onKeyDown={e => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleExpanded();
+                    }
+                }}
+            >
                 <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button 
-                                size="sm" 
-                                variant="outline" 
-                                onClick={toggleExpanded}
-                                className="h-6 px-2"
-                            >
+                            <span>
                                 {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                            </Button>
+                            </span>
                         </TooltipTrigger>
                         <TooltipContent>
                             <p>{summaryText}</p>
@@ -75,14 +82,14 @@ export default function ReasoningMessage() {
                     </Tooltip>
                 </TooltipProvider>
             </div>
-            
+
             <Card className="w-full">
                 <CardContent className="p-0">
                     {isExpanded && (
-                        <div 
+                        <div
                             className="prose prose-sm max-w-none dark:prose-invert"
-                            dangerouslySetInnerHTML={{ 
-                                __html: generateHtml() 
+                            dangerouslySetInnerHTML={{
+                                __html: generateHtml()
                             }}
                         />
                     )}
