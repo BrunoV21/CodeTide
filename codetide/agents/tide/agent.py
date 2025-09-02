@@ -79,7 +79,7 @@ class AgentTide(BaseModel):
 
         self.tfidf.fit(self.tide.relative_filepaths)
 
-        relevant_paths = self.tfidf.get_filepaths(history_str)
+        relevant_paths = self.tfidf.get_filepaths(history_str, top_k=5)
 
 
         if not relevant_paths:
