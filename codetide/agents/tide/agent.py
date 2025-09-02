@@ -156,7 +156,8 @@ class AgentTide(BaseModel):
             if self.modifyIdentifiers:
                 codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
 
-        if self.contextIdentifiers:
+        codeContext = None
+        if codeIdentifiers:
             autocomplete = AutoComplete(self.tide.cached_ids)
             # Validate each code identifier
             validatedCodeIdentifiers = []
@@ -170,14 +171,14 @@ class AgentTide(BaseModel):
 
             self._last_code_identifers = set(validatedCodeIdentifiers)
             codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
-            self._last_code_context = codeContext
         
-        else:
+        if not codeContext:
             codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
             readmeFile = self.tide.get("README.md", as_string_list=True)
             if readmeFile:
                 codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
 
+        self._last_code_context = codeContext
         await delete_file(self.patch_path)
         response = await self.llm.acomplete(
             self.history,
