@@ -3,6 +3,7 @@ from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
 from ...tf_idf_matcher import TfIdfFastMatcher
+from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
@@ -135,7 +136,7 @@ class AgentTide(BaseModel):
         if codeIdentifiers is None and not self._skip_context_retrieval:
             context_response = await self.llm.acomplete(
                 self.history,
-                system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY)], # TODO improve this prompt to handle generic scenarios liek what does my porject do and so on
+                system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY, SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES)], # TODO improve this prompt to handle generic scenarios liek what does my porject do and so on
                 prefix_prompt=repo_tree,
                 stream=False
                 # json_output=True
