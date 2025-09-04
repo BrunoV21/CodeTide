@@ -539,13 +539,20 @@ class CodeContextStructure(BaseModel):
 class CodeBase(BaseModel):
     """Root model representing complete codebase with file hierarchy and caching."""
     root: List[CodeFileModel] = Field(default_factory=list)
-    _cached_elements :Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]] = dict()
+    _cached_elements :Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]] = dict()        
+    _tree_dict :Optional[Dict[str, Any]] = None
 
     @property
     def cached_elements(self)->Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]]:
         if not self._cached_elements:
             self._build_cached_elements()
         return self._cached_elements
+
+    @property
+    def tree_dict(self)->Dict[str, Any]:
+        if self._tree_dict is None:
+            self._build_tree_dict()
+        return self._tree_dict
 
     def _build_cached_elements(self, force_update :bool=False):
         """Builds cache of all elements with unique IDs across entire codebase."""
@@ -630,23 +637,67 @@ class CodeBase(BaseModel):
         return match
 
     def get_tree_view(self, include_modules: bool = False, include_types: bool = False) -> str:
-        """Generates ASCII tree view of codebase structure with optional details."""
-       
-        # Build the nested structure first
-        tree_dict = self._build_tree_dict()
-        
+        """Generates ASCII tree view of codebase structure with optional details"""
         # Convert to ASCII tree
         lines = []
-        self._render_tree_node(tree_dict, "", True, lines, include_modules, include_types)
+        self._render_tree_node(self.tree_dict, "", True, lines, include_modules, include_types)
         
         return "\n".join(lines)
 
-    def _build_tree_dict(self) -> dict:
-        """Creates nested dictionary representing codebase directory structure."""
+    def _build_tree_dict(self, filter_paths: list = None):
+        """Creates nested dictionary representing codebase directory structure with optional filtering."""
 
         tree = {}
         
-        for code_file in self.root:
+        # If no filter paths provided, include all files (original behavior)
+        if filter_paths is None:
+            relevant_files = self.root
+            sibling_files = []
+        else:
+            # Convert filter paths to normalized format for comparison
+            normalized_filter_paths = set()
+            filter_directories = set()
+            
+            for path in filter_paths:
+                normalized_path = path.replace("\\", "/")
+                normalized_filter_paths.add(normalized_path)
+                
+                # Extract directory path for this file
+                path_parts = normalized_path.split("/")
+                if len(path_parts) > 1:
+                    dir_path = "/".join(path_parts[:-1])
+                    filter_directories.add(dir_path)
+                else:
+                    # File is at root level
+                    filter_directories.add("")
+            
+            # Find all files that are siblings (in the same directories as filtered files)
+            relevant_files = []  # Files that should show full content
+            sibling_files = []   # Files that should show as siblings only
+            
+            for code_file in self.root:
+                if not code_file.file_path:
+                    continue
+                    
+                normalized_file_path = code_file.file_path.replace("\\", "/")
+                
+                # Check if this is a filtered file (should show full content)
+                if normalized_file_path in normalized_filter_paths:
+                    relevant_files.append(code_file)
+                    continue
+                
+                # Check if this file is a sibling of any filtered file
+                file_parts = normalized_file_path.split("/")
+                if len(file_parts) > 1:
+                    file_dir = "/".join(file_parts[:-1])
+                else:
+                    file_dir = ""
+                
+                if file_dir in filter_directories:
+                    sibling_files.append(code_file)
+        
+        # Build tree structure from relevant files (with full content)
+        for code_file in relevant_files:
             if not code_file.file_path:
                 continue
                 
@@ -657,19 +708,105 @@ class CodeBase(BaseModel):
             current_level = tree
             for i, part in enumerate(path_parts):
                 if i == len(path_parts) - 1:  # This is the file
-                    current_level[part] = {"_type": "file", "_data": code_file}
+                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
                 else:  # This is a directory
                     if part not in current_level:
                         current_level[part] = {"_type": "directory"}
                     current_level = current_level[part]
         
+        # Add sibling files (without full content)
+        for code_file in sibling_files:
+            if not code_file.file_path:
+                continue
+                
+            # Split the file path into parts
+            path_parts = code_file.file_path.replace("\\", "/").split("/")
+            
+            # Navigate/create the nested dictionary structure
+            current_level = tree
+            for i, part in enumerate(path_parts):
+                if i == len(path_parts) - 1:  # This is the file
+                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
+                else:  # This is a directory
+                    if part not in current_level:
+                        current_level[part] = {"_type": "directory"}
+                    current_level = current_level[part]
+        
+        # Add placeholder for omitted content when filtering is applied
+        if filter_paths is not None:
+            tree = self._add_omitted_placeholders(tree, filter_paths)
+        
+        self._tree_dict = tree
+
+    def _add_omitted_placeholders(self, tree: dict, filter_paths: list) -> dict:
+        """Adds '...' placeholders for directories that contain omitted files."""
+        
+        # Get all unique directory paths from the full codebase
+        all_dirs = set()
+        for code_file in self.root:
+            if code_file.file_path:
+                path_parts = code_file.file_path.replace("\\", "/").split("/")
+                for i in range(len(path_parts) - 1):  # Exclude the file itself
+                    dir_path = "/".join(path_parts[:i+1])
+                    all_dirs.add(dir_path)
+        
+        # Get directories that should be shown (contain filtered files)
+        shown_dirs = set()
+        for filter_path in filter_paths:
+            path_parts = filter_path.replace("\\", "/").split("/")
+            for i in range(len(path_parts) - 1):
+                dir_path = "/".join(path_parts[:i+1])
+                shown_dirs.add(dir_path)
+        
+        # Find directories that exist but aren't shown
+        omitted_dirs = all_dirs - shown_dirs
+        
+        # Add placeholders for omitted directories
+        def add_placeholders_recursive(current_tree: dict, current_path: str = ""):
+            # Check if any omitted directories should be represented at this level
+            for omitted_dir in omitted_dirs:
+                omitted_parts = omitted_dir.split("/")
+                current_parts = current_path.split("/") if current_path else []
+                
+                # Check if this omitted directory is a direct child of current path
+                if (len(omitted_parts) == len(current_parts) + 1 and 
+                    omitted_dir.startswith(current_path) and
+                    (not current_path or omitted_dir.startswith(current_path + "/"))):
+                    
+                    # Check if we don't already have this directory or a placeholder
+                    dir_name = omitted_parts[-1]
+                    has_content_in_dir = any(k for k in current_tree.keys() 
+                                        if not k.startswith("_") and k != "...")
+                    
+                    if dir_name not in current_tree and has_content_in_dir:
+                        current_tree["..."] = {"_type": "placeholder"}
+                        break
+            
+            # Recursively process subdirectories
+            for key, value in current_tree.items():
+                if not key.startswith("_") and key != "..." and value.get("_type") == "directory":
+                    new_path = f"{current_path}/{key}" if current_path else key
+                    add_placeholders_recursive(value, new_path)
+        
+        add_placeholders_recursive(tree)
         return tree
 
     def _render_tree_node(self, node: dict, prefix: str, is_last: bool, lines: list, include_modules: bool, include_types: bool, depth: int = 0):
         """Recursively renders tree node with ASCII art and optional type prefixes."""
         
         items = [(k, v) for k, v in node.items() if not k.startswith("_")]
-        items.sort(key=lambda x: (x[1].get("_type", "directory") == "file", x[0]))
+        
+        # Sort items: directories first, then files, with "..." placeholders at the end
+        def sort_key(x):
+            name, data = x
+            if name == "...":
+                return (2, name)  # Placeholders last
+            elif data.get("_type") == "file":
+                return (1, name)  # Files second
+            else:
+                return (0, name)  # Directories first
+        
+        items.sort(key=sort_key)
         
         for i, (name, data) in enumerate(items):
             is_last_item = i == len(items) - 1
@@ -682,20 +819,27 @@ class CodeBase(BaseModel):
                 current_prefix = "├── "
                 next_prefix = prefix + "│   "
             
+            # Handle placeholder
+            if name == "...":
+                lines.append(f"{prefix}{current_prefix}...")
+                continue
+            
             # Determine display name with optional type prefix
             display_name = name
             if include_types:
                 if data.get("_type") == "file":
-                    display_name = f" {name}"
+                    display_name = f"📄 {name}"
                 else:
-                    display_name = f"{name}"
+                    display_name = f"📁 {name}"
             
             lines.append(f"{prefix}{current_prefix}{display_name}")
             
             # Handle file contents if requested
             if data.get("_type") == "file" and include_modules:
-                code_file = data["_data"]
-                self._render_file_contents(code_file, next_prefix, lines, include_types)
+                # Only show content for files that should show full content
+                if data.get("_show_content", True):  # Default True for backward compatibility
+                    code_file = data["_data"]
+                    self._render_file_contents(code_file, next_prefix, lines, include_types)
             elif data.get("_type") != "file":
                 # This is a directory - recursively render its contents
                 self._render_tree_node(data, next_prefix, is_last_item, lines, 
@@ -772,6 +916,99 @@ class CodeBase(BaseModel):
                 current_prefix = "├── "
             
             lines.append(f"{prefix}{current_prefix}{name}")
+
+    def compile_tree_nodes_dict(self) -> dict:
+        """
+        Compiles a dictionary where each entry is a node of the repo tree up to file level.
+        Keys are paths, values are lists of direct children identifiers.
+        
+        For directories: contains subdirectory names and file names
+        For files: contains element names (variables, functions, classes)
+        
+        Returns:
+            dict: {path: [list_of_direct_children_identifiers]}
+        """
+        
+        # First build the tree structure
+        tree = self.tree_dict
+        
+        # Dictionary to store the flattened node structure
+        nodes_dict = {}
+        
+        def traverse_tree(node_dict: dict, current_path: str = ""):
+            """Recursively traverse the tree and collect node information."""
+            
+            # Get all items that aren't metadata (don't start with _)
+            items = [(k, v) for k, v in node_dict.items() if not k.startswith("_")]
+            
+            # Collect direct children for current node
+            children = []
+            
+            for name, data in items:
+                # Skip placeholder entries
+                if name == "...":
+                    children.append("...")
+                    continue
+                    
+                if data.get("_type") == "file":
+                    # For files, add the filename to current directory's children
+                    children.append(name)
+                    
+                    # Create entry for the file itself with its elements
+                    file_path = f"{current_path}/{name}" if current_path else name
+                    file_elements = []
+                    
+                    # Only process file contents if we should show content
+                    if data.get("_show_content", True):
+                        code_file = data["_data"]
+                        
+                        # Add variables
+                        for variable in code_file.variables:
+                            file_elements.append(variable.name)
+                        
+                        # Add functions
+                        for function in code_file.functions:
+                            file_elements.append(function.name)
+                        
+                        # Add classes
+                        for class_def in code_file.classes:
+                            file_elements.append(class_def.name)
+                            
+                            # Create entry for each class with its members
+                            class_path = f"{file_path}::{class_def.name}"
+                            class_members = []
+                            
+                            # Add class attributes
+                            for attribute in class_def.attributes:
+                                class_members.append(attribute.name)
+                            
+                            # Add class methods
+                            for method in class_def.methods:
+                                class_members.append(method.name)
+                            
+                            nodes_dict[class_path] = class_members
+                    
+                    nodes_dict[file_path] = file_elements
+                    
+                elif data.get("_type") == "directory":
+                    # For directories, add the directory name to current node's children
+                    children.append(name)
+                    
+                    # Recursively process the directory
+                    dir_path = f"{current_path}/{name}" if current_path else name
+                    traverse_tree(data, dir_path)
+                
+                elif data.get("_type") == "placeholder":
+                    # Handle placeholder
+                    children.append("...")
+            
+            # Store children for current path
+            nodes_dict[current_path if current_path else "."] = children
+        
+        # Start traversal from root
+        traverse_tree(tree)
+        
+        return nodes_dict
 
     def get(self,
             unique_id :Union[str, List[str]],

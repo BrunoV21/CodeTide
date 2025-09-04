@@ -1,5 +1,7 @@
 from typing import List
 import difflib
+import os
+
 class AutoComplete:
     def __init__(self, word_list: List[str]) -> None:
         """Initialize with a list of strings to search from"""
@@ -145,7 +147,6 @@ class AutoComplete:
         Raises:
             ValueError: If a path cannot be matched to a valid entry.
         """
-        import os
         valid_paths = []
         valid_set = set(self.words)
         for path in file_paths:

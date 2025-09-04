@@ -9,3 +9,8 @@ __all__ = [
     "TypescriptParser",
     "BaseParser"
 ]
+
+SUPPORTED_LANGUAGES = [
+    "Python",
+    "Typescript",
+]
