@@ -7,7 +7,7 @@ from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, README_CONTEXT_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    AGENT_TIDE_SYSTEM_PROMPT, CALMNESS_SYSTEM_PROMPT, GET_CODE_IDENTIFIERS_SYSTEM_PROMPT, README_CONTEXT_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
@@ -186,7 +186,8 @@ class AgentTide(BaseModel):
             system_prompt=[
                 AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
                 STEPS_SYSTEM_PROMPT.format(DATE=TODAY),
-                WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY)
+                WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY),
+                CALMNESS_SYSTEM_PROMPT
             ],
             prefix_prompt=codeContext
         )

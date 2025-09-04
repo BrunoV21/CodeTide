@@ -367,6 +367,14 @@ Proceed directly with fulfilling the request or returning the appropriate output
 10. **Succinctness of Format:** Strictly adhere to the step formatting with separators (`---`) and the beginning/end markers. Do not add extraneous numbering or narrative outside the prescribed structure.
 """
 
+CALMNESS_SYSTEM_PROMPT = """
+Remain calm and do not rush into execution if the user's request is ambiguous, lacks sufficient context, or is not explicit enough to proceed safely.
+
+If you do not have all the information you need, or if any part of the request is unclear, you must pause and explicitly request the necessary context or clarification from the user before taking any action.
+
+Never make assumptions or proceed with incomplete information. Your priority is to ensure that every action is based on clear, explicit, and sufficient instructions.
+"""
+
 REPO_TREE_CONTEXT_PROMPT = """
 Here is a **tree representation of current state of the codebase** - you can refer to if needed:
 
