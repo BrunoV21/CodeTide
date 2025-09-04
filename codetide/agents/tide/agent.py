@@ -1,8 +1,7 @@
-from functools import partial
 from codetide import CodeTide
+from codetide.search.code_search import SmartCodeSearch
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
-from ...tf_idf_matcher import TfIdfFastMatcher
 from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
@@ -27,6 +26,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
 from typing import List, Optional, Set
 from typing_extensions import Self
+from functools import partial
 from datetime import date
 from pathlib import Path
 from ulid import ulid
@@ -55,7 +55,6 @@ class AgentTide(BaseModel):
     modifyIdentifiers :Optional[List[str]]=None
     reasoning :Optional[str]=None
 
-    _tfidf :Optional[TfIdfFastMatcher] = None
     _skip_context_retrieval :bool=False
     _last_code_identifers :Optional[Set[str]]=set()
     _last_code_context :Optional[str] = None
@@ -67,29 +66,29 @@ class AgentTide(BaseModel):
     def pass_custom_logger_fn(self)->Self:
         self.llm.logger_fn = partial(custom_logger_fn, session_id=self.session_id, filepath=self.patch_path)
         return self
-    
-    @property
-    def tfidf(self)->TfIdfFastMatcher:
-        if self._tfidf is None:
-            self._tfidf = TfIdfFastMatcher()
-        return self._tfidf
 
-    def get_repo_tree_from_user_prompt(self, history :list)->str:
+    async def get_repo_tree_from_user_prompt(self, history :list)->str:
 
         history_str = "\n\n".join([str(entry) for entry in history])
+        ### TODO evalutate sending last N messages and giving more importance to
+        ### search results from latter messages
 
-        self.tfidf.fit(self.tide.relative_filepaths)
+        nodes_dict = self.tide.codebase.compile_tree_nodes_dict()
+        nodes_dict = {
+            filepath: contents for filepath, elements in nodes_dict.items()
+            if (contents := "\n".join([filepath] + elements).strip())
+        }
+        
+        codeSearch = SmartCodeSearch(documents=nodes_dict)
+        await codeSearch.initialize_async()
 
-        relevant_paths = self.tfidf.get_filepaths(history_str, top_k=5)
+        results = await codeSearch.search_smart(history_str, top_k=5)
 
-
-        if not relevant_paths:
-            return self.tide.codebase.get_tree_view()
+        self.tide.codebase._build_tree_dict([doc_key for doc_key,_ in results] or None)
 
         return self.tide.codebase.get_tree_view(
             include_modules=True,
-            include_types=True,
-            filter_paths=relevant_paths
+            include_types=True
         )
 
     def approve(self):
@@ -131,53 +130,55 @@ class AgentTide(BaseModel):
         # update codetide with the latest changes made by the human and agent
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
 
-        repo_tree = self.get_repo_tree_from_user_prompt(self.history)
-
-        if codeIdentifiers is None and not self._skip_context_retrieval:
-            context_response = await self.llm.acomplete(
-                self.history,
-                system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY, SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES)], # TODO improve this prompt to handle generic scenarios liek what does my porject do and so on
-                prefix_prompt=repo_tree,
-                stream=False
-                # json_output=True
-            )
-
-            contextIdentifiers = parse_blocks(context_response, block_word="Context Identifiers", multiple=False)
-            modifyIdentifiers = parse_blocks(context_response, block_word="Modify Identifiers", multiple=False)
-
-            reasoning = context_response.split("*** Begin")
-            if not reasoning:
-                reasoning = [context_response]
-            self.reasoning = reasoning[0].strip()
-
-            self.contextIdentifiers = contextIdentifiers.splitlines() if isinstance(contextIdentifiers, str) else None
-            self.modifyIdentifiers = modifyIdentifiers.splitlines() if isinstance(modifyIdentifiers, str) else None
-            codeIdentifiers = self.contextIdentifiers or []
-            
-            if self.modifyIdentifiers:
-                codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
-
         codeContext = None
-        if codeIdentifiers:
-            autocomplete = AutoComplete(self.tide.cached_ids)
-            # Validate each code identifier
-            validatedCodeIdentifiers = []
-            for codeId in codeIdentifiers:
-                result = autocomplete.validate_code_identifier(codeId)
-                if result.get("is_valid"):
-                    validatedCodeIdentifiers.append(codeId)
-                
-                elif result.get("matching_identifiers"):
-                    validatedCodeIdentifiers.append(result.get("matching_identifiers")[0])
+        if self._skip_context_retrieval:
+            ...
+        else:
+            if codeIdentifiers is None:
+                repo_tree = await self.get_repo_tree_from_user_prompt(self.history)
+                context_response = await self.llm.acomplete(
+                    self.history,
+                    system_prompt=[GET_CODE_IDENTIFIERS_SYSTEM_PROMPT.format(DATE=TODAY, SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES)], # TODO improve this prompt to handle generic scenarios liek what does my porject do and so on
+                    prefix_prompt=repo_tree,
+                    stream=False
+                    # json_output=True
+                )
 
-            self._last_code_identifers = set(validatedCodeIdentifiers)
-            codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
-        
-        if not codeContext:
-            codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
-            readmeFile = self.tide.get("README.md", as_string_list=True)
-            if readmeFile:
-                codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
+                contextIdentifiers = parse_blocks(context_response, block_word="Context Identifiers", multiple=False)
+                modifyIdentifiers = parse_blocks(context_response, block_word="Modify Identifiers", multiple=False)
+
+                reasoning = context_response.split("*** Begin")
+                if not reasoning:
+                    reasoning = [context_response]
+                self.reasoning = reasoning[0].strip()
+
+                self.contextIdentifiers = contextIdentifiers.splitlines() if isinstance(contextIdentifiers, str) else None
+                self.modifyIdentifiers = modifyIdentifiers.splitlines() if isinstance(modifyIdentifiers, str) else None
+                codeIdentifiers = self.contextIdentifiers or []
+                
+                if self.modifyIdentifiers:
+                    codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
+            
+            if codeIdentifiers:
+                autocomplete = AutoComplete(self.tide.cached_ids)
+                # Validate each code identifier
+                validatedCodeIdentifiers = []
+                for codeId in codeIdentifiers:
+                    result = autocomplete.validate_code_identifier(codeId)
+                    if result.get("is_valid"):
+                        validatedCodeIdentifiers.append(codeId)
+                    
+                    elif result.get("matching_identifiers"):
+                        validatedCodeIdentifiers.append(result.get("matching_identifiers")[0])
+
+                self._last_code_identifers = set(validatedCodeIdentifiers)
+                codeContext = self.tide.get(validatedCodeIdentifiers, as_string=True)
+            
+            if not codeContext:
+                codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
+                readmeFile = self.tide.get("README.md", as_string_list=True)
+                if readmeFile:
+                    codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
 
         self._last_code_context = codeContext
         await delete_file(self.patch_path)
