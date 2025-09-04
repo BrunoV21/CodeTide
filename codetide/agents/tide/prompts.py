@@ -245,7 +245,10 @@ PATCH STRUCTURE RULES:
 * Inside each file patch:
 
   * Use one or more @@ context headers to uniquely identify the code location
-  * Include exactly 3 lines of context above the change
+  * Include exactly 3 lines of context below the change as well
+  * The combination of context above + changed lines + context below must create a UNIQUE match in the file
+  * If the context pattern appears multiple times in the file, add more distinctive context lines until the location is unambiguous
+  * Context lines must form a contiguous block that exists nowhere else in the file with the same sequence
 
 * For insertions (where no lines are being removed), always provide the 3 lines of real, unaltered context above the insertion point, as they appear in the original file. This ensures the patch can be applied unambiguously and in the correct location.  
 
@@ -270,6 +273,10 @@ PATCH CONTENT RULES:
 * Every line in the diff that consist of new contents (addition) MUST:
  * Start with +
  * Contribute to achieve the user request according to the plain reasoning step you have previoulsy produced
+
+* AMBIGUITY CHECK: Before finalizing any patch, verify that the context + change pattern appears exactly once in the target file
+ * If multiple matches are possible, expand the context window until the patch location is unique
+ * Context must be sufficient to unambiguously identify the exact insertion/modification point
 
 ---
 
@@ -305,9 +312,10 @@ FINAL CHECKLIST BEFORE PATCHING:
 1. Validate that every line you edit exists exactly as-is in the original context
 2. Ensure one patch block per file, using multiple @@ hunks as needed
 3. Include no formatting, layout, or interpretation changes
-4. Ensure every @@ header is a valid, real, byte-identical line from the original file
-5. Match the `MANDATORY PATCH FORMAT (V4A-Compatible)` structure expectations exactly
-6. Ensure each patch line starts with a `@`, `+`, `-` or ` `
+4. Verify patch location uniqueness: ensure the context pattern (lines above + changed content + lines below) appears exactly once in the file
+5. Ensure every @@ header is a valid, real, byte-identical line from the original file
+6. Match the `MANDATORY PATCH FORMAT (V4A-Compatible)` structure expectations exactly
+7. Ensure each patch line starts with a `@`, `+`, `-` or ` `
 
 This is a surgical, precision editing mode.
 You must mirror source files exactly — no assumptions, no reformatting, no transformations.
