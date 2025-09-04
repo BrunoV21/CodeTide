@@ -539,13 +539,20 @@ class CodeContextStructure(BaseModel):
 class CodeBase(BaseModel):
     """Root model representing complete codebase with file hierarchy and caching."""
     root: List[CodeFileModel] = Field(default_factory=list)
-    _cached_elements :Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]] = dict()
+    _cached_elements :Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]] = dict()        
+    _tree_dict :Optional[Dict[str, Any]] = None
 
     @property
     def cached_elements(self)->Dict[str, Union[CodeFileModel, ClassDefinition, FunctionDefinition, VariableDeclaration, ImportStatement]]:
         if not self._cached_elements:
             self._build_cached_elements()
         return self._cached_elements
+
+    @property
+    def tree_dict(self)->Dict[str, Any]:
+        if self._tree_dict is None:
+            self._build_tree_dict()
+        return self._tree_dict
 
     def _build_cached_elements(self, force_update :bool=False):
         """Builds cache of all elements with unique IDs across entire codebase."""
@@ -629,19 +636,15 @@ class CodeBase(BaseModel):
                 return match
         return match
 
-    def get_tree_view(self, include_modules: bool = False, include_types: bool = False, filter_paths: list = None) -> str:
-        """Generates ASCII tree view of codebase structure with optional details and path filtering."""
-    
-        # Build the nested structure first with optional filtering
-        tree_dict = self._build_tree_dict(filter_paths)
-        
+    def get_tree_view(self, include_modules: bool = False, include_types: bool = False) -> str:
+        """Generates ASCII tree view of codebase structure with optional details"""
         # Convert to ASCII tree
         lines = []
-        self._render_tree_node(tree_dict, "", True, lines, include_modules, include_types)
+        self._render_tree_node(self.tree_dict, "", True, lines, include_modules, include_types)
         
         return "\n".join(lines)
 
-    def _build_tree_dict(self, filter_paths: list = None) -> dict:
+    def _build_tree_dict(self, filter_paths: list = None):
         """Creates nested dictionary representing codebase directory structure with optional filtering."""
 
         tree = {}
@@ -723,7 +726,7 @@ class CodeBase(BaseModel):
             current_level = tree
             for i, part in enumerate(path_parts):
                 if i == len(path_parts) - 1:  # This is the file
-                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": False}
+                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
                 else:  # This is a directory
                     if part not in current_level:
                         current_level[part] = {"_type": "directory"}
@@ -733,7 +736,7 @@ class CodeBase(BaseModel):
         if filter_paths is not None:
             tree = self._add_omitted_placeholders(tree, filter_paths)
         
-        return tree
+        self._tree_dict = tree
 
     def _add_omitted_placeholders(self, tree: dict, filter_paths: list) -> dict:
         """Adds '...' placeholders for directories that contain omitted files."""
@@ -913,6 +916,99 @@ class CodeBase(BaseModel):
                 current_prefix = "├── "
             
             lines.append(f"{prefix}{current_prefix}{name}")
+
+    def compile_tree_nodes_dict(self) -> dict:
+        """
+        Compiles a dictionary where each entry is a node of the repo tree up to file level.
+        Keys are paths, values are lists of direct children identifiers.
+        
+        For directories: contains subdirectory names and file names
+        For files: contains element names (variables, functions, classes)
+        
+        Returns:
+            dict: {path: [list_of_direct_children_identifiers]}
+        """
+        
+        # First build the tree structure
+        tree = self.tree_dict
+        
+        # Dictionary to store the flattened node structure
+        nodes_dict = {}
+        
+        def traverse_tree(node_dict: dict, current_path: str = ""):
+            """Recursively traverse the tree and collect node information."""
+            
+            # Get all items that aren't metadata (don't start with _)
+            items = [(k, v) for k, v in node_dict.items() if not k.startswith("_")]
+            
+            # Collect direct children for current node
+            children = []
+            
+            for name, data in items:
+                # Skip placeholder entries
+                if name == "...":
+                    children.append("...")
+                    continue
+                    
+                if data.get("_type") == "file":
+                    # For files, add the filename to current directory's children
+                    children.append(name)
+                    
+                    # Create entry for the file itself with its elements
+                    file_path = f"{current_path}/{name}" if current_path else name
+                    file_elements = []
+                    
+                    # Only process file contents if we should show content
+                    if data.get("_show_content", True):
+                        code_file = data["_data"]
+                        
+                        # Add variables
+                        for variable in code_file.variables:
+                            file_elements.append(variable.name)
+                        
+                        # Add functions
+                        for function in code_file.functions:
+                            file_elements.append(function.name)
+                        
+                        # Add classes
+                        for class_def in code_file.classes:
+                            file_elements.append(class_def.name)
+                            
+                            # Create entry for each class with its members
+                            class_path = f"{file_path}::{class_def.name}"
+                            class_members = []
+                            
+                            # Add class attributes
+                            for attribute in class_def.attributes:
+                                class_members.append(attribute.name)
+                            
+                            # Add class methods
+                            for method in class_def.methods:
+                                class_members.append(method.name)
+                            
+                            nodes_dict[class_path] = class_members
+                    
+                    nodes_dict[file_path] = file_elements
+                    
+                elif data.get("_type") == "directory":
+                    # For directories, add the directory name to current node's children
+                    children.append(name)
+                    
+                    # Recursively process the directory
+                    dir_path = f"{current_path}/{name}" if current_path else name
+                    traverse_tree(data, dir_path)
+                
+                elif data.get("_type") == "placeholder":
+                    # Handle placeholder
+                    children.append("...")
+            
+            # Store children for current path
+            nodes_dict[current_path if current_path else "."] = children
+        
+        # Start traversal from root
+        traverse_tree(tree)
+        
+        return nodes_dict
 
     def get(self,
             unique_id :Union[str, List[str]],
