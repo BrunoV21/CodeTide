@@ -448,7 +448,23 @@ def serve(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Launch the Tide UI server.")
+    parser = argparse.ArgumentParser(
+        description="Launch the Tide UI server.",
+        epilog=(
+            "\nAvailable commands and what they do:\n"
+            "  --host                Host to bind to (default: None)\n"
+            "  --port                Port to bind to (default: 9753)\n"
+            "  --root-path           Root path for the app (default: None)\n"
+            "  --ssl-certfile        Path to SSL certificate file (default: None)\n"
+            "  --ssl-keyfile         Path to SSL key file (default: None)\n"
+            "  --ws-per-message-deflate  WebSocket per-message deflate (true/false, default: true)\n"
+            "  --ws-protocol         WebSocket protocol (default: auto)\n"
+            "  --project-path        Path to the project directory (default: ./)\n"
+            "  --config-path         Path to the config file (default: .agent_tide_config.yml)\n"
+            "  -h, --help            Show this help message and exit\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--host", type=str, default=None, help="Host to bind to")
     parser.add_argument("--port", type=int, default=AGENT_TIDE_PORT, help="Port to bind to")
     parser.add_argument("--root-path", type=str, default=None, help="Root path for the app")
