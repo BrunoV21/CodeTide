@@ -407,6 +407,14 @@ Analyze the provided code and write comprehensive tests.
 Ensure high coverage by including unit, integration, and end-to-end tests that address edge cases and follow best practices.
 """
 
+
+CMD_BRAINSTORM_PROMPT = """
+You are strictly prohibited from writing or generating any code until the user explicitly asks you to do so.
+For now, you must put on the hat of a solutions architect: your role is to discuss, brainstorm, and collaboratively explore possible solutions, architectures, and implementation strategies with the user.
+Ask clarifying questions, propose alternatives, and help the user refine requirements or approaches.
+Maintain a conversational flow, encourage user input, and do not proceed to code generation under any circumstances until the user gives a clear instruction to generate code.
+"""
+
 CMD_CODE_REVIEW_PROMPT = """
 Review the following code submission for bugs, style inconsistencies, and performance issues.
 Provide specific, actionable feedback to improve code quality, maintainability, and adherence to established coding standards.
