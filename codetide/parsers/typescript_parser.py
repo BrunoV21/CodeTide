@@ -457,6 +457,7 @@ class TypeScriptParser(BaseParser):
 
     @classmethod
     def _process_variable_declarator(cls, node: Node, code: bytes, codeFile: CodeFileModel):
+        # TODO debug this with GitRecap
         name = None
         type_hint = None
         value = None
