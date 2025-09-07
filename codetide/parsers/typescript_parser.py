@@ -396,6 +396,7 @@ class TypeScriptParser(BaseParser):
         value = None
         next_is_value = False
         raw = cls._get_content(code, node)
+        previous_child = None
         for child in node.children:
             if child.type == "identifier" and name is None:
                 name = cls._get_content(code, child)
@@ -403,9 +404,14 @@ class TypeScriptParser(BaseParser):
                 type_hint = cls._get_content(code, child)
             elif child.type == "=":
                 next_is_value = True
+                if previous_child is not None and name is None:
+                    name = cls._get_content(code, previous_child)
             elif next_is_value:
                 value = cls._get_content(code, child)
                 next_is_value = False
+
+            previous_child = child
+
         codeFile.add_variable(VariableDeclaration(
             name=name,
             type_hint=type_hint,

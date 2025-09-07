@@ -1,7 +1,7 @@
 from codetide import CodeTide
-from codetide.search.code_search import SmartCodeSearch
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
+from ...search.code_search import SmartCodeSearch
 from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
