@@ -172,150 +172,84 @@ class TypeScriptParser(BaseParser):
                 cls._process_node(child, code, codeFile)
 
     @classmethod
+    def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[Optional[str]]]:
+        names = []
+        aliases = []
+        
+        for child in node.children:
+            if child.type == "named_imports":
+                for import_child in child.children:
+                    if import_child.type == "import_specifier":
+                        current_name = None
+                        current_alias = None
+                        next_is_alias = False
+                        
+                        for alias_child in import_child.children:
+                            if alias_child.type == "identifier" and not next_is_alias:
+                                current_name = cls._get_content(code, alias_child)
+                            elif alias_child.type == "as":
+                                next_is_alias = True
+                            elif alias_child.type == "identifier" and next_is_alias:
+                                current_alias = cls._get_content(code, alias_child)
+                                next_is_alias = False
+                        
+                        if current_name:
+                            names.append(current_name)
+                            aliases.append(current_alias)
+                        
+            elif child.type == "identifier":
+                name = cls._get_content(code, child)
+                if name:
+                    names.append(name)
+                    aliases.append(None)
+        
+        return names, aliases
+
+    @classmethod
     def _process_import_node(cls, node: Node, code: bytes, codeFile: CodeFileModel):
-        """
-        Process different types of import statements:
-        1. Side-effect imports: import './App.css'
-        2. Default imports: import React from 'react'
-        3. Named imports: import { useState } from 'react'
-        4. Namespace imports: import * as React from 'react'
-        5. Type-only imports: import type { User } from './types'
-        6. Mixed imports: import React, { useState } from 'react'
-        """
-        
-        # Debug: Print the full import statement
-        import_text = cls._get_content(code, node)
-        print(f"Processing import: {import_text}")
-        
-        # Initialize variables
         source = None
         names = []
         aliases = []
-        is_type_only = False
-        is_namespace = False
-        namespace_alias = None
+        next_is_from_import = False
+        next_is_import = False
         
-        # First pass: identify import type and extract source
         for child in node.children:
-            child_text = cls._get_content(code, child)
-            print(f"  Child: {child.type} = '{child_text}'")
-            
-            # Check for type-only import
-            if child.type == "type" or child_text == "type":
-                is_type_only = True
-            
-            # Extract source (the string literal)
-            elif child.type == "string":
-                source = child_text.strip("'\"")  # Remove quotes
-        
-        # Second pass: process import clause if it exists
-        import_clause = None
-        for child in node.children:
-            if child.type == "import_clause":
-                import_clause = child
-                break
-        
-        if import_clause:
-            names, aliases, is_namespace, namespace_alias = cls._process_import_clause_node(
-                import_clause, code
-            )
-        
-        # Handle different import types
+            if child.type == "import":
+                next_is_import = True
+            elif child.type == "import_clause" and next_is_import:
+                names, aliases = cls._process_import_clause_node(child, code)
+                next_is_import = False
+            elif next_is_import:
+                source = cls._get_content(code, child)
+                next_is_import = False
+            elif child.type == "from":
+                next_is_from_import = True
+            elif child.type == "string" and next_is_from_import:
+                source = cls._get_content(code, child)
+        if names and source is None:
+            source = names[0] if len(names) == 1 else None
+            if source:
+                names = []
+                aliases = []
+
         if source:
-            if is_namespace and namespace_alias:
-                # Namespace import: import * as React from 'react'
-                importStatement = ImportStatement(
-                    source=source,
-                    name="*",  # Indicates namespace import
-                    alias=namespace_alias,
-                    is_type_only=is_type_only
-                )
-                codeFile.add_import(importStatement)
-                cls._generate_unique_import_id(codeFile.imports[-1])
-                
-            elif names:
-                # Named imports or default + named imports
+            if names:
                 for name, alias in zip(names, aliases):
                     importStatement = ImportStatement(
                         source=source,
                         name=name,
-                        alias=alias,
-                        is_type_only=is_type_only
+                        alias=alias
                     )
                     codeFile.add_import(importStatement)
                     cls._generate_unique_import_id(codeFile.imports[-1])
             else:
-                # Side-effect import: import './App.css'
                 importStatement = ImportStatement(
                     source=source,
                     name=None,
-                    alias=None,
-                    is_type_only=is_type_only,
-                    is_side_effect=True
+                    alias=None
                 )
                 codeFile.add_import(importStatement)
                 cls._generate_unique_import_id(codeFile.imports[-1])
-
-    @classmethod
-    def _process_import_clause_node(cls, node: Node, code: bytes) -> Tuple[List[str], List[str], bool, Optional[str]]:
-        """
-        Process import_clause node to extract names and aliases.
-        Returns: (names, aliases, is_namespace, namespace_alias)
-        """
-        names = []
-        aliases = []
-        is_namespace = False
-        namespace_alias = None
-        
-        def process_node_recursively(current_node: Node):
-            nonlocal names, aliases, is_namespace, namespace_alias # noqa: F824
-            
-            node_text = cls._get_content(code, current_node)
-            print(f"    Processing clause node: {current_node.type} = '{node_text}'")
-            
-            if current_node.type == "namespace_import":
-                # Handle: * as React
-                is_namespace = True
-                for child in current_node.children:
-                    if child.type == "identifier":
-                        namespace_alias = cls._get_content(code, child)
-            
-            elif current_node.type == "identifier":
-                # Default import or named import identifier
-                identifier = cls._get_content(code, current_node)
-                names.append(identifier)
-                aliases.append(None)  # No alias by default
-            
-            elif current_node.type == "import_specifier":
-                # Named import with possible alias: { name } or { name as alias }
-                name = None
-                alias = None
-                
-                for child in current_node.children:
-                    child_text = cls._get_content(code, child)
-                    if child.type == "identifier":
-                        if name is None:
-                            name = child_text
-                        else:
-                            alias = child_text  # This is the alias part
-                
-                if name:
-                    names.append(name)
-                    aliases.append(alias)
-            
-            elif current_node.type == "named_imports":
-                # Process children of named_imports (the part inside {})
-                for child in current_node.children:
-                    if child.type not in ["{", "}", ","]:  # Skip punctuation
-                        process_node_recursively(child)
-            
-            else:
-                # Recursively process children for other node types
-                for child in current_node.children:
-                    process_node_recursively(child)
-        
-        process_node_recursively(node)
-        return names, aliases, is_namespace, namespace_alias
 
     @classmethod
     def _process_class_node(cls, node: Node, code: bytes, codeFile: CodeFileModel, node_type :Literal["class", "interface", "type"]="class"):
@@ -457,7 +391,6 @@ class TypeScriptParser(BaseParser):
 
     @classmethod
     def _process_variable_declarator(cls, node: Node, code: bytes, codeFile: CodeFileModel):
-        # TODO debug this with GitRecap
         name = None
         type_hint = None
         value = None
