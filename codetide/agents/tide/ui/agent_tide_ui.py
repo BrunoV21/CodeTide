@@ -9,7 +9,7 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
-from codetide.agents.tide.prompts import CMD_CODE_REVIEW_PROMPT, CMD_COMMIT_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT
+from codetide.agents.tide.prompts import CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_COMMIT_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.agents.tide.ui.defaults import PLACEHOLDER_LLM_CONFIG
 from codetide.agents.tide.agent import AgentTide
@@ -42,7 +42,8 @@ class AgentTideUi(object):
             "plan": CMD_TRIGGER_PLANNING_STEPS,
             "review": CMD_CODE_REVIEW_PROMPT,
             "test": CMD_WRITE_TESTS_PROMPT,
-            "commit": CMD_COMMIT_PROMPT
+            "commit": CMD_COMMIT_PROMPT,
+            "brainstorm": CMD_BRAINSTORM_PROMPT
         }
         self.session_id = session_id if session_id else ulid()
     
@@ -50,7 +51,8 @@ class AgentTideUi(object):
         {"id": "review", "icon": "search-check", "description": "Review file(s) or object(s)"},
         {"id": "test", "icon": "flask-conical", "description": "Test file(s) or object(s)"},
         {"id": "commit", "icon": "git-commit", "description": "Commit changed files"},
-        {"id": "plan", "icon": "notepad-text-dashed", "description": "Create a step-by-step task plan"}
+        {"id": "plan", "icon": "notepad-text-dashed", "description": "Create a step-by-step task plan"},
+        {"id": "brainstorm", "icon": "brain-circuit", "description": "Brainstorm and discuss solutions (no code generation)"}
     ]
 
     async def load(self):

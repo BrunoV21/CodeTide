@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List, Tuple, Union, Dict
 from datetime import datetime, timezone
 from pathlib import Path
+import traceback
 import asyncio
 import pygit2
 import time
@@ -292,7 +293,7 @@ class CodeTide(BaseModel):
             logger.debug(f"Processing file: {filepath}")
             return await parser.parse_file(filepath, self.rootpath)
         except Exception as e:
-            logger.warning(f"Failed to process {filepath}: {str(e)}")
+            logger.warning(f"Failed to process {filepath}: {str(e)}\n\n{traceback.format_exc()}")
             return None
 
     def _add_results_to_codebase(
@@ -419,6 +420,7 @@ class CodeTide(BaseModel):
         # Check for deleted files
         for stored_file_path in self.files:
             if stored_file_path not in files:
+                logger.info(f"detected deletion: {stored_file_path}")
                 file_deletion_detected = True
                 break
         
