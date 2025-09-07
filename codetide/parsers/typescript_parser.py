@@ -268,7 +268,7 @@ class TypeScriptParser(BaseParser):
         namespace_alias = None
         
         def process_node_recursively(current_node: Node):
-            nonlocal names, aliases, is_namespace, namespace_alias
+            nonlocal names, aliases, is_namespace, namespace_alias # noqa: F824
             
             node_text = cls._get_content(code, current_node)
             print(f"    Processing clause node: {current_node.type} = '{node_text}'")
