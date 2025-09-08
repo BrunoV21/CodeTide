@@ -293,8 +293,15 @@ class CodeTide(BaseModel):
             logger.debug(f"Processing file: {filepath}")
             return await parser.parse_file(filepath, self.rootpath)
         except Exception as e:
-            logger.warning(f"Failed to process {filepath}: {str(e)}\n\n{traceback.format_exc()}")
-            return None
+            logger.warning(f"Failed to process {filepath} with parser {parser.__class__.__name__}: {str(e)}\n{traceback.format_exc()}")
+            # Failsafe: try GenericParser
+            try:
+                logger.warning(f"Failsafe triggered: attempting to parse {filepath} with GenericParser.")
+                generic_parser = GenericParser()
+                return await generic_parser.parse_file(filepath, self.rootpath)
+            except Exception as ge:
+                logger.error(f"GenericParser also failed for {filepath}: {str(ge)}\n{traceback.format_exc()}")
+                return None
 
     def _add_results_to_codebase(
         self,
