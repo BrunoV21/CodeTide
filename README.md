@@ -63,6 +63,14 @@ uvx --from codetide[agents] agent-tide
 
 This will start an interactive terminal session with AgentTide.
 
+You can also pass the `--project_path` argument to start AgentTide on a specific path:
+
+```sh
+uvx --from codetide[agents] agent-tide --project_path /path/to/your/project
+```
+
+If you do not provide the `--project_path` argument, AgentTide will start in the current directory by default.
+
 **AgentTide UI**
 
 To use the AgentTide web UI, you must install the `[agents-ui]` extra and launch via:
