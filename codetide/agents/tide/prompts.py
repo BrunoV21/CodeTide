@@ -450,5 +450,10 @@ REJECT_PATCH_FEEDBACK_TEMPLATE = """
 
 {FEEDBACK}
 
+**Important:** 
+ - Since your patch was rejected, the file(s) remain in their original state.~
+ - All future changes must be made relative to the original file content (i.e., use the context and removed lines from the previous diff, not the added ones).
+ - Do not assume any changes from the rejected patch are present.
+
 **Next steps:** Please revise your approach to fulfill the task requirements based on the feedback above.
 """
