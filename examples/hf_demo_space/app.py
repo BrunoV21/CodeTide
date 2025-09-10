@@ -347,7 +347,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 MarkerConfig(
                     begin_marker="*** Begin Patch",
                     end_marker="*** End Patch",
-                    start_wrapper="\n```shell\n",
+                    start_wrapper="\n```diff\n",
                     end_wrapper="\n```\n",
                     target_step=diff_step
                 ),
