@@ -492,10 +492,7 @@ def main():
     )
 
 if __name__ == "__main__":
-    import asyncio
-    os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
-    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
-    serve()
+    main()
     # TODO fix the no time being inserted to msg bug in data-persistance
     # TODO there's a bug that changes are not being persistied in untracked files that are deleted so will need to update codetide to track that
     # TODO add chainlit commands for writing tests, updating readme, writing commit message and planning
