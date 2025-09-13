@@ -476,8 +476,8 @@ def main():
     parser.add_argument("--config-path", type=str, default=DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, help="Path to the config file")
     args = parser.parse_args()
 
-    os.environ["AGENT_TIDE_PROJECT_PATH"] = args.project_path
-    os.environ["AGENT_TIDE_CONFIG_PATH"] = args.config_path
+    os.environ["AGENT_TIDE_PROJECT_PATH"] = str(Path(args.project_path))
+    os.environ["AGENT_TIDE_CONFIG_PATH"] = str(Path(args.project_path) / args.config_path)
 
     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
 

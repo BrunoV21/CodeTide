@@ -27,7 +27,7 @@ class AgentTideUi(object):
         
         if llm_config is None:
             try:
-                config = Config.from_yaml(self.project_path / self.config_path)
+                config = Config.from_yaml(self.config_path)
                 self.llm_config: LlmConfig = config.llm
             except Exception:
                 self.llm_config = LlmConfig(**PLACEHOLDER_LLM_CONFIG)
