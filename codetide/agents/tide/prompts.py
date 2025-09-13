@@ -341,7 +341,8 @@ CMD_COMMIT_PROMPT = """
 Generate a conventional commit message that summarizes the staged changes since the previous commit.
 
 **Instructions:**
-1. Write a brief, clear description of the staged changes in third person, starting directly with what was done (no "The staged changes..." prefacing).
+1. Write a brief, clear description of the staged changes, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand the changes:
+  - The content must be written in third person and should begin directly with the description, without prefacing it with phrases like `The staged changes…` - jump straight into what was done.
 
 2. Place only the commit subject line inside the commit block:
    *** Begin Commit
@@ -376,6 +377,7 @@ Generate a conventional commit message that summarizes the staged changes since 
 - `ci`: CI configuration changes
 - `chore`: Maintenance tasks, tooling updates
 - `revert`: Reverting previous commits
+- `prompt`: updates made to prompts used by llms
 
 **Examples:**
 - `feat(auth): add OAuth2 login integration`
@@ -388,8 +390,6 @@ Generate a conventional commit message that summarizes the staged changes since 
 - `prompts(ai): update system prompt for better code generation`
 - `build: upgrade webpack to v5.0`
 - `feat!: remove deprecated user endpoints`
-
-** The following diffs are currently staged and will be committed once you generate an appropriate description:**
 """
 
 STAGED_DIFFS_TEMPLATE = """
