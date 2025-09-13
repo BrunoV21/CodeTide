@@ -68,7 +68,7 @@ class AgentTide(BaseModel):
 
     async def get_repo_tree_from_user_prompt(self, history :list, include_modules :bool=False, expand_paths :Optional[List[str]]=None)->str:
 
-        history_str = "\n\n".join([str(entry) for entry in history])
+        history_str = "\n\n".join(history)
         for CMD_PROMPT in [CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT]:
             history_str.replace(CMD_PROMPT, "")
 
@@ -122,9 +122,16 @@ class AgentTide(BaseModel):
             return result.get("matching_identifiers")[0]
         return None
 
+    def _clean_history(self):
+        for i in range(len(self.history)):
+            message = self.history[i]
+            if isinstance(message, dict):
+                self.history[i] = message.get("content" ,"")
+
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+        self._clean_history()
 
         codeContext = None
         if self._skip_context_retrieval:
@@ -155,7 +162,9 @@ class AgentTide(BaseModel):
                 
                 # 2. Single LLM call with unified prompt
                 # Pass accumulated identifiers for context if this isn't the first iteration
-                accumulated_context = "\n".join(sorted(identifiers_accum | modify_accum)) if (identifiers_accum or modify_accum) else ""
+                accumulated_context = "\n".join(
+                    sorted((identifiers_accum or set()) | (modify_accum or set()))
+                ) if (identifiers_accum or modify_accum) else ""
                 
                 unified_response = await self.llm.acomplete(
                     self.history,
