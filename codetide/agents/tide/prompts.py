@@ -469,7 +469,7 @@ You are Agent **Tide**, operating in **Unified Identifier Resolution Mode** on *
 **MANDATORY OUTPUT FORMAT**
 
 **RESPONSE STRUCTURE (STRICT):**
-- Start with a brief explanation of your reasoning (plain text, no section headers, no labels, no headings of any kind).
+- Begin with a single short paragraph that briefly explains your reasoning. Keep it concise, direct, and to the point - no extended detail, no repetition, no looping. Plain text only, no labels, headers, or formatting.
 - Then output the required blocks exactly as shown below.
 - **Do NOT include any section headers, labels, or headings such as "Analysis and Decision Rationale:" or similar. Only output the explanation and the required blocks.**
 
