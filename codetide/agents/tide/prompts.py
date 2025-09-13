@@ -338,20 +338,23 @@ Provide specific, actionable feedback to improve code quality, maintainability, 
 """
 
 CMD_COMMIT_PROMPT = """
-Generate a conventional commit message that summarizes the work done since the previous commit.
+Generate a conventional commit message that summarizes the staged changes since the previous commit.
 
 **Instructions:**
 
-1. First, write a body (before the commit block) that explains the problem solved and the implementation approach. This should be clear, concise, and provide context for the change.
+1. Write a brief, clear description of the staged changes, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand the changes.
 2. Then, place the commit subject line (only) inside the commit block, using this format:
    *** Begin Commit
    [subject line only, up to 3 lines, straight to the point and descriptive of the broad changes]
    *** End Commit
 3. The subject line should follow the conventional commit format with a clear type/scope prefix, and summarize the broad changes made. Do not include the body or any explanation inside the commit block—only the subject line.
 4. You may include additional comments about the changes made outside of this block, if needed.
-5. If no diffs for staged files are provided in the context, reply that there's nothing to commit.context, reply that there's nothing to commit
+5. If no diffs for staged files are provided in the context, reply that there's nothing to commit.
 
-The commit message should follow conventional commit format with a clear type/scope prefix
+The commit message should follow conventional commit format with a clear type/scope prefix.
+ 
+** The following diffs are currently staged and will be committed once you generate an appropriate description:**
+
 """
 
 STAGED_DIFFS_TEMPLATE = """
