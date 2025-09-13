@@ -342,7 +342,7 @@ Generate a conventional commit message that summarizes the changes since the pre
 
 **Instructions:**
 1. Write a brief, clear description, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand them:
-  - The content must be written in third person and should begin directly with the description, without prefacing it with phrases like `The changes…` - jump straight into what was done.
+  - This description must be written in third person and should begin with "This commit" followed by a verb (e.g., "This commit adds", "This commit fixes", "This commit refactors") or "This commit introduces" for new features or concepts.
 
 2. Place only the commit subject line inside the commit block:
    *** Begin Commit
