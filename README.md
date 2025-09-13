@@ -44,6 +44,8 @@ uvx --from codetide codetide-cli --help
 
 AgentTide consists of a demo, showing how CodeTide can integrate with LLMs and augment code generation and condebase related workflows. If you ask Tide to describe himself, he will say something like this: I'm the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
 
+> **Demo available:** Try AgentTide live on Hugging Face Spaces: [https://mclovinittt-agenttidedemo.hf.space/](https://mclovinittt-agenttidedemo.hf.space/)
+
 ---
 
 <div align="center">
@@ -540,6 +542,8 @@ Here’s what’s next for CodeTide:
 ---
 
 ## 🤖 Agents Module: AgentTide
+
+> **Demo available:** Try AgentTide live on Hugging Face Spaces: [https://mclovinittt-agenttidedemo.hf.space/](https://mclovinittt-agenttidedemo.hf.space/)
 
 CodeTide now includes an `agents` module, featuring **AgentTide**—a precision-driven software engineering agent that connects directly to your codebase and executes your requests with full code context.
 
