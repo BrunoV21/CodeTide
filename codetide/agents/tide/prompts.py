@@ -342,7 +342,8 @@ Generate a conventional commit message that summarizes the staged changes since 
 
 **Instructions:**
 
-1. Write a brief, clear description of the staged changes, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand the changes.
+1. Write a brief, clear description of the staged changes, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand the changes:
+  - The content must be written in third person and should begin directly with the description, without prefacing it with phrases like `The staged changes…` - jump straight into what was done.
 2. Then, place the commit subject line (only) inside the commit block, using this format:
    *** Begin Commit
    [subject line only, up to 3 lines, straight to the point and descriptive of the broad changes]
