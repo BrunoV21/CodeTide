@@ -341,21 +341,55 @@ CMD_COMMIT_PROMPT = """
 Generate a conventional commit message that summarizes the staged changes since the previous commit.
 
 **Instructions:**
+1. Write a brief, clear description of the staged changes in third person, starting directly with what was done (no "The staged changes..." prefacing).
 
-1. Write a brief, clear description of the staged changes, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand the changes:
-  - The content must be written in third person and should begin directly with the description, without prefacing it with phrases like `The staged changes…` - jump straight into what was done.
-2. Then, place the commit subject line (only) inside the commit block, using this format:
+2. Place only the commit subject line inside the commit block:
    *** Begin Commit
-   [subject line only, up to 3 lines, straight to the point and descriptive of the broad changes]
+   [subject line only, up to 3 lines, descriptive of the broad changes]
    *** End Commit
-3. The subject line should follow the conventional commit format with a clear type/scope prefix, and summarize the broad changes made. Do not include the body or any explanation inside the commit block—only the subject line.
-4. You may include additional comments about the changes made outside of this block, if needed.
-5. If no diffs for staged files are provided in the context, reply that there's nothing to commit.
 
-The commit message should follow conventional commit format with a clear type/scope prefix.
- 
+3. **Conventional Commit Format Rules:**
+   - Use format: `type(scope): description`
+   - **Types:** feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+   - **Scope:** Optional, use lowercase (e.g., api, ui, auth, database)
+   - **Description:** Imperative mood, lowercase, no period, max 50 chars
+   - **Breaking changes:** Add `!` after type/scope or use `BREAKING CHANGE:` in footer
+
+4. **Best Practices:**
+   - Use imperative mood: "add feature" not "added feature"
+   - Be specific but concise
+   - Focus on the "what" and "why", not the "how"
+   - Group related changes under appropriate types
+   - Use consistent terminology across commits
+
+5. If no staged diffs are provided, reply that there's nothing to commit.
+
+**Type Guidelines:**
+- `feat`: New features or functionality
+- `fix`: Bug fixes
+- `docs`: Documentation changes only
+- `style`: Code formatting, missing semicolons (no logic changes)
+- `refactor`: Code restructuring without changing functionality
+- `perf`: Performance improvements
+- `test`: Adding/updating tests
+- `build`: Build system or dependency changes
+- `ci`: CI configuration changes
+- `chore`: Maintenance tasks, tooling updates
+- `revert`: Reverting previous commits
+
+**Examples:**
+- `feat(auth): add OAuth2 login integration`
+- `fix(api): resolve memory leak in user sessions`
+- `docs: update installation guide for v2.0`
+- `refactor(utils): extract validation logic to separate module`
+- `perf(query): optimize database indexing for user search`
+- `test(auth): add unit tests for password validation`
+- `tests: configure Jest for React component testing`
+- `prompts(ai): update system prompt for better code generation`
+- `build: upgrade webpack to v5.0`
+- `feat!: remove deprecated user endpoints`
+
 ** The following diffs are currently staged and will be committed once you generate an appropriate description:**
-
 """
 
 STAGED_DIFFS_TEMPLATE = """
