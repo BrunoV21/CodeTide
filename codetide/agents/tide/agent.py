@@ -285,12 +285,19 @@ class AgentTide(BaseModel):
         
         return stdout.decode()
 
+    def _has_staged(self)->bool:
+        status = self.tide.repo.status()
+        result = any([file_status == pygit2.GIT_STATUS_INDEX_MODIFIED for file_status in status.values()])
+        _logger.logger.debug(f"_has_staged {result=}")
+        return result
+
     async def _stage(self)->str:
         index = self.tide.repo.index
-        for path in self.changed_paths:
-           index.add(path)
+        if not self._has_staged():
+            for path in self.changed_paths:
+                index.add(path)
 
-        index.write()
+            index.write()
 
         staged_diff = await self.get_git_diff_staged_simple(self.tide.rootpath)
         staged_diff = staged_diff.strip()
