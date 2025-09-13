@@ -278,6 +278,8 @@ class Parser:
 
             # ---------- DELETE ---------- #
             if path := self.read_str("*** Delete File: "):
+                if self.rootpath is not None:
+                    path = str(self.rootpath / path)
                 if path in self.patch.actions:
                     raise DiffError(f"Duplicate delete for file: {path}")
                 if path not in self.current_files:
@@ -287,6 +289,8 @@ class Parser:
 
             # ---------- ADD ---------- #
             if path := self.read_str("*** Add File: "):
+                if self.rootpath is not None:
+                    path = str(self.rootpath / path)
                 if path in self.patch.actions:
                     raise DiffError(f"Duplicate add for file: {path}")
                 # The check for file existence is now handled in `process_patch`
