@@ -265,6 +265,38 @@ async def on_inspect_context(action :cl.Action):
 
     await inspect_msg.send()
 
+@cl.action_callback("approve_patch")
+async def on_approve_patch(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+    await action.remove()
+    latest_action_message :cl.Message = cl.user_session.get("latest_patch_msg")
+    if latest_action_message.id == action.payload.get("action_id"):
+        latest_action_message.actions = []
+
+    if action.payload.get("lgtm"):
+        agent_tide_ui.agent_tide.approve()
+
+@cl.action_callback("reject_patch")
+async def on_reject_patch(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    chat_history = cl.user_session.get("chat_history")
+
+    await action.remove()
+    latest_action_message :cl.Message = cl.user_session.get("latest_patch_msg")
+    if latest_action_message.id == action.payload.get("action_id"):
+        latest_action_message.actions = []
+
+    response = await cl.AskUserMessage(
+        content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
+        timeout=3600
+    ).send()
+
+    feedback = response.get("output")
+    agent_tide_ui.agent_tide.reject(feedback)
+    chat_history.append({"role": "user", "content": feedback})
+    await agent_loop(agent_tide_ui=agent_tide_ui)
+
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
 
@@ -381,20 +413,25 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
     await agent_tide_ui.add_to_history(msg.content)
 
     if agent_tide_ui.agent_tide._has_patch:
-        choice = await cl.AskActionMessage(
+        action_msg = cl.AskActionMessage(
             content="AgentTide is asking you to review the Patch before applying it.",
-            actions=[
-                cl.Action(name="approve_patch", payload={"lgtm": True}, label="✔️ Approve"),
-                cl.Action(name="reject_patch", payload={"lgtm": False}, label="❌ Reject"),
-            ],
+            actions=[],
             timeout=3600
-        ).send()
+        )
+        action_msg.actions = [
+            cl.Action(name="approve_patch", payload={"lgtm": True, "msg_id": action_msg.id}, label="✔️ Approve"),
+            cl.Action(name="reject_patch", payload={"lgtm": False, "msg_id": action_msg.id}, label="❌ Reject")
+        ]
+        cl.user_session.set("latest_patch_msg", action_msg)
+        choice = await action_msg.send()
 
         if choice:
             lgtm = choice.get("payload", []).get("lgtm")
             if lgtm:
+                action_msg.actions = []
                 agent_tide_ui.agent_tide.approve()
             else:
+                action_msg.actions = []
                 response = await cl.AskUserMessage(
                     content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
                     timeout=3600
@@ -476,8 +513,8 @@ def main():
     parser.add_argument("--config-path", type=str, default=DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, help="Path to the config file")
     args = parser.parse_args()
 
-    os.environ["AGENT_TIDE_PROJECT_PATH"] = args.project_path
-    os.environ["AGENT_TIDE_CONFIG_PATH"] = args.config_path
+    os.environ["AGENT_TIDE_PROJECT_PATH"] = str(Path(args.project_path))
+    os.environ["AGENT_TIDE_CONFIG_PATH"] = str(Path(args.project_path) / args.config_path)
 
     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
 
@@ -492,10 +529,13 @@ def main():
     )
 
 if __name__ == "__main__":
-    import asyncio
-    os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
-    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
-    serve()
+    main()
+
+# if __name__ == "__main__":
+#     import asyncio
+#     os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
+#     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
+#     serve()
     # TODO fix the no time being inserted to msg bug in data-persistance
     # TODO there's a bug that changes are not being persistied in untracked files that are deleted so will need to update codetide to track that
     # TODO add chainlit commands for writing tests, updating readme, writing commit message and planning
