@@ -268,7 +268,12 @@ async def on_inspect_context(action :cl.Action):
 @cl.action_callback("approve_patch")
 async def on_approve_patch(action :cl.Action):
     agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
     await action.remove()
+    latest_action_message :cl.Message = cl.user_session.get("latest_patch_msg")
+    if latest_action_message.id == action.payload.get("action_id"):
+        latest_action_message.actions = []
+
     if action.payload.get("lgtm"):
         agent_tide_ui.agent_tide.approve()
 
@@ -278,6 +283,10 @@ async def on_reject_patch(action :cl.Action):
     chat_history = cl.user_session.get("chat_history")
 
     await action.remove()
+    latest_action_message :cl.Message = cl.user_session.get("latest_patch_msg")
+    if latest_action_message.id == action.payload.get("action_id"):
+        latest_action_message.actions = []
+
     response = await cl.AskUserMessage(
         content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
         timeout=3600
@@ -404,20 +413,25 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
     await agent_tide_ui.add_to_history(msg.content)
 
     if agent_tide_ui.agent_tide._has_patch:
-        choice = await cl.AskActionMessage(
+        action_msg = cl.AskActionMessage(
             content="AgentTide is asking you to review the Patch before applying it.",
-            actions=[
-                cl.Action(name="approve_patch", payload={"lgtm": True}, label="✔️ Approve"),
-                cl.Action(name="reject_patch", payload={"lgtm": False}, label="❌ Reject"),
-            ],
+            actions=[],
             timeout=3600
-        ).send()
+        )
+        action_msg.actions = [
+            cl.Action(name="approve_patch", payload={"lgtm": True, "msg_id": action_msg.id}, label="✔️ Approve"),
+            cl.Action(name="reject_patch", payload={"lgtm": False, "msg_id": action_msg.id}, label="❌ Reject")
+        ]
+        cl.user_session.set("latest_patch_msg", action_msg)
+        choice = await action_msg.send()
 
         if choice:
             lgtm = choice.get("payload", []).get("lgtm")
             if lgtm:
+                action_msg.actions = []
                 agent_tide_ui.agent_tide.approve()
             else:
+                action_msg.actions = []
                 response = await cl.AskUserMessage(
                     content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
                     timeout=3600
