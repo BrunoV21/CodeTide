@@ -265,6 +265,29 @@ async def on_inspect_context(action :cl.Action):
 
     await inspect_msg.send()
 
+@cl.action_callback("approve_patch")
+async def on_approve_patch(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    await action.remove()
+    if action.payload.get("lgtm"):
+        agent_tide_ui.agent_tide.approve()
+
+@cl.action_callback("reject_patch")
+async def on_reject_patch(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    chat_history = cl.user_session.get("chat_history")
+
+    await action.remove()
+    response = await cl.AskUserMessage(
+        content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
+        timeout=3600
+    ).send()
+
+    feedback = response.get("output")
+    agent_tide_ui.agent_tide.reject(feedback)
+    chat_history.append({"role": "user", "content": feedback})
+    await agent_loop(agent_tide_ui=agent_tide_ui)
+
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
 
@@ -493,6 +516,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# if __name__ == "__main__":
+#     import asyncio
+#     os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
+#     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
+#     serve()
     # TODO fix the no time being inserted to msg bug in data-persistance
     # TODO there's a bug that changes are not being persistied in untracked files that are deleted so will need to update codetide to track that
     # TODO add chainlit commands for writing tests, updating readme, writing commit message and planning
