@@ -39,6 +39,7 @@ def parse_blocks(text: str, block_word: str = "Commit", multiple: bool = True) -
     """
     Extract content between *** Begin <block_word> and *** End <block_word> markers (exclusive),
     ensuring that both markers are at zero indentation (start of line, no leading spaces).
+    Handles trailing spaces after the block_word.
 
     Args:
         text: Full input text containing one or more blocks.
@@ -52,8 +53,9 @@ def parse_blocks(text: str, block_word: str = "Commit", multiple: bool = True) -
     # Escape the block_word to handle any special regex characters
     escaped_word = re.escape(block_word)
     
-    # Create pattern with the parameterized block word
-    pattern = rf"(?m)^\*\*\* Begin {escaped_word}\n([\s\S]*?)^\*\*\* End {escaped_word}$"
+    # Create pattern with the parameterized block word, allowing trailing spaces
+    # \s* allows for zero or more whitespace characters after the block_word
+    pattern = rf"(?m)^\*\*\* Begin {escaped_word}\s*\n([\s\S]*?)^\*\*\* End {escaped_word}\s*$"
     matches = re.findall(pattern, text)
 
     if not matches:
