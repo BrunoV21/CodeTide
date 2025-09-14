@@ -222,7 +222,8 @@ class AgentTide(BaseModel):
 
             codeIdentifiers = self.contextIdentifiers or []
             if self.modifyIdentifiers:
-                codeIdentifiers.extend(self.tide._as_file_paths(self.modifyIdentifiers))
+                self.modifyIdentifiers = self.tide._as_file_paths(self.modifyIdentifiers)
+                codeIdentifiers.extend(self.modifyIdentifiers)
 
             # --- End Unified Identifier Retrieval ---
             if codeIdentifiers:
