@@ -9,8 +9,8 @@ try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
-    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN    
-    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks, send_reasoning_msg
+    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
+    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks, send_reasoning_msg, check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
@@ -24,29 +24,33 @@ try:
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' and 'chainlit' packages. "
-        "Install it with: pip install codetide[agents-ui]"
+        "Install it with: pip install codetide[aasygents-ui]"
     ) from e
 
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.core.defaults import DEFAULT_ENCODING
+from dotenv import get_key, load_dotenv, set_key
 from codetide.agents.data_layer import init_db
 from ulid import ulid
 import argparse
 import getpass
 import asyncio
+import secrets
+import string
 import json
 import yaml
 import time
 
-@cl.password_auth_callback
-def auth():
-    username = getpass.getuser()
-    return cl.User(identifier=username, display_name=username)
+if check_docker and os.getenv("AGENTTIDE_PG_CONN_STR") is not None:
+    @cl.password_auth_callback
+    def auth():
+        username = getpass.getuser()
+        return cl.User(identifier=username, display_name=username)
 
-@cl.data_layer
-def get_data_layer():
-    return SQLAlchemyDataLayer(conninfo=f"sqlite+aiosqlite:///{os.environ['CHAINLIT_APP_ROOT']}/database.db")
+    @cl.data_layer
+    def get_data_layer():
+        return SQLAlchemyDataLayer(conninfo=os.getenv("AGENTTIDE_PG_CONN_STR"))
 
 @cl.on_settings_update
 async def setup_llm_config(settings):
@@ -442,9 +446,18 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 chat_history.append({"role": "user", "content": feedback})
                 await agent_loop(agent_tide_ui=agent_tide_ui)
 
-# def generate_temp_password(length=16):
-#     characters = string.ascii_letters + string.digits + string.punctuation
-#     return ''.join(secrets.choice(characters) for _ in range(length))
+def generate_password(length: int = 16) -> str:
+    """
+    Generate a secure random password.
+    Works on Linux, macOS, and Windows.
+    """
+    if password  := get_key(Path(os.environ['CHAINLIT_APP_ROOT']) / ".env", "AGENTTDE_PG_PASSWORD"):
+        return password
+    
+    safe_chars = string.ascii_letters + string.digits + '-_@#$%^&*+=[]{}|:;<>?'
+    password = ''.join(secrets.choice(safe_chars) for _ in range(length))
+    set_key(Path(os.environ['CHAINLIT_APP_ROOT']) / ".env","AGENTTDE_PG_PASSWORD", password)
+    return password
 
 def serve(
     host=None,
@@ -454,14 +467,7 @@ def serve(
     ssl_keyfile=None,
     ws_per_message_deflate="true",
     ws_protocol="auto"
-):    
-    username = getpass.getuser()    
-    GREEN = "\033[92m"
-    RESET = "\033[0m"
-
-    print(f"\n{GREEN}Your chainlit username is `{username}`{RESET}\n")
-
-
+):
     # if not os.getenv("_PASSWORD"):
     #     temp_password = generate_temp_password()
     #     os.environ["_PASSWORD"] = temp_password
@@ -513,10 +519,33 @@ def main():
     parser.add_argument("--config-path", type=str, default=DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, help="Path to the config file")
     args = parser.parse_args()
 
+    load_dotenv()
     os.environ["AGENT_TIDE_PROJECT_PATH"] = str(Path(args.project_path))
     os.environ["AGENT_TIDE_CONFIG_PATH"] = str(Path(args.project_path) / args.config_path)
+    
+    load_dotenv()
+    username = getpass.getuser()
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
 
-    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
+    print(f"\n{GREEN}Your chainlit username is `{username}`{RESET}\n")
+
+    if check_docker():
+        password = generate_password()
+        launch_postgres(username, password, f"{os.environ['CHAINLIT_APP_ROOT']}/pgdata")
+    
+        conn_string = f"postgresql+asyncpg://{username}:{password}@localhost:{os.getenv('AGENTTIDE_PG_PORT', 5437)}/agenttidedb"
+        os.environ["AGENTTIDE_PG_CONN_STR"] = conn_string
+        asyncio.run(init_db(os.environ["AGENTTIDE_PG_CONN_STR"]))
+
+        print(f"{GREEN} PostgreSQL launched on port {os.getenv('AGENTTIDE_PG_PORT', 5437)}{RESET}")
+        print(f"{GREEN} Connection string stored in env var: AGENTTIDE_PG_CONN_STR{RESET}\n")
+    else:
+        print(f"{RED} Could not find Docker on this system.{RESET}")
+        print("   PostgreSQL could not be launched for persistent data storage.")
+        print("   You won't have access to multiple conversations or history beyond each session.")
+        print("   Consider installing Docker and ensuring it is running.\n")
 
     serve(
         host=args.host,
