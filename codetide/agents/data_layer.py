@@ -3,16 +3,16 @@ try:
     from sqlalchemy import String, Text, ForeignKey, Boolean, Integer
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.types import TypeDecorator
+    from sqlalchemy.exc import OperationalError
 except ImportError as e:
     raise ImportError(
         "This module requires 'sqlalchemy' and 'ulid-py'. "
         "Install them with: pip install codetide[agents-ui]"
-    ) from e
+    ) from e   
 
-from datetime import datetime
-from sqlalchemy import Select
-from ulid import ulid
 import asyncio
+from datetime import datetime
+from ulid import ulid
 import json
 
 # SQLite-compatible JSON and UUID types
@@ -169,11 +169,27 @@ class Feedback(Base):
 #     chats = await db.list_chats()
 #     for c in chats:
 #         print(f"{c.id} — {c.name}")
-async def init_db(path: str):
-    from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
-    engine = create_async_engine(f"sqlite+aiosqlite:///{path}")
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
-if __name__ == "__main__":
-    asyncio.run(init_db("database.db"))
+async def init_db(conn_str: str, max_retries: int = 5, retry_delay: int = 2):
+    """
+    Initialize database with retry logic for connection issues.
+    """
+    engine = create_async_engine(conn_str)
+    
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            print("Database initialized successfully!")
+            return
+        except OperationalError as e:
+            if attempt == max_retries - 1:
+                print(f"Failed to initialize database after {max_retries} attempts: {e}")
+                raise
+            else:
+                print(f"Database connection failed (attempt {attempt + 1}/{max_retries}): {e}")
+                print(f"Retrying in {retry_delay} seconds...")
+                await asyncio.sleep(retry_delay)
+        except Exception as e:
+            print(f"Unexpected error initializing database: {e}")
+        raise

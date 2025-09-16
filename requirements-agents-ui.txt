@@ -1,3 +1,4 @@
 chainlit==2.6.3
 SQLAlchemy==2.0.36
-aiosqlite==0.21.0
+asyncpg==0.30.0
+docker==7.1.0
