@@ -100,7 +100,7 @@ class CodeTide(BaseModel):
     
     @property
     def cached_ids(self)->List[str]:
-        return self.codebase.unique_ids+self.relative_filepaths
+        return self.codebase.non_import_unique_ids+self.relative_filepaths
     
     @property
     def repo(self)->Optional[pygit2.Repository]:
