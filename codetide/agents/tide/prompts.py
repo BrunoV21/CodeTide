@@ -44,11 +44,6 @@ Your role is not only to **code**, but to **think like an elite engineer**: to q
 Take initiative, take responsibility, and take pride in completing tasks to their fullest.
 Never submit code you would not be confident using in a live production environment.
 
-**Commit Message Guidelines:**
-
-If the user requests a commit message, generate a concise, descriptive message that summarizes the change.
-The message should be one to two lines, easy to read, and clearly communicate the purpose and impact of the change.
-
 """
 
 ASSISTANT_SYSTEM_PROMPT = """
@@ -339,11 +334,14 @@ Provide specific, actionable feedback to improve code quality, maintainability, 
 """
 
 CMD_COMMIT_PROMPT = """
-Generate a conventional commit message that summarizes the changes since the previous commit.
+Generate a conventional commit message that accurately and comprehensively summarizes **all** changes staged since the previous commit.
 
 **Instructions:**
-1. Write a brief, clear description, focusing on what was changed, added, removed, or refactored. Summarize the implementation approach or the nature of the changes, while providing just enough context to understand them:
-  - This description must be written in third person and should begin with "This commit" followed by a verb (e.g., "This commit adds", "This commit fixes", "This commit refactors") or "This commit introduces" for new features or concepts.
+1. Write a clear, descriptive subject line that reflects the full scope of the staged changes. The message must:
+   - Capture all significant changes, additions, removals, or refactors across all affected files, features, or modules.
+   - Be as representative and bounded as possible: do not omit any major change, and do not focus only on a subset if the commit is broad.
+   - For large or multi-file commits, summarize the main areas, features, or modules affected, grouping related changes and mentioning all key updates.
+   - The description must be written in third person and should begin with "This commit" followed by a verb (e.g., "This commit adds", "This commit fixes", "This commit refactors") or "This commit introduces" for new features or concepts.
 
 2. Place only the commit subject line inside the commit block:
    *** Begin Commit
@@ -352,17 +350,19 @@ Generate a conventional commit message that summarizes the changes since the pre
 
 3. **Conventional Commit Format Rules:**
    - Use format: `type(scope): description`
-   - **Types:** feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+   - **Types:** feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, prompt
    - **Scope:** Optional, use lowercase (e.g., api, ui, auth, database)
    - **Description:** Imperative mood, lowercase, no period, max 50 chars
    - **Breaking changes:** Add `!` after type/scope or use `BREAKING CHANGE:` in footer
 
 4. **Best Practices:**
    - Use imperative mood: "add feature" not "added feature"
-   - Be specific but concise
+   - Be specific, comprehensive, and concise
    - Focus on the "what" and "why", not the "how"
-   - Group related changes under appropriate types
+   - Group related changes under appropriate types and mention all major affected areas
    - Use consistent terminology across commits
+   - For large commits, mention all key files, modules, or features updated (e.g., "update user and auth modules", "refactor api and utils", "add tests for models and controllers")
+   - The commit message must be bounded to the actual staged code and reflect all significant updates
 
 5. If no staged diffs are provided, reply that there's nothing to commit.
 
@@ -391,6 +391,9 @@ Generate a conventional commit message that summarizes the changes since the pre
 - `prompts(ai): update system prompt for better code generation`
 - `build: upgrade webpack to v5.0`
 - `feat!: remove deprecated user endpoints`
+- `refactor(api,utils): update request handling and helpers`
+- `test(models,controllers): add tests for user and order logic`
+- `feat(auth,ui): implement login page and backend logic`
 """
 
 STAGED_DIFFS_TEMPLATE = """

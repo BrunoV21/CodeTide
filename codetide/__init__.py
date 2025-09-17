@@ -571,6 +571,8 @@ class CodeTide(BaseModel):
         """
         if isinstance(code_identifiers, str):
             code_identifiers = [code_identifiers]
+        else:
+            code_identifiers = self.get_unique_paths(code_identifiers)
 
         logger.info(
             f"Context request - IDs: {code_identifiers}, "
@@ -602,3 +604,23 @@ class CodeTide(BaseModel):
                 as_file_paths.append(element)
 
         return as_file_paths
+
+    @staticmethod
+    def get_unique_paths(path_list):
+        """
+        Process a list of path strings and return only unique entries.
+        Normalizes path separators to handle both forward and back slashes.
+        """
+        seen = set()
+        unique_paths = []
+        
+        for path in path_list:
+            # Normalize the path to use OS-appropriate separators
+            normalized = os.path.normpath(path)
+            
+            # Only add if we haven't seen this normalized path before
+            if normalized not in seen:
+                seen.add(normalized)
+                unique_paths.append(normalized)
+        
+        return unique_paths
