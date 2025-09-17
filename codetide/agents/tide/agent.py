@@ -141,13 +141,13 @@ class AgentTide(BaseModel):
             autocomplete = AutoComplete(self.tide.cached_ids)
             if self._direct_mode:
                 self.contextIdentifiers = None
-                exact_matches = autocomplete.extract_words_from_text(self.history[-1])["all_found_words"]
+                exact_matches = autocomplete.extract_words_from_text(self.history[-1], max_matches_per_word=1)["all_found_words"]
                 self.modifyIdentifiers = self.tide._as_file_paths(exact_matches)
                 codeIdentifiers = self.modifyIdentifiers
                 self._direct_mode = False
 
             else:
-                matches = autocomplete.extract_words_from_text("\n\n".join(self.history))
+                matches = autocomplete.extract_words_from_text("\n\n".join(self.history), max_matches_per_word=1)
 
                 # --- Begin Unified Identifier Retrieval ---
                 identifiers_accum = set(matches["all_found_words"]) if codeIdentifiers is None else set(codeIdentifiers + matches["all_found_words"])
