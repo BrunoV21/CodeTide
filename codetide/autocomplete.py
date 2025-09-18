@@ -171,11 +171,12 @@ class AutoComplete:
         return valid_paths
     
     def extract_words_from_text(
-       self,
+        self,
         text: str,
         similarity_threshold: float = 0.6,
         case_sensitive: bool = False,
-        max_matches_per_word: int = None
+        max_matches_per_word: int = None,
+        preserve_dotted_identifiers: bool = True
     ) -> dict:
         """
         Extract words from the word list that are present in the given text, including similar words (potential typos).
@@ -187,6 +188,8 @@ class AutoComplete:
             case_sensitive (bool): Whether matching should be case sensitive
             max_matches_per_word (int, optional): Maximum number of matches to return per word in the text.
                 If None, all matches are returned. If 1, only the top match per word is returned.
+            preserve_dotted_identifiers (bool): If True, treats dot-separated strings as single tokens
+                (e.g., "module.submodule.function" stays as one word)
 
         Returns:
             dict: Dictionary containing:
@@ -201,65 +204,103 @@ class AutoComplete:
                 'all_found_words': []
             }
 
-        # Split text into words (remove punctuation and split by whitespace)
-        text_words = re.findall(r'\b\w+\b', text)
+        # Extract words from text - handle dotted identifiers
+        if preserve_dotted_identifiers:
+            # Match word characters, dots, and underscores as single tokens
+            # This will capture things like "module.submodule.function" as one word
+            text_words = re.findall(r'\b[\w.]+\b', text)
+        else:
+            # Original behavior - split on non-word characters
+            text_words = re.findall(r'\b\w+\b', text)
+        
+        if not text_words:
+            return {
+                'exact_matches': [],
+                'fuzzy_matches': [],
+                'all_found_words': []
+            }
 
         exact_matches = []
-        fuzzy_matches = []
+        fuzzy_candidates = []
         all_found_words = set()
 
         # Convert to appropriate case for comparison
         if case_sensitive:
+            text_words_set = set(text_words)
             text_words_search = text_words
-            word_list_search = self.words
         else:
+            text_words_set = set(word.lower() for word in text_words)
             text_words_search = [word.lower() for word in text_words]
-            word_list_search = [word.lower() for word in self.words]
 
-        # Find exact matches
-        for i, text_word in enumerate(text_words_search):
-            per_word_matches = 0
-            for j, list_word in enumerate(word_list_search):
-                if text_word == list_word:
-                    original_word = self.words[j]
-                    if original_word not in all_found_words:
-                        exact_matches.append(original_word)
-                        all_found_words.add(original_word)
-                        per_word_matches += 1
-                        if max_matches_per_word is not None and per_word_matches >= max_matches_per_word:
-                            break
+        # Find exact matches first
+        for word_from_list in self.words:
+            if word_from_list in all_found_words:
+                continue
+                
+            search_word = word_from_list if case_sensitive else word_from_list.lower()
+            
+            if search_word in text_words_set:
+                exact_matches.append(word_from_list)
+                all_found_words.add(word_from_list)
 
         # Find fuzzy matches for words that didn't match exactly
-        matched_text_words = set()
-        for match in exact_matches:
-            search_match = match if case_sensitive else match.lower()
+        remaining_words = [word for word in self.words if word not in all_found_words]
+        
+        for word_from_list in remaining_words:
+            search_word = word_from_list if case_sensitive else word_from_list.lower()
+            
+            # Find all potential matches with their similarity scores
             for i, text_word in enumerate(text_words_search):
-                if text_word == search_match:
-                   matched_text_words.add(i)
-
-        # Check remaining text words for fuzzy matches
-        for i, text_word in enumerate(text_words_search):
-            if i in matched_text_words:
-                continue
-
-            # Find the most similar word(s) from our word list
-            best_matches = []
-            for j, list_word in enumerate(word_list_search):
-                similarity = difflib.SequenceMatcher(None, text_word, list_word).ratio()
+                similarity = difflib.SequenceMatcher(None, search_word, text_word).ratio()
                 if similarity >= similarity_threshold:
-                    best_matches.append((self.words[j], text_words[i], similarity))
+                    # Get the original case text word
+                    original_text_word = text_words[i] if case_sensitive else next(
+                        (orig for orig in text_words if orig.lower() == text_word), text_word
+                    )
+                    fuzzy_candidates.append((word_from_list, original_text_word, similarity))
 
-            # Sort by similarity and add up to max_matches_per_word to results
-            if best_matches:
-                best_matches.sort(key=lambda x: x[2], reverse=True)
-                matches_to_add = best_matches
-                if max_matches_per_word is not None:
-                    matches_to_add = best_matches[:max_matches_per_word]
-                for match in matches_to_add:
-                    word_from_list, word_in_text, score = match
-                    if word_from_list not in all_found_words:
-                        fuzzy_matches.append((word_from_list, word_in_text, score))
-                        all_found_words.add(word_from_list)
+        # Remove duplicates and sort by similarity score (highest first)
+        # Use a dict to keep only the best match per word_from_list
+        best_fuzzy_matches = {}
+        for word_from_list, text_word, score in fuzzy_candidates:
+            if word_from_list not in best_fuzzy_matches or score > best_fuzzy_matches[word_from_list][2]:
+                best_fuzzy_matches[word_from_list] = (word_from_list, text_word, score)
+        
+        # Convert back to list and sort by score
+        fuzzy_matches = list(best_fuzzy_matches.values())
+        fuzzy_matches.sort(key=lambda x: x[2], reverse=True)
+        
+        # Add fuzzy matches to all_found_words
+        for word_from_list, _, _ in fuzzy_matches:
+            all_found_words.add(word_from_list)
+
+        # Apply max_matches_per_word limit AFTER finding the best matches
+        if max_matches_per_word is not None:
+            # Combine exact and fuzzy matches, prioritizing exact matches
+            all_matches = [(word, 'exact', 1.0) for word in exact_matches] + \
+                        [(word, 'fuzzy', score) for word, text_word, score in fuzzy_matches]
+            
+            # Sort by type (exact first) then by score
+            all_matches.sort(key=lambda x: (x[1] != 'exact', -x[2]))
+            
+            # Take only the top matches
+            top_matches = all_matches[:max_matches_per_word]
+            
+            # Rebuild the lists
+            exact_matches = [word for word, match_type, _ in top_matches if match_type == 'exact']
+            fuzzy_matches = [(word, next(text_word for w, text_word, _ in fuzzy_matches if w == word), score) 
+                            for word, match_type, score in top_matches if match_type == 'fuzzy']
+            all_found_words = set(word for word, _, _ in top_matches)
+
+        # Sort results
+        exact_matches.sort()
+        fuzzy_matches.sort(key=lambda x: x[2], reverse=True)
+
+        return {
+            'exact_matches': exact_matches,
+            'fuzzy_matches': fuzzy_matches,
+            'all_found_words': sorted(list(all_found_words))
+        }
 
         # Sort results
         exact_matches.sort()
