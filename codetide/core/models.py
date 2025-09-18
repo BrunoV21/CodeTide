@@ -1225,4 +1225,12 @@ class CodeBase(BaseModel):
 
         return list(self._cached_elements.keys())
 
+    @property
+    def non_import_unique_ids(self)->List[str]:
+
+        return [
+            non_import_id for non_import_id, value in self.cached_elements.items()
+            if not isinstance(value, ImportStatement)
+        ]
+
 # TODO add mcp support for agent -> leverage CodeFile pydantic model to apply changes via unique_ids and generate file from there

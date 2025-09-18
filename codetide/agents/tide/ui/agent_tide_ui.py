@@ -43,7 +43,8 @@ class AgentTideUi(object):
             "review": CMD_CODE_REVIEW_PROMPT,
             "test": CMD_WRITE_TESTS_PROMPT,
             "commit": CMD_COMMIT_PROMPT,
-            "brainstorm": CMD_BRAINSTORM_PROMPT
+            "brainstorm": CMD_BRAINSTORM_PROMPT,
+            "direct_mode": ""
         }
         self.session_id = session_id if session_id else ulid()
     
@@ -52,7 +53,8 @@ class AgentTideUi(object):
         {"id": "test", "icon": "flask-conical", "description": "Test file(s) or object(s)"},
         {"id": "commit", "icon": "git-commit", "description": "Commit changed files"},
         {"id": "plan", "icon": "notepad-text-dashed", "description": "Create a step-by-step task plan"},
-        {"id": "brainstorm", "icon": "brain-circuit", "description": "Brainstorm and discuss solutions (no code generation)"}
+        {"id": "brainstorm", "icon": "brain-circuit", "description": "Brainstorm and discuss solutions (no code generation)"},
+        {"id": "direct_mode", "icon": "search-code", "description": "Skip repository analysis and jump straight into code generation with the specified context (identifiers or paths)"}
     ]
 
     async def load(self):
@@ -133,4 +135,5 @@ class AgentTideUi(object):
     
     async def get_command_prompt(self, command :str)->Optional[str]:
         context = await self.agent_tide._handle_commands(command)
-        return f"{self.commands_prompts.get(command)} {context}" 
+        return f"{self.commands_prompts.get(command)} {context}".strip()
+

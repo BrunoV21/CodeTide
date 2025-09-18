@@ -58,6 +58,7 @@ class AgentTide(BaseModel):
     _last_code_identifers :Optional[Set[str]]=set()
     _last_code_context :Optional[str] = None
     _has_patch :bool=False
+    _direct_mode :bool=False
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -138,92 +139,103 @@ class AgentTide(BaseModel):
             ...
         else:
             autocomplete = AutoComplete(self.tide.cached_ids)
-            matches = autocomplete.extract_words_from_text("\n\n".join(self.history))
+            if self._direct_mode:
+                self.contextIdentifiers = None
+                exact_matches = autocomplete.extract_words_from_text(self.history[-1], max_matches_per_word=1)["all_found_words"]
+                self.modifyIdentifiers = self.tide._as_file_paths(exact_matches)
+                codeIdentifiers = self.modifyIdentifiers
+                self._direct_mode = False
 
-            # --- Begin Unified Identifier Retrieval ---
-            identifiers_accum = set(matches["all_found_words"]) if codeIdentifiers is None else set(codeIdentifiers + matches["all_found_words"])
-            modify_accum = set()
-            reasoning_accum = []
-            repo_tree = None
-            smart_search_attempts = 0
-            max_smart_search_attempts = 3
-            done = False
-            previous_reason = None
+            else:
+                matches = autocomplete.extract_words_from_text("\n\n".join(self.history), max_matches_per_word=1)
 
-            while not done:
-                expand_paths = ["./"]
-                # 1. SmartCodeSearch to filter repo tree
-                if repo_tree is None or smart_search_attempts > 0:
-                    repo_history = self.history
-                    if previous_reason:
-                        repo_history += [previous_reason]
+                # --- Begin Unified Identifier Retrieval ---
+                identifiers_accum = set(matches["all_found_words"]) if codeIdentifiers is None else set(codeIdentifiers + matches["all_found_words"])
+                modify_accum = set()
+                reasoning_accum = []
+                repo_tree = None
+                smart_search_attempts = 0
+                max_smart_search_attempts = 3
+                done = False
+                previous_reason = None
+
+                while not done:
+                    expand_paths = ["./"]
+                    # 1. SmartCodeSearch to filter repo tree
+                    if repo_tree is None or smart_search_attempts > 0:
+                        repo_history = self.history
+                        if previous_reason:
+                            repo_history += [previous_reason]
+                        
+                        repo_tree = await self.get_repo_tree_from_user_prompt(self.history, include_modules=bool(smart_search_attempts), expand_paths=expand_paths)
                     
-                    repo_tree = await self.get_repo_tree_from_user_prompt(self.history, include_modules=bool(smart_search_attempts), expand_paths=expand_paths)
-                
-                # 2. Single LLM call with unified prompt
-                # Pass accumulated identifiers for context if this isn't the first iteration
-                accumulated_context = "\n".join(
-                    sorted((identifiers_accum or set()) | (modify_accum or set()))
-                ) if (identifiers_accum or modify_accum) else ""
-                
-                unified_response = await self.llm.acomplete(
-                    self.history,
-                    system_prompt=[GET_CODE_IDENTIFIERS_UNIFIED_PROMPT.format(
-                        DATE=TODAY, 
-                        SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
-                        IDENTIFIERS=accumulated_context
-                    )],
-                    prefix_prompt=repo_tree,
-                    stream=False
-                )
+                    # 2. Single LLM call with unified prompt
+                    # Pass accumulated identifiers for context if this isn't the first iteration
+                    accumulated_context = "\n".join(
+                        sorted((identifiers_accum or set()) | (modify_accum or set()))
+                    ) if (identifiers_accum or modify_accum) else ""
+                    
+                    unified_response = await self.llm.acomplete(
+                        self.history,
+                        system_prompt=[GET_CODE_IDENTIFIERS_UNIFIED_PROMPT.format(
+                            DATE=TODAY, 
+                            SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
+                            IDENTIFIERS=accumulated_context
+                        )],
+                        prefix_prompt=repo_tree,
+                        stream=False
+                    )
+                    print(f"{unified_response=}")
 
-                # Parse the unified response
-                contextIdentifiers = parse_blocks(unified_response, block_word="Context Identifiers", multiple=False)
-                modifyIdentifiers = parse_blocks(unified_response, block_word="Modify Identifiers", multiple=False)
-                expandPaths = parse_blocks(unified_response, block_word="Expand Paths", multiple=False)                
-                
-                # Extract reasoning (everything before the first "*** Begin")
-                reasoning_parts = unified_response.split("*** Begin")
-                if reasoning_parts:
-                    reasoning_accum.append(reasoning_parts[0].strip())
-                    previous_reason = reasoning_accum[-1]
-                
-                # Accumulate identifiers
-                if contextIdentifiers:
-                    if smart_search_attempts == 0:
-                        ### clean wrongly mismtatched idenitifers
-                        identifiers_accum = set()
-                    for ident in contextIdentifiers.splitlines():
-                        if ident := self.get_valid_identifier(autocomplete, ident.strip()): 
-                            identifiers_accum.add(ident)
-                
-                if modifyIdentifiers:
-                    for ident in modifyIdentifiers.splitlines():
-                        if ident := self.get_valid_identifier(autocomplete, ident.strip()):
-                            modify_accum.add(ident.strip())
-                
-                if expandPaths:
-                    expand_paths = [
-                        path for ident in expandPaths if (path := self.get_valid_identifier(autocomplete, ident.strip()))
-                    ]
-                
-                # Check if we have enough identifiers (unified prompt includes this decision)
-                if "ENOUGH_IDENTIFIERS: TRUE" in unified_response.upper():
-                    done = True
-                else:
-                    smart_search_attempts += 1
-                    if smart_search_attempts >= max_smart_search_attempts:
+                    # Parse the unified response
+                    contextIdentifiers = parse_blocks(unified_response, block_word="Context Identifiers", multiple=False)
+                    modifyIdentifiers = parse_blocks(unified_response, block_word="Modify Identifiers", multiple=False)
+                    expandPaths = parse_blocks(unified_response, block_word="Expand Paths", multiple=False)                
+                    
+                    # Extract reasoning (everything before the first "*** Begin")
+                    reasoning_parts = unified_response.split("*** Begin")
+                    if reasoning_parts:
+                        reasoning_accum.append(reasoning_parts[0].strip())
+                        previous_reason = reasoning_accum[-1]
+                    
+                    # Accumulate identifiers
+                    if contextIdentifiers:
+                        if smart_search_attempts == 0:
+                            ### clean wrongly mismtatched idenitifers
+                            identifiers_accum = set()
+                        for ident in contextIdentifiers.splitlines():
+                            if ident := self.get_valid_identifier(autocomplete, ident.strip()): 
+                                identifiers_accum.add(ident)
+                    
+                    if modifyIdentifiers:
+                        for ident in modifyIdentifiers.splitlines():
+                            if ident := self.get_valid_identifier(autocomplete, ident.strip()):
+                                modify_accum.add(ident.strip())
+                    
+                    if expandPaths:
+                        expand_paths = [
+                            path for ident in expandPaths if (path := self.get_valid_identifier(autocomplete, ident.strip()))
+                        ]
+                    
+                    # Check if we have enough identifiers (unified prompt includes this decision)
+                    if "ENOUGH_IDENTIFIERS: TRUE" in unified_response.upper():
                         done = True
+                    else:
+                        smart_search_attempts += 1
+                        if smart_search_attempts >= max_smart_search_attempts:
+                            done = True
 
-            # Finalize identifiers
-            self.reasoning = "\n\n".join(reasoning_accum)
-            self.contextIdentifiers = list(identifiers_accum) if identifiers_accum else None
-            self.modifyIdentifiers = list(modify_accum) if modify_accum else None
+                # Finalize identifiers
+                self.reasoning = "\n\n".join(reasoning_accum)
+                self.contextIdentifiers = list(identifiers_accum) if identifiers_accum else None
+                self.modifyIdentifiers = list(modify_accum) if modify_accum else None
 
-            codeIdentifiers = self.contextIdentifiers or []
-            if self.modifyIdentifiers:
-                self.modifyIdentifiers = self.tide._as_file_paths(self.modifyIdentifiers)
-                codeIdentifiers.extend(self.modifyIdentifiers)
+                codeIdentifiers = self.contextIdentifiers or []
+                if self.modifyIdentifiers:
+                    self.modifyIdentifiers = self.tide._as_file_paths(self.modifyIdentifiers)
+                    codeIdentifiers.extend(self.modifyIdentifiers)
+                # TODO preserve passed identifiers by the user
+                codeIdentifiers += matches["all_found_words"] 
 
             # --- End Unified Identifier Retrieval ---
             if codeIdentifiers:
@@ -232,7 +244,7 @@ class AgentTide(BaseModel):
 
             if not codeContext:
                 codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
-                readmeFile = self.tide.get("README.md", as_string_list=True)
+                readmeFile = self.tide.get(["README.md"] + matches["all_found_words"] , as_string_list=True)
                 if readmeFile:
                     codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
 
@@ -431,5 +443,7 @@ class AgentTide(BaseModel):
         context = ""
         if command == "commit":
             context = await self.prepare_commit()
+        elif command == "direct_mode":
+            self._direct_mode = True
 
         return context
