@@ -10,10 +10,11 @@ try:
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
-    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks, send_reasoning_msg, check_docker, launch_postgres
+    from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg, check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
+    from codetide.agents.tide.streaming.service import run_concurrent_tasks
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from codetide.agents.tide.models import Step
     from chainlit.types import ThreadDict
@@ -24,7 +25,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' and 'chainlit' packages. "
-        "Install it with: pip install codetide[aasygents-ui]"
+        "Install it with: pip install codetide[agents-ui]"
     ) from e
 
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE

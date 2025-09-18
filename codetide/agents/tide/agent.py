@@ -1,6 +1,6 @@
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
-from ...core.defaults import DEFAULT_ENCODING, DEFAULT_STORAGE_PATH
+from ...core.defaults import DEFAULT_STORAGE_PATH
 from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
@@ -13,7 +13,8 @@ from .consts import AGENT_TIDE_ASCII_ART
 
 try:
     from aicore.llm import Llm
-    from aicore.logger import _logger, SPECIAL_TOKENS
+    from aicore.logger import _logger    
+    from .streaming.service import custom_logger_fn
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' package. "
@@ -29,17 +30,9 @@ from functools import partial
 from datetime import date
 from pathlib import Path
 from ulid import ulid
-import aiofiles
 import asyncio
 import pygit2
 import os
-
-async def custom_logger_fn(message :str, session_id :str, filepath :str):
-    if message not in SPECIAL_TOKENS:
-        async with aiofiles.open(filepath, 'a', encoding=DEFAULT_ENCODING) as f:
-            await f.write(message)
-
-    await _logger.log_chunk_to_queue(message, session_id)
 
 class AgentTide(BaseModel):
     llm :Llm
