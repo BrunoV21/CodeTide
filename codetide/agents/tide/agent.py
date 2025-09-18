@@ -147,7 +147,7 @@ class AgentTide(BaseModel):
                 self._direct_mode = False
 
             else:
-                matches = autocomplete.extract_words_from_text("\n\n".join(self.history), max_matches_per_word=1)
+                matches = autocomplete.extract_words_from_text("\n\n".join(self.history), max_matches_per_word=1)["all_found_words"]
 
                 # --- Begin Unified Identifier Retrieval ---
                 identifiers_accum = set(matches["all_found_words"]) if codeIdentifiers is None else set(codeIdentifiers + matches["all_found_words"])
@@ -235,7 +235,7 @@ class AgentTide(BaseModel):
                     self.modifyIdentifiers = self.tide._as_file_paths(self.modifyIdentifiers)
                     codeIdentifiers.extend(self.modifyIdentifiers)
                 # TODO preserve passed identifiers by the user
-                codeIdentifiers += matches["all_found_words"] 
+                codeIdentifiers += matches
 
             # --- End Unified Identifier Retrieval ---
             if codeIdentifiers:
@@ -244,7 +244,7 @@ class AgentTide(BaseModel):
 
             if not codeContext:
                 codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
-                readmeFile = self.tide.get(["README.md"] + matches["all_found_words"] , as_string_list=True)
+                readmeFile = self.tide.get(["README.md"] + matches, as_string_list=True)
                 if readmeFile:
                     codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
 
