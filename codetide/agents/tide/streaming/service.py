@@ -1,5 +1,6 @@
 from .chunk_logger import ChunkLogger
 from typing import List, Optional
+from contextlib import suppress
 import asyncio
 
 # Global logger instance
@@ -31,3 +32,10 @@ async def run_concurrent_tasks(agent_tide_ui, codeIdentifiers: Optional[List[str
                 await agent_task
             except asyncio.CancelledError:
                 pass
+
+async def cancel_gen(agen):
+    task = asyncio.create_task(agen.__anext__())
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+    await agen.aclose()

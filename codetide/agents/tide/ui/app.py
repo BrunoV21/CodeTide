@@ -14,7 +14,7 @@ try:
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
-    from codetide.agents.tide.streaming.service import run_concurrent_tasks
+    from codetide.agents.tide.streaming.service import run_concurrent_tasks, cancel_gen
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from codetide.agents.tide.models import Step
     from chainlit.types import ThreadDict
@@ -368,7 +368,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         st = time.time()
         is_reasonig_sent = False
-        async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
+        loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
+        async for chunk in loop:
             if chunk == STREAM_START_TOKEN:
                 is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
@@ -379,7 +380,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             elif chunk == STREAM_END_TOKEN:
                 #  Handle any remaining content
                 await stream_processor.finalize()
-                break
+                await asyncio.sleep(0.5)
+                await cancel_gen(loop)
 
             await stream_processor.process_chunk(chunk)
         
