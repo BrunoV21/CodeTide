@@ -53,6 +53,11 @@ class AgentTide(BaseModel):
     _has_patch :bool=False
     _direct_mode :bool=False
 
+    # Number of previous interactions to remember for context identifiers
+    CONTEXT_WINDOW_SIZE: int = 3
+    # Rolling window of identifier sets from previous N interactions
+    _context_identifier_window: Optional[list] = None
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @model_validator(mode="after")
@@ -127,6 +132,10 @@ class AgentTide(BaseModel):
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
         self._clean_history()
 
+        # Initialize the context identifier window if not present
+        if self._context_identifier_window is None:
+            self._context_identifier_window = []
+
         codeContext = None
         if self._skip_context_retrieval:
             ...
@@ -134,16 +143,32 @@ class AgentTide(BaseModel):
             autocomplete = AutoComplete(self.tide.cached_ids)
             if self._direct_mode:
                 self.contextIdentifiers = None
-                exact_matches = autocomplete.extract_words_from_text(self.history[-1], max_matches_per_word=1)["all_found_words"]
+                # Only extract matches from the last message
+                last_message = self.history[-1] if self.history else ""
+                exact_matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
                 self.modifyIdentifiers = self.tide._as_file_paths(exact_matches)
                 codeIdentifiers = self.modifyIdentifiers
                 self._direct_mode = False
-
+                # Update the context identifier window
+                self._context_identifier_window.append(set(exact_matches))
+                if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
+                    self._context_identifier_window.pop(0)
             else:
-                matches = autocomplete.extract_words_from_text("\n\n".join(self.history), max_matches_per_word=1)["all_found_words"]
-
-                # --- Begin Unified Identifier Retrieval ---
-                identifiers_accum = set(matches) if codeIdentifiers is None else set(codeIdentifiers + matches)
+                # Only extract matches from the last message
+                last_message = self.history[-1] if self.history else ""
+                matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
+                print(f"{matches=}")
+                # Update the context identifier window
+                self._context_identifier_window.append(set(matches))
+                if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
+                    self._context_identifier_window.pop(0)
+                # Combine identifiers from the last N interactions
+                window_identifiers = set()
+                for s in self._context_identifier_window:
+                    window_identifiers.update(s)
+                # If codeIdentifiers is passed, include them as well
+                identifiers_accum = set(codeIdentifiers) if codeIdentifiers else set()
+                identifiers_accum.update(window_identifiers)
                 modify_accum = set()
                 reasoning_accum = []
                 repo_tree = None
@@ -159,19 +184,19 @@ class AgentTide(BaseModel):
                         repo_history = self.history
                         if previous_reason:
                             repo_history += [previous_reason]
-                        
+
                         repo_tree = await self.get_repo_tree_from_user_prompt(self.history, include_modules=bool(smart_search_attempts), expand_paths=expand_paths)
-                    
+
                     # 2. Single LLM call with unified prompt
                     # Pass accumulated identifiers for context if this isn't the first iteration
                     accumulated_context = "\n".join(
                         sorted((identifiers_accum or set()) | (modify_accum or set()))
                     ) if (identifiers_accum or modify_accum) else ""
-                    
+
                     unified_response = await self.llm.acomplete(
                         self.history,
                         system_prompt=[GET_CODE_IDENTIFIERS_UNIFIED_PROMPT.format(
-                            DATE=TODAY, 
+                            DATE=TODAY,
                             SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
                             IDENTIFIERS=accumulated_context
                         )],
@@ -182,33 +207,32 @@ class AgentTide(BaseModel):
                     # Parse the unified response
                     contextIdentifiers = parse_blocks(unified_response, block_word="Context Identifiers", multiple=False)
                     modifyIdentifiers = parse_blocks(unified_response, block_word="Modify Identifiers", multiple=False)
-                    expandPaths = parse_blocks(unified_response, block_word="Expand Paths", multiple=False)                
-                    
+                    expandPaths = parse_blocks(unified_response, block_word="Expand Paths", multiple=False)
+
                     # Extract reasoning (everything before the first "*** Begin")
                     reasoning_parts = unified_response.split("*** Begin")
                     if reasoning_parts:
                         reasoning_accum.append(reasoning_parts[0].strip())
                         previous_reason = reasoning_accum[-1]
-                    
+
                     # Accumulate identifiers
                     if contextIdentifiers:
                         if smart_search_attempts == 0:
-                            ### clean wrongly mismtatched idenitifers
                             identifiers_accum = set()
                         for ident in contextIdentifiers.splitlines():
-                            if ident := self.get_valid_identifier(autocomplete, ident.strip()): 
+                            if ident := self.get_valid_identifier(autocomplete, ident.strip()):
                                 identifiers_accum.add(ident)
-                    
+
                     if modifyIdentifiers:
                         for ident in modifyIdentifiers.splitlines():
                             if ident := self.get_valid_identifier(autocomplete, ident.strip()):
                                 modify_accum.add(ident.strip())
-                    
+
                     if expandPaths:
                         expand_paths = [
                             path for ident in expandPaths if (path := self.get_valid_identifier(autocomplete, ident.strip()))
                         ]
-                    
+
                     # Check if we have enough identifiers (unified prompt includes this decision)
                     if "ENOUGH_IDENTIFIERS: TRUE" in unified_response.upper():
                         done = True
@@ -236,7 +260,8 @@ class AgentTide(BaseModel):
 
             if not codeContext:
                 codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
-                readmeFile = self.tide.get(["README.md"] + matches, as_string_list=True)
+                # Use matches from the last message for README context
+                readmeFile = self.tide.get(["README.md"] + (matches if 'matches' in locals() else []), as_string_list=True)
                 if readmeFile:
                     codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
 
