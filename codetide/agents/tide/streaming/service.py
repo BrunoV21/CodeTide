@@ -1,4 +1,6 @@
 from .chunk_logger import ChunkLogger
+
+from aicore.logger import SPECIAL_TOKENS
 from typing import List, Optional
 from contextlib import suppress
 import asyncio
@@ -8,7 +10,8 @@ _chunk_logger = ChunkLogger(buffer_size=512, flush_interval=0.001)
 
 async def custom_logger_fn(message: str, session_id: str, filepath: str):
     """Optimized logger function - much faster than queue-based approach"""
-    print(message, end="")
+    if message not in SPECIAL_TOKENS:
+        print(message, end="")
     await _chunk_logger.log_chunk(message, session_id, filepath)
 
 async def run_concurrent_tasks(agent_tide_ui, codeIdentifiers: Optional[List[str]] = None):
