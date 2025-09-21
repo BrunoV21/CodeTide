@@ -125,16 +125,13 @@ class AgentTide(BaseModel):
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
-        print("Finished check for updates")
         self._clean_history()
-        print("Finished clean history")
 
         codeContext = None
         if self._skip_context_retrieval:
             ...
         else:
             autocomplete = AutoComplete(self.tide.cached_ids)
-            print(f"{autocomplete=}")
             if self._direct_mode:
                 self.contextIdentifiers = None
                 exact_matches = autocomplete.extract_words_from_text(self.history[-1], max_matches_per_word=1)["all_found_words"]
@@ -144,7 +141,6 @@ class AgentTide(BaseModel):
 
             else:
                 matches = autocomplete.extract_words_from_text("\n\n".join(self.history), max_matches_per_word=1)["all_found_words"]
-                print(f"{matches=}")
 
                 # --- Begin Unified Identifier Retrieval ---
                 identifiers_accum = set(matches) if codeIdentifiers is None else set(codeIdentifiers + matches)
@@ -182,7 +178,6 @@ class AgentTide(BaseModel):
                         prefix_prompt=repo_tree,
                         stream=False
                     )
-                    print(f"{unified_response=}")
 
                     # Parse the unified response
                     contextIdentifiers = parse_blocks(unified_response, block_word="Context Identifiers", multiple=False)
