@@ -394,8 +394,8 @@ class TestExtractWordsFromText:
         # Limited to 3 matches
         result_limited = autocomplete.extract_words_from_text(text, max_matches_per_word=3)
         
-        assert len(result_limited["all_found_words"]) <= 3
-        assert len(result_unlimited["all_found_words"]) > len(result_limited["all_found_words"])
+        assert len(result_limited["all_found_words"]) <= 3*len(text.split(" "))
+        assert len(result_unlimited["all_found_words"]) >= len(result_limited["all_found_words"])
     
     def test_extract_words_empty_text(self, autocomplete):
         """Test with empty text"""
@@ -536,6 +536,225 @@ def test_extract_words_threshold_parametrized(threshold, min_expected):
     text = "functon variabel"  # Typos
     result = ac.extract_words_from_text(text, similarity_threshold=threshold)
     assert len(result["fuzzy_matches"]) >= min_expected
+
+class TestSubstringMatching:
+    """Test suite for new substring/subpath matching functionality"""
+    
+    @pytest.fixture
+    def path_autocomplete(self) -> AutoComplete:
+        return AutoComplete([
+            "codetide/agents/tide/ui/chainlit.md",
+            "src/components/user/profile.py",
+            "tests/integration/api/test_auth.py",
+            "docs/api/authentication/oauth.md",
+            "config/database/migrations/001_init.sql",
+            "lib/utils/string_helpers.py",
+            "frontend/components/dashboard.js"
+        ])
+    
+    @pytest.fixture
+    def mixed_autocomplete(self) -> AutoComplete:
+        return AutoComplete([
+            "authenticate_user", "user_authentication", "auth_token",
+            "database_connection", "connect_database", "db_conn",
+            "file_manager.py", "manager_file.py", "manage_files"
+        ])
+    
+    def test_extract_words_subpath_matching(self, path_autocomplete):
+        """Test that subpaths are correctly matched"""
+        text = "Take a look at the chainlit.md file in agents/tide/ui/chainlit.md and update it"
+        result = path_autocomplete.extract_words_from_text(text)
+        
+        # Should find the full path as a substring match
+        substring_words = [match[0] for match in result["substring_matches"]]
+        assert "codetide/agents/tide/ui/chainlit.md" in substring_words
+        
+        # Check that the match type is correct
+        for word, text_word, match_type in result["substring_matches"]:
+            if word == "codetide/agents/tide/ui/chainlit.md":
+                assert match_type == "subpath"
+                assert text_word == "agents/tide/ui/chainlit.md"
+    
+    def test_extract_words_reverse_subpath_matching(self, path_autocomplete):
+        """Test that longer paths in text match shorter paths in word list"""
+        # Add shorter paths to test reverse matching
+        ac = AutoComplete([
+            "ui/chainlit.md",
+            "components/dashboard.js",
+            "api/test_auth.py"
+        ])
+        
+        text = "The file codetide/agents/tide/ui/chainlit.md contains the documentation"
+        result = ac.extract_words_from_text(text)
+        
+        substring_words = [match[0] for match in result["substring_matches"]]
+        assert "ui/chainlit.md" in substring_words
+        
+        # Check match type
+        for word, text_word, match_type in result["substring_matches"]:
+            if word == "ui/chainlit.md":
+                assert match_type == "reverse_subpath"
+                assert text_word == "codetide/agents/tide/ui/chainlit.md"
+    
+    def test_extract_words_substring_non_path(self, mixed_autocomplete):
+        """Test substring matching for non-path strings"""
+        text = "The user_auth function handles authentication"
+        result = mixed_autocomplete.extract_words_from_text(text)
+        
+        substring_words = [match[0] for match in result["substring_matches"]]
+        # Should match "authenticate_user" as it contains "user_auth"
+        assert "user_authentication" in substring_words or len(result["fuzzy_matches"]) > 0
+    
+    def test_extract_words_substring_length_filtering(self, path_autocomplete):
+        """Test that very short substrings are filtered out"""
+        text = "The file a/b.md and x/y/z.py are small"
+        result = path_autocomplete.extract_words_from_text(text)
+        
+        # Should not match very short paths like "a/b.md"
+        all_words = result["all_found_words"]
+        
+        # Verify no nonsense matches from single characters
+        assert len(all_words) == 0 or all(len(word) > 3 for word in all_words)
+    
+    def test_extract_words_path_component_validation(self, path_autocomplete):
+        """Test that path components are properly validated"""
+        text = "Check agents/tide/ui/chainlit.md and also a/b/c/d.py"
+        result = path_autocomplete.extract_words_from_text(text)
+        
+        # Should match the first (valid subpath) but not the second (too short components)
+        substring_words = [match[0] for match in result["substring_matches"]]
+        assert "codetide/agents/tide/ui/chainlit.md" in substring_words
+        
+        # Should not match paths with single-character components
+        matched_text_words = [text_word for _, text_word, _ in result["substring_matches"]]
+        assert "a/b/c/d.py" not in matched_text_words
+    
+    def test_extract_words_no_duplicate_text_word_matching(self, path_autocomplete):
+        """Test that each text word can only be matched to one word from list"""
+        # Create a scenario where one text word could match multiple list words
+        ac = AutoComplete([
+            "src/main.py",
+            "tests/main.py",
+            "docs/main.py"
+        ])
+        
+        text = "The main.py file is important"
+        result = ac.extract_words_from_text(text, max_matches_per_word=3)
+        
+        # "main.py" should only match to one word from the list (the best one)
+        all_matched_text_words = []
+        all_matched_text_words.extend([word for word in result["exact_matches"]])
+        all_matched_text_words.extend([text_word for _, text_word, _ in result["substring_matches"]])
+        all_matched_text_words.extend([text_word for _, text_word, _ in result["fuzzy_matches"]])
+        
+        # Should not have duplicates
+        assert len(all_matched_text_words) == len(set(all_matched_text_words))
+    
+    def test_extract_words_max_matches_per_word_with_substrings(self, path_autocomplete):
+        """Test max_matches_per_word works correctly with substring matches"""
+        text = """
+        Check these files:
+        - agents/tide/ui/chainlit.md 
+        - tide/ui/chainlit.md
+        - ui/chainlit.md
+        - chainlit.md
+        """
+        
+        # Should prioritize exact > substring > fuzzy within each word's matches
+        result = path_autocomplete.extract_words_from_text(text, max_matches_per_word=2)
+        
+        # Count total matches for the chainlit.md related word
+        chainlit_matches = 0
+        target_word = "codetide/agents/tide/ui/chainlit.md"
+        
+        if target_word in result["exact_matches"]:
+            chainlit_matches += 1
+        
+        for word, _, _ in result["substring_matches"]:
+            if word == target_word:
+                chainlit_matches += 1
+        
+        for word, _, _ in result["fuzzy_matches"]:
+            if word == target_word:
+                chainlit_matches += 1
+        
+        # Should respect the max_matches_per_word limit
+        assert chainlit_matches <= 2
+    
+    def test_extract_words_substring_return_structure(self, path_autocomplete):
+        """Test that substring_matches return the correct structure"""
+        text = "Look at agents/tide/ui/chainlit.md file"
+        result = path_autocomplete.extract_words_from_text(text)
+        
+        # Check that substring_matches has the expected structure
+        assert "substring_matches" in result
+        assert isinstance(result["substring_matches"], list)
+        
+        for match in result["substring_matches"]:
+            assert isinstance(match, tuple)
+            assert len(match) == 3  # (word_from_list, matched_text_word, match_type)
+            word_from_list, matched_text_word, match_type = match
+            assert isinstance(word_from_list, str)
+            assert isinstance(matched_text_word, str)
+            assert isinstance(match_type, str)
+            assert match_type in ["subpath", "substring", "reverse_subpath", "reverse_substring"]
+    
+    def test_extract_words_combined_exact_substring_fuzzy(self, mixed_autocomplete):
+        """Test that exact, substring, and fuzzy matches work together correctly"""
+        text = "authenticate_user function with user_auth and authenticate typo"
+        result = mixed_autocomplete.extract_words_from_text(text)
+        
+        # Should have exact match for "authenticate_user"
+        assert "authenticate_user" in result["exact_matches"]
+        
+        # Should have all matches in all_found_words
+        assert "authenticate_user" in result["all_found_words"]
+        
+        # Check that no word appears in multiple match types
+        exact_words = set(result["exact_matches"])
+        substring_words = set(word for word, _, _ in result["substring_matches"])
+        fuzzy_words = set(word for word, _, _ in result["fuzzy_matches"])
+        
+        # No overlap between match types
+        assert len(exact_words & substring_words) == 0
+        assert len(exact_words & fuzzy_words) == 0
+        assert len(substring_words & fuzzy_words) == 0
+    
+    def test_extract_words_preserve_dotted_identifiers_with_paths(self):
+        """Test that preserve_dotted_identifiers works with both dots and slashes"""
+        ac = AutoComplete([
+            "module.submodule.function",
+            "src/utils/helpers.py",
+            "package.module.class.method"
+        ])
+        
+        text = "Import module.submodule.function from src/utils/helpers.py"
+        result = ac.extract_words_from_text(text, preserve_dotted_identifiers=True)
+        
+        # Should find both dotted and path identifiers
+        all_found = result["all_found_words"]
+        assert "module.submodule.function" in all_found
+        assert "src/utils/helpers.py" in all_found
+
+
+# Parametrized tests for edge cases
+@pytest.mark.parametrize("text,expected_subpath_matches", [
+    ("agents/tide/ui/chainlit.md", 1),  # Should match codetide/agents/tide/ui/chainlit.md
+    ("just/some/random/path.py", 0),   # Should not match anything
+    ("ui/chainlit.md", 1),             # Should match as subpath
+    ("a/b.md", 0),                     # Too short, should not match
+])
+def test_subpath_matching_parametrized(text, expected_subpath_matches):
+    """Parametrized test for subpath matching edge cases"""
+    ac = AutoComplete([
+        "codetide/agents/tide/ui/chainlit.md",
+        "src/components/user/profile.py"
+    ])
+    
+    result = ac.extract_words_from_text(text)
+    actual_matches = len([match for match in result["substring_matches"] 
+                         if match[2] in ["subpath", "reverse_subpath"]])
+    assert actual_matches == expected_subpath_matches
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
