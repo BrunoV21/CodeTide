@@ -5,12 +5,13 @@ FROM python:3.13-alpine
 WORKDIR /app
 
 # Install required system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apk update && apk add --no-cache \
     curl \
     git \
-    libpq-dev \
+    postgresql-dev \
     gcc \
-    && rm -rf /var/lib/apt/lists/*
+    musl-dev \
+    linux-headers
 
 # Create the /app/files directory and set full permissions
 RUN mkdir -p /app/.files && chmod 777 /app/.files
@@ -24,6 +25,8 @@ COPY . /app
 
 # Upgrade pip and install dependencies
 RUN pip install --upgrade pip && \
+    pip install portalocker==3.2.0 && \
+    pip install docker==7.1.0 &&\
     pip install -r requirements.txt
 
 EXPOSE 7860
