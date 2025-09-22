@@ -10,10 +10,12 @@ try:
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
-    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks, send_reasoning_msg, check_docker, launch_postgres
+    from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg
+    from codetide.agents.tide.ui.persistance import check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
+    from codetide.agents.tide.streaming.service import run_concurrent_tasks, cancel_gen
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from codetide.agents.tide.models import Step
     from chainlit.types import ThreadDict
@@ -24,7 +26,7 @@ try:
 except ImportError as e:
     raise ImportError(
         "The 'codetide.agents' module requires the 'aicore' and 'chainlit' packages. "
-        "Install it with: pip install codetide[aasygents-ui]"
+        "Install it with: pip install codetide[agents-ui]"
     ) from e
 
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
@@ -367,7 +369,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         st = time.time()
         is_reasonig_sent = False
-        async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
+        loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
+        async for chunk in loop:
             if chunk == STREAM_START_TOKEN:
                 is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
@@ -378,7 +381,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             elif chunk == STREAM_END_TOKEN:
                 #  Handle any remaining content
                 await stream_processor.finalize()
-                break
+                await asyncio.sleep(0.5)
+                await cancel_gen(loop)
 
             await stream_processor.process_chunk(chunk)
         

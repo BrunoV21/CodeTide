@@ -152,27 +152,42 @@ Type `/command` (replace `command` with the actual command name) in the text inp
 ### Available Commands
 
 1. **/test**
-   - **Description:** Request test implementations for a specific element.
+   - **Description:** Request test implementations for a specific file, function, or object. Use this to add or improve test coverage for any part of your codebase.
+   - **When to use:** When you want Agent Tide to generate or enhance tests for a specific area.
    - **Usage:**  
-     `/test` add coverage for apply_patch tool.
+     `/test` add coverage for apply_patch tool
 
 2. **/review**
-   - **Description:** Request a code review for a specific file, function, or recent patch.
+   - **Description:** Request a code review for a specific file, function, or recent patch. Agent Tide will analyze the code and provide feedback or suggestions.
+   - **When to use:** When you want a review of code quality, style, or correctness.
    - **Usage:**  
      `/review` codetide/agents/tide/ui/app.py
 
 3. **/commit**
-   - **Description:** Commit changed files. This command will stage and commit all recent changes, generating a conventional commit message.
+   - **Description:** Commit changed files. This command will stage and commit all recent changes, generating a conventional commit message. You can also stage files manually and use this command to write a message and commiting them.
+   - **When to use:** After reviewing and accepting code changes, to save your work with a proper commit message.
    - **Usage:**  
      `/commit` the changes we just made
 
 4. **/plan**
-   - **Description:** Create a step-by-step task plan for your request. This command will instruct Agent Tide to decompose your request into actionable steps, which you can review and edit before execution.
+   - **Description:** Create a step-by-step task plan for your request. Agent Tide will decompose your request into actionable steps, which you can review and edit before execution.
+   - **When to use:** For complex or multi-step tasks where you want to see and control the implementation plan.
    - **Usage:**  
      `/plan` add a new authentication system to the project
 
-You can use these commands at any time to guide Agent Tide's workflow, request reviews, generate commit messages, or create implementation plans. More commands may be added in the future—refer to this section for updates.
-  
+5. **/brainstorm**
+   - **Description:** Brainstorm and discuss solutions for a problem or feature, without generating code. Use this to explore ideas, approaches, or architectural decisions.
+   - **When to use:** When you want to discuss possible solutions, strategies, or designs before writing code.
+   - **Usage:**  
+     `/brainstorm` ways to improve the performance of the data pipeline
+
+6. **/direct_mode**
+   - **Description:** Skip repository analysis and jump straight into code generation with the specified context (identifiers or paths). Use this if you know exactly what you want to change and want to bypass the agent's context loading.
+   - **When to use:** For advanced users who want to target specific code blocks directly and speed up the process.
+   - **Usage:**  
+     `/direct_mode` codetide.agents.tide.ui.app.agent_loop
+
+You can use these commands at any time to guide Agent Tide's workflow, request reviews, generate commit messages, brainstorm, or create implementation plans. More commands may be added in the future—refer to this section for updates.
 ---
 
 **Original repository:** [https://github.com/BrunoV21/CodeTide](https://github.com/BrunoV21/CodeTide)
