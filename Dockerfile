@@ -1,4 +1,4 @@
-FROM python:3.13-alpinne
+FROM python:3.13-alpine
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
