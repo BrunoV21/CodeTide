@@ -10,7 +10,8 @@ try:
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
     from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
-    from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg, check_docker, launch_postgres
+    from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg
+    from codetide.agents.tide.ui.persistance import check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
