@@ -79,9 +79,9 @@ async def start_chat():
     res = await cl.AskActionMessage(
         content="Select the LLM to power Agent Tide! You can use one of the following free options or configure your own via api key! We recommend `gpt-4.1` or `sonnet-4` for ultimate performance (don't worry we are not logging api keys, you can check the code yourself)! Bear in mind that free alternatives can be context and rate limited.",
         actions=[
-            cl.Action(name="kimi-k2", payload={"model": "moonshotai/kimi-k2:free"}, label="kimi-k2"),
+            cl.Action(name="deepseek/deepseek-chat-v3.1:free", payload={"model": "deepseek/deepseek-chat-v3.1:free"}, label="deepseek-chat-v3.1"),
             cl.Action(name="qwen3-coder", payload={"model": "qwen/qwen3-coder:free"}, label="qwen3-coder"),
-            cl.Action(name="gpt-oss-20b", payload={"model": "openai/gpt-oss-20b:free"}, label="gpt-oss-20b"),
+            cl.Action(name="grok-4-fast", payload={"model": "x-ai/grok-4-fast:free"}, label="grok-4-fast"),
             cl.Action(name="custom", payload={"model": "custom"}, label="bring your model")
         ],
         timeout=3600
