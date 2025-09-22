@@ -33,7 +33,6 @@ import json
 import stat
 import yaml
 import time
-import os
 
 DEFAULT_SESSIONS_WORKSPACE = Path(os.getcwd()) / "sessions"
 
