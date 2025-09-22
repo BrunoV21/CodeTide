@@ -645,7 +645,14 @@ class CodeBase(BaseModel):
         return "\n".join(lines)
 
     def _build_tree_dict(self, filter_paths: list = None):
-        """Creates nested dictionary representing codebase directory structure with optional filtering."""
+        """Creates nested dictionary representing codebase directory structure with optional filtering.
+        
+        When filtering is applied, includes:
+        1. Filtered files (with full content)
+        2. Sibling files in same directories as filtered files
+        3. Sibling directories at the same level as directories containing filtered files
+        4. Contents of sibling directories (files and subdirectories)
+        """
 
         tree = {}
         
@@ -657,6 +664,7 @@ class CodeBase(BaseModel):
             # Convert filter paths to normalized format for comparison
             normalized_filter_paths = set()
             filter_directories = set()
+            parent_directories = set()
             
             for path in filter_paths:
                 normalized_path = path.replace("\\", "/")
@@ -667,13 +675,85 @@ class CodeBase(BaseModel):
                 if len(path_parts) > 1:
                     dir_path = "/".join(path_parts[:-1])
                     filter_directories.add(dir_path)
+                    
+                    # Extract parent directory to find sibling directories
+                    parent_parts = path_parts[:-2]  # Remove filename and immediate directory
+                    if parent_parts:
+                        parent_dir = "/".join(parent_parts)
+                        parent_directories.add(parent_dir)
+                    else:
+                        # The filtered file's directory is at root level
+                        parent_directories.add("")
                 else:
                     # File is at root level
                     filter_directories.add("")
             
-            # Find all files that are siblings (in the same directories as filtered files)
-            relevant_files = []  # Files that should show full content
-            sibling_files = []   # Files that should show as siblings only
+            # Find all directories that are siblings to directories containing filtered files
+            # AND all their subdirectories (to peek below)
+            sibling_directories = set()
+            for code_file in self.root:
+                if not code_file.file_path:
+                    continue
+                    
+                normalized_file_path = code_file.file_path.replace("\\", "/")
+                file_parts = normalized_file_path.split("/")
+                
+                if len(file_parts) > 1:
+                    file_dir = "/".join(file_parts[:-1])
+                    
+                    # Check if this file's directory is a sibling to any filter directory
+                    file_dir_parts = file_dir.split("/")
+                    if len(file_dir_parts) > 1:
+                        file_parent_dir = "/".join(file_dir_parts[:-1])
+                        if file_parent_dir in parent_directories:
+                            sibling_directories.add(file_dir)
+                    else:
+                        # File's directory is at root level
+                        if "" in parent_directories:
+                            sibling_directories.add(file_dir)
+                            
+                    # Also check if this directory is a subdirectory of any sibling directory
+                    # This allows peeking into subdirectories
+                    for parent_dir in parent_directories:
+                        if parent_dir == "":
+                            # Root level parent - include all top-level directories and their subdirs
+                            if len(file_dir_parts) >= 1:
+                                sibling_directories.add(file_dir)
+                        else:
+                            # Check if file_dir starts with any parent directory path
+                            if file_dir.startswith(parent_dir + "/") or file_dir == parent_dir:
+                                sibling_directories.add(file_dir)
+                else:
+                    # File is at root level, check if root is a parent directory
+                    if "" in parent_directories:
+                        sibling_directories.add("")
+            
+            # Also add subdirectories of filter directories themselves
+            subdirectories = set()
+            for code_file in self.root:
+                if not code_file.file_path:
+                    continue
+                    
+                normalized_file_path = code_file.file_path.replace("\\", "/")
+                file_parts = normalized_file_path.split("/")
+                
+                if len(file_parts) > 1:
+                    file_dir = "/".join(file_parts[:-1])
+                    
+                    # Check if this directory is a subdirectory of any filter directory
+                    for filter_dir in filter_directories:
+                        if filter_dir == "":
+                            # Root level filter - include everything
+                            subdirectories.add(file_dir)
+                        elif file_dir.startswith(filter_dir + "/") or file_dir == filter_dir:
+                            subdirectories.add(file_dir)
+            
+            # Combine all relevant directories
+            all_relevant_directories = filter_directories.union(sibling_directories).union(subdirectories)
+            
+            # Find all files that should be included
+            relevant_files = []  # Files that should show full content (filtered files)
+            sibling_files = []   # Files that should show as context (siblings and directory contents)
             
             for code_file in self.root:
                 if not code_file.file_path:
@@ -686,14 +766,14 @@ class CodeBase(BaseModel):
                     relevant_files.append(code_file)
                     continue
                 
-                # Check if this file is a sibling of any filtered file
+                # Check if this file is in any of the relevant directories
                 file_parts = normalized_file_path.split("/")
                 if len(file_parts) > 1:
                     file_dir = "/".join(file_parts[:-1])
                 else:
                     file_dir = ""
                 
-                if file_dir in filter_directories:
+                if file_dir in all_relevant_directories:
                     sibling_files.append(code_file)
         
         # Build tree structure from relevant files (with full content)
@@ -714,7 +794,7 @@ class CodeBase(BaseModel):
                         current_level[part] = {"_type": "directory"}
                     current_level = current_level[part]
         
-        # Add sibling files (without full content)
+        # Add sibling files and directory contents (show content for all when filtering for broader context)
         for code_file in sibling_files:
             if not code_file.file_path:
                 continue
@@ -726,7 +806,10 @@ class CodeBase(BaseModel):
             current_level = tree
             for i, part in enumerate(path_parts):
                 if i == len(path_parts) - 1:  # This is the file
-                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
+                    # Check if file already exists (might have been added as relevant_files)
+                    if part not in current_level:
+                        # Show content for all files to provide broader context
+                        current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
                 else:  # This is a directory
                     if part not in current_level:
                         current_level[part] = {"_type": "directory"}
@@ -1141,5 +1224,13 @@ class CodeBase(BaseModel):
             self._build_cached_elements()
 
         return list(self._cached_elements.keys())
+
+    @property
+    def non_import_unique_ids(self)->List[str]:
+
+        return [
+            non_import_id for non_import_id, value in self.cached_elements.items()
+            if not isinstance(value, ImportStatement)
+        ]
 
 # TODO add mcp support for agent -> leverage CodeFile pydantic model to apply changes via unique_ids and generate file from there

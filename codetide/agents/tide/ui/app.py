@@ -9,11 +9,13 @@ try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
-    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN    
-    from codetide.agents.tide.ui.utils import process_thread, run_concurrent_tasks, send_reasoning_msg
+    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
+    from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg
+    from codetide.agents.tide.ui.persistance import check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
     from codetide.agents.tide.ui.defaults import AGENT_TIDE_PORT, STARTERS
     from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
+    from codetide.agents.tide.streaming.service import run_concurrent_tasks, cancel_gen
     from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
     from codetide.agents.tide.models import Step
     from chainlit.types import ThreadDict
@@ -30,23 +32,27 @@ except ImportError as e:
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.core.defaults import DEFAULT_ENCODING
+from dotenv import get_key, load_dotenv, set_key
 from codetide.agents.data_layer import init_db
 from ulid import ulid
 import argparse
 import getpass
 import asyncio
+import secrets
+import string
 import json
 import yaml
 import time
 
-@cl.password_auth_callback
-def auth():
-    username = getpass.getuser()
-    return cl.User(identifier=username, display_name=username)
+if check_docker and os.getenv("AGENTTIDE_PG_CONN_STR") is not None:
+    @cl.password_auth_callback
+    def auth():
+        username = getpass.getuser()
+        return cl.User(identifier=username, display_name=username)
 
-@cl.data_layer
-def get_data_layer():
-    return SQLAlchemyDataLayer(conninfo=f"sqlite+aiosqlite:///{os.environ['CHAINLIT_APP_ROOT']}/database.db")
+    @cl.data_layer
+    def get_data_layer():
+        return SQLAlchemyDataLayer(conninfo=os.getenv("AGENTTIDE_PG_CONN_STR"))
 
 @cl.on_settings_update
 async def setup_llm_config(settings):
@@ -265,6 +271,38 @@ async def on_inspect_context(action :cl.Action):
 
     await inspect_msg.send()
 
+@cl.action_callback("approve_patch")
+async def on_approve_patch(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+
+    await action.remove()
+    latest_action_message :cl.Message = cl.user_session.get("latest_patch_msg")
+    if latest_action_message.id == action.payload.get("action_id"):
+        latest_action_message.actions = []
+
+    if action.payload.get("lgtm"):
+        agent_tide_ui.agent_tide.approve()
+
+@cl.action_callback("reject_patch")
+async def on_reject_patch(action :cl.Action):
+    agent_tide_ui: AgentTideUi = cl.user_session.get("AgentTideUi")
+    chat_history = cl.user_session.get("chat_history")
+
+    await action.remove()
+    latest_action_message :cl.Message = cl.user_session.get("latest_patch_msg")
+    if latest_action_message.id == action.payload.get("action_id"):
+        latest_action_message.actions = []
+
+    response = await cl.AskUserMessage(
+        content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
+        timeout=3600
+    ).send()
+
+    feedback = response.get("output")
+    agent_tide_ui.agent_tide.reject(feedback)
+    chat_history.append({"role": "user", "content": feedback})
+    await agent_loop(agent_tide_ui=agent_tide_ui)
+
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
 
@@ -307,7 +345,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 MarkerConfig(
                     begin_marker="*** Begin Patch",
                     end_marker="*** End Patch",
-                    start_wrapper="\n```shell\n",
+                    start_wrapper="\n```diff\n",
                     end_wrapper="\n```\n",
                     target_step=diff_step
                 ),
@@ -331,7 +369,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         st = time.time()
         is_reasonig_sent = False
-        async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
+        loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
+        async for chunk in loop:
             if chunk == STREAM_START_TOKEN:
                 is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
@@ -342,7 +381,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             elif chunk == STREAM_END_TOKEN:
                 #  Handle any remaining content
                 await stream_processor.finalize()
-                break
+                await asyncio.sleep(0.5)
+                await cancel_gen(loop)
 
             await stream_processor.process_chunk(chunk)
         
@@ -381,20 +421,25 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
     await agent_tide_ui.add_to_history(msg.content)
 
     if agent_tide_ui.agent_tide._has_patch:
-        choice = await cl.AskActionMessage(
+        action_msg = cl.AskActionMessage(
             content="AgentTide is asking you to review the Patch before applying it.",
-            actions=[
-                cl.Action(name="approve_patch", payload={"lgtm": True}, label="✔️ Approve"),
-                cl.Action(name="reject_patch", payload={"lgtm": False}, label="❌ Reject"),
-            ],
+            actions=[],
             timeout=3600
-        ).send()
+        )
+        action_msg.actions = [
+            cl.Action(name="approve_patch", payload={"lgtm": True, "msg_id": action_msg.id}, label="✔️ Approve"),
+            cl.Action(name="reject_patch", payload={"lgtm": False, "msg_id": action_msg.id}, label="❌ Reject")
+        ]
+        cl.user_session.set("latest_patch_msg", action_msg)
+        choice = await action_msg.send()
 
         if choice:
             lgtm = choice.get("payload", []).get("lgtm")
             if lgtm:
+                action_msg.actions = []
                 agent_tide_ui.agent_tide.approve()
             else:
+                action_msg.actions = []
                 response = await cl.AskUserMessage(
                     content="""Please provide specific feedback explaining why the patch was rejected. Include what's wrong, which parts are problematic, and what needs to change. Avoid vague responses like "doesn't work" - instead be specific like "missing error handling for FileNotFoundError" or "function should return boolean, not None." Your detailed feedback helps generate a better solution.""",
                     timeout=3600
@@ -405,9 +450,18 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 chat_history.append({"role": "user", "content": feedback})
                 await agent_loop(agent_tide_ui=agent_tide_ui)
 
-# def generate_temp_password(length=16):
-#     characters = string.ascii_letters + string.digits + string.punctuation
-#     return ''.join(secrets.choice(characters) for _ in range(length))
+def generate_password(length: int = 16) -> str:
+    """
+    Generate a secure random password.
+    Works on Linux, macOS, and Windows.
+    """
+    if password  := get_key(Path(os.environ['CHAINLIT_APP_ROOT']) / ".env", "AGENTTDE_PG_PASSWORD"):
+        return password
+    
+    safe_chars = string.ascii_letters + string.digits + '-_@#$%^&*+=[]{}|:;<>?'
+    password = ''.join(secrets.choice(safe_chars) for _ in range(length))
+    set_key(Path(os.environ['CHAINLIT_APP_ROOT']) / ".env","AGENTTDE_PG_PASSWORD", password)
+    return password
 
 def serve(
     host=None,
@@ -417,14 +471,7 @@ def serve(
     ssl_keyfile=None,
     ws_per_message_deflate="true",
     ws_protocol="auto"
-):    
-    username = getpass.getuser()    
-    GREEN = "\033[92m"
-    RESET = "\033[0m"
-
-    print(f"\n{GREEN}Your chainlit username is `{username}`{RESET}\n")
-
-
+):
     # if not os.getenv("_PASSWORD"):
     #     temp_password = generate_temp_password()
     #     os.environ["_PASSWORD"] = temp_password
@@ -476,10 +523,33 @@ def main():
     parser.add_argument("--config-path", type=str, default=DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH, help="Path to the config file")
     args = parser.parse_args()
 
-    os.environ["AGENT_TIDE_PROJECT_PATH"] = args.project_path
-    os.environ["AGENT_TIDE_CONFIG_PATH"] = args.config_path
+    load_dotenv()
+    os.environ["AGENT_TIDE_PROJECT_PATH"] = str(Path(args.project_path))
+    os.environ["AGENT_TIDE_CONFIG_PATH"] = str(Path(args.project_path) / args.config_path)
+    
+    load_dotenv()
+    username = getpass.getuser()
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    RESET = "\033[0m"
 
-    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
+    print(f"\n{GREEN}Your chainlit username is `{username}`{RESET}\n")
+
+    if check_docker():
+        password = generate_password()
+        launch_postgres(username, password, f"{os.environ['CHAINLIT_APP_ROOT']}/pgdata")
+    
+        conn_string = f"postgresql+asyncpg://{username}:{password}@localhost:{os.getenv('AGENTTIDE_PG_PORT', 5437)}/agenttidedb"
+        os.environ["AGENTTIDE_PG_CONN_STR"] = conn_string
+        asyncio.run(init_db(os.environ["AGENTTIDE_PG_CONN_STR"]))
+
+        print(f"{GREEN} PostgreSQL launched on port {os.getenv('AGENTTIDE_PG_PORT', 5437)}{RESET}")
+        print(f"{GREEN} Connection string stored in env var: AGENTTIDE_PG_CONN_STR{RESET}\n")
+    else:
+        print(f"{RED} Could not find Docker on this system.{RESET}")
+        print("   PostgreSQL could not be launched for persistent data storage.")
+        print("   You won't have access to multiple conversations or history beyond each session.")
+        print("   Consider installing Docker and ensuring it is running.\n")
 
     serve(
         host=args.host,
@@ -492,10 +562,13 @@ def main():
     )
 
 if __name__ == "__main__":
-    import asyncio
-    os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
-    asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
-    serve()
+    main()
+
+# if __name__ == "__main__":
+#     import asyncio
+#     os.environ["AGENT_TIDE_CONFIG_PATH"] = DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
+#     asyncio.run(init_db(f"{os.environ['CHAINLIT_APP_ROOT']}/database.db"))
+#     serve()
     # TODO fix the no time being inserted to msg bug in data-persistance
     # TODO there's a bug that changes are not being persistied in untracked files that are deleted so will need to update codetide to track that
     # TODO add chainlit commands for writing tests, updating readme, writing commit message and planning
