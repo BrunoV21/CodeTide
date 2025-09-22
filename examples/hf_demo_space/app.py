@@ -6,9 +6,10 @@ import os
 os.environ.setdefault("CHAINLIT_APP_ROOT", str(Path(os.path.abspath(__file__)).parent))
 os.environ.setdefault("SKIP_AUTH", "1")
 
+from codetide.agents.tide.streaming.service import run_concurrent_tasks, cancel_gen
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE, STARTERS
 from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
-from codetide.agents.tide.ui.utils import run_concurrent_tasks, send_reasoning_msg
+from codetide.agents.tide.ui.utils import send_reasoning_msg
 from codetide.agents.tide.ui.agent_tide_ui import AgentTideUi
 from codetide.core.defaults import DEFAULT_ENCODING
 from codetide.agents.tide.models import Step
@@ -364,7 +365,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         st = time.time()
         is_reasonig_sent = False
-        async for chunk in run_concurrent_tasks(agent_tide_ui, codeIdentifiers):
+        loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
+        async for chunk in loop:
             if chunk == STREAM_START_TOKEN:
                 is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
@@ -375,17 +377,18 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             elif chunk == STREAM_END_TOKEN:
                 #  Handle any remaining content
                 await stream_processor.finalize()
-                break
+                await asyncio.sleep(0.5)
+                await cancel_gen(loop)
 
             await stream_processor.process_chunk(chunk)
-
+        
         await asyncio.sleep(0.5)
         if agent_tide_ui.agent_tide.steps:
             cl.user_session.set("latest_step_message", msg)
             msg.actions = [
                 cl.Action(
                     name="stop_steps",
-                    tooltip="stop",
+                    tooltip="Stop",
                     icon="octagon-x",
                     payload={"msg_id": msg.id}
                 ),
@@ -406,15 +409,6 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     payload={"msg_id": msg.id}
                 )
             )
-
-        msg.actions.append(
-            cl.Action(
-                name="checkout_commit_push",
-                tooltip="A new branch will be created and the changes made so far will be commited and pushed to the upstream repository",
-                icon="circle-fading-arrow-up",
-                payload={"msg_id": msg.id}
-            )
-        )
 
     # Send the final message
     await msg.send()
