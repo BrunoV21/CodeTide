@@ -334,7 +334,7 @@ class AgentTide(BaseModel):
         index = self.tide.repo.index
         if not self._has_staged():
             for path in self.changed_paths:
-                index.add(path)
+                index.add(str(Path(path)))
 
             index.write()
 
