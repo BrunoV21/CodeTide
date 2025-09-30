@@ -294,6 +294,7 @@ class PythonParser(BaseParser):
         type_hint = None
         default = None
         next_is_default = None
+        previous_child = None
         for child in node.children:
             if child.type == "identifier" and attribute is None:
                 attribute = cls._get_content(code, child)
@@ -301,9 +302,12 @@ class PythonParser(BaseParser):
                 type_hint = cls._get_content(code, child)
             elif child.type == "=" and next_is_default is None:
                 next_is_default = True
+                if attribute is None and previous_child:
+                    attribute = cls._get_content(code, previous_child)
             elif default is None and next_is_default:
                 default =  cls._get_content(code, child)
                 next_is_default = None
+            previous_child = child
         
         if is_class_attribute:
             raw = cls._get_content(code, node, preserve_indentation=True)
