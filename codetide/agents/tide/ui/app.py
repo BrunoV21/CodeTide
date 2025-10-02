@@ -124,6 +124,88 @@ async def validate_llm_config(agent_tide_ui: AgentTideUi):
                 except Exception as e:
                     exception = e
 
+# Example 1: Partial data with reasoning steps, context and modify identifiers, not finished
+example1 = {
+    "reasoning_steps": [
+        {
+            "header": "Initial Analysis",
+            "content": "I'm examining the problem statement to understand the requirements and constraints.",
+            "candidate_identifiers": ["problem_id", "requirements", "constraints"]
+        },
+        {
+            "header": "Solution Approach",
+            "content": "Based on the analysis, I'll implement a solution using a divide-and-conquer strategy.",
+            "candidate_identifiers": ["algorithm", "divide_conquer", "implementation"]
+        }
+    ],
+    "context_identifiers": ["user_context", "system_requirements", "api_documentation"],
+    "modify_identifiers": ["configuration_settings", "user_preferences"],
+    "finished": False
+}
+
+# Example 2: Complete data with all fields populated and finished as true
+example2 = {
+    "reasoning_steps": [
+        {
+            "header": "Problem Identification",
+            "content": "The issue appears to be related to memory management in the application.",
+            "candidate_identifiers": ["memory_leak", "heap_overflow", "garbage_collection"]
+        },
+        {
+            "header": "Root Cause Analysis",
+            "content": "After thorough investigation, I've identified that objects are not being properly deallocated.",
+            "candidate_identifiers": ["object_lifecycle", "destructor", "reference_counting"]
+        },
+        {
+            "header": "Solution Implementation",
+            "content": "I'll implement a custom memory pool to better manage object allocation and deallocation.",
+            "candidate_identifiers": ["memory_pool", "allocation_strategy", "deallocation"]
+        }
+    ],
+    "context_identifiers": ["application_logs", "performance_metrics", "system_architecture"],
+    "modify_identifiers": ["memory_management_module", "allocation_policies"],
+    "finished": True
+}
+
+# Example 3: Only reasoning steps with no other data
+example3 = {
+    "reasoning_steps": [
+        {
+            "header": "Data Collection",
+            "content": "Gathering relevant data from various sources to build our dataset.",
+            "candidate_identifiers": ["data_sources", "extraction_methods", "validation"]
+        },
+        {
+            "header": "Data Processing",
+            "content": "Cleaning and transforming the raw data to make it suitable for analysis.",
+            "candidate_identifiers": ["data_cleaning", "transformation", "normalization"]
+        },
+        {
+            "header": "Model Training",
+            "content": "Training the machine learning model using the processed dataset.",
+            "candidate_identifiers": ["ml_algorithm", "hyperparameters", "training_split"]
+        },
+        {
+            "header": "Model Evaluation",
+            "content": "Evaluating the model's performance using various metrics.",
+            "candidate_identifiers": ["accuracy", "precision", "recall", "f1_score"]
+        }
+    ],
+    "context_identifiers": [],
+    "modify_identifiers": [],
+    "finished": False
+}
+
+async def get_ticket():
+    """Pretending to fetch data from linear"""
+    return {
+        "title": "Fix Authentication Bug",
+        "status": "in-progress",
+        "assignee": "Sarah Chen",
+        "deadline": "2025-01-15",
+        "tags": ["security", "high-priority", "backend"]
+    }
+
 @cl.on_chat_start
 async def start_chat():
     # TODO think of fast way to initialize and get settings
@@ -134,6 +216,25 @@ async def start_chat():
     # await cl.ChatSettings(agent_tide_ui.settings()).send()
     await cl.context.emitter.set_commands(AgentTideUi.commands)
     cl.user_session.set("chat_history", [])
+
+    props = await get_ticket()
+    
+    ticket_element = cl.CustomElement(name="LinearTicket", props=props)
+    # Store the element if we want to update it server side at a later stage.
+    cl.user_session.set("ticket_el", ticket_element)
+    
+    await cl.Message(content="Here is the ticket information!", elements=[ticket_element]).send()
+
+    await asyncio.sleep(2)
+    ticket_element.props["title"] = "Could not Fix Authentication Bug"
+    await ticket_element.update()
+
+    card_element = cl.CustomElement(name="ReasoningExplorer", props=example1)
+    await cl.Message(content="", elements=[card_element]).send()
+
+    await asyncio.sleep(2)
+    card_element.props.update(example2)
+    await card_element.update()
 
 @cl.set_starters
 async def set_starters():
@@ -362,7 +463,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     start_wrapper="\n```shell\n",
                     end_wrapper="\n```\n",
                     target_step=msg
-                ), 
+                )
             ],
             global_fallback_msg=msg
         )
