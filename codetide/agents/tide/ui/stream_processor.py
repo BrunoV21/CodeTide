@@ -161,6 +161,7 @@ class StreamProcessor:
             marker_len = len(self.current_config.end_marker)
             if len(self.buffer) >= marker_len:
                 stream_content = self.buffer[:-marker_len+1]
+                ### TODO target step cannot receive stream_token or can it? Maybe we could just build a wrapper aound custom element
                 if stream_content and self.current_config.target_step:
                     await self.current_config.target_step.stream_token(stream_content)
                 self.buffer = self.buffer[-marker_len+1:]

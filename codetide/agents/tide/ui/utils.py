@@ -95,3 +95,9 @@ async def send_reasoning_msg(loading_msg :cl.message, context_msg :cl.Message, a
     await context_msg.send()
     return True
 
+
+### Wrap thus send_reasoning_msg into a custom object which receives a loading_msg a context_msg and a st
+### should also receive a dict with arguments (props) to be used internaly when calling stream_token (which will always receive a string)
+### include stream_token method 
+### do not remove laoding message for now
+### start with expanded template with wave animation and placeholder
