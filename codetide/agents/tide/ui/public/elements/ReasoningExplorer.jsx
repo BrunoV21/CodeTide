@@ -51,9 +51,14 @@ export default function ReasoningStepsCard() {
     <Card className="w-full max-w-2xl">
       <CardHeader className="pb-6">
         <div className="flex justify-between items-center">
-          <CardTitle className="text-lg font-medium">
-            Reasoning Process
-          </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-lg font-medium">
+              Reasoning Process
+            </CardTitle>
+            {!props.finished && (
+              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {props.finished && (
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
