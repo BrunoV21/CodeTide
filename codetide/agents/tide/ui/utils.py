@@ -101,3 +101,6 @@ async def send_reasoning_msg(loading_msg :cl.message, context_msg :cl.Message, a
 ### include stream_token method 
 ### do not remove laoding message for now
 ### start with expanded template with wave animation and placeholder
+### custom obj should preserve props and update them with new args, markerconfig should be update to include args per
+### config as well as possibility to dump only once filled and convert to type i.e json loads to list / dict by is_obj prooperty)
+### dumping only when buffer is complete should be handled at streamprocessor level

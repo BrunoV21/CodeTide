@@ -472,6 +472,9 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         is_reasonig_sent = False
         loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
         async for chunk in loop:
+            ### TODO update this to check FROM AGENT TIDE if reasoning is being ran and if so we need
+            ### to send is finished true to custom element when the next STREAM_START_TOKEN_arrives
+
             if chunk == STREAM_START_TOKEN:
                 is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
                 continue
