@@ -1,19 +1,122 @@
-from typing import Dict, Literal, Optional, List, NamedTuple, Union
 from dataclasses import dataclass
+from typing import Dict, Literal, Optional, List, NamedTuple, Union
 import chainlit as cl
 import re
 
-class CustomElementStep:
-    ...
 
-    def stream_token(self, content :str)->str:
-        pass
+class CustomElementStep:
+    """Step that streams extracted fields to a Chainlit CustomElement."""
+    
+    def __init__(self, element: cl.CustomElement, props_schema: Dict[str, type]):
+        """
+        Initialize CustomElementStep with element and props schema.
+        
+        Args:
+            element: Chainlit CustomElement to update
+            props_schema: Dict mapping marker_id to expected type (list, str, dict, etc.)
+                         e.g., {"reasoning": list, "summary": str, "metadata": dict}
+        """
+        self.element = element
+        self.props_schema = props_schema
+        self.props = self._initialize_props()
+    
+    def _initialize_props(self) -> Dict[str, any]:
+        """Initialize props based on schema with appropriate empty values."""
+        initialized = {}
+        for marker_id, prop_type in self.props_schema.items():
+            if prop_type is list:
+                initialized[marker_id] = []
+            elif prop_type is str:
+                initialized[marker_id] = ""
+            elif prop_type is dict:
+                initialized[marker_id] = {}
+            elif prop_type is set:
+                initialized[marker_id] = set()
+            elif prop_type is int:
+                initialized[marker_id] = 0
+            elif prop_type is float:
+                initialized[marker_id] = 0.0
+            elif prop_type is bool:
+                initialized[marker_id] = False
+            else:
+                # For custom types, try to instantiate with no args
+                try:
+                    initialized[marker_id] = prop_type()
+                except Exception:
+                    initialized[marker_id] = None
+        return initialized
+    
+    async def stream_token(self, content: Union[str, Dict[str, any]]) -> None:
+        """
+        Stream content to the custom element by updating props.
+        
+        Args:
+            content: Either a string (for raw content) or ExtractedFields.fields dict
+        """
+        if isinstance(content, str):
+            # Raw string content - append to default prop if exists
+            if "content" in self.props and isinstance(self.props["content"], str):
+                self.props["content"] += content
+            return
+        
+        # Handle ExtractedFields dict
+        if not isinstance(content, dict):
+            return
+        
+        # content should have 'marker_id' and 'fields'
+        marker_id = content.get("marker_id")
+        fields = content.get("fields", {})
+        
+        if not marker_id or marker_id not in self.props:
+            return
+        
+        # Update prop based on its type
+        prop_type = self.props_schema.get(marker_id)
+        current_value = self.props[marker_id]
+        
+        if prop_type is list:
+            # Append fields dict to list
+            if isinstance(current_value, list):
+                self.props[marker_id].append(fields)
+        elif prop_type is str:
+            # Concatenate string representation of fields
+            if isinstance(current_value, str):
+                formatted = self._format_fields_as_string(fields)
+                self.props[marker_id] += formatted
+        elif prop_type is dict:
+            # Merge fields into dict
+            if isinstance(current_value, dict):
+                self.props[marker_id].update(fields)
+        
+        # Update the element
+        self.element.props.update(self.props)
+        await self.element.update()
+    
+    def _format_fields_as_string(self, fields: Dict[str, any]) -> str:
+        """Format fields dict as a readable string."""
+        parts = []
+        for key, value in fields.items():
+            if value is not None:
+                if isinstance(value, list):
+                    items = "\n  ".join(f"- {item}" for item in value)
+                    parts.append(f"**{key}**:\n  {items}")
+                else:
+                    parts.append(f"**{key}**: {value}")
+        return "\n".join(parts) + "\n\n"
 
 @dataclass
 class ExtractedFields:
     """Container for extracted field data from a marker block."""
+    marker_id: str
     raw_content: str
     fields: Dict[str, any]
+    
+    def to_dict(self) -> Dict[str, any]:
+        """Convert to dict for streaming to CustomElementStep."""
+        return {
+            "marker_id": self.marker_id,
+            "fields": self.fields
+        }
 
 class FieldExtractor:
     """Handles extraction of structured fields from marker content."""
@@ -31,12 +134,13 @@ class FieldExtractor:
             for name, pattern in field_patterns.items()
         }
     
-    def extract(self, content: str) -> ExtractedFields:
+    def extract(self, content: str, marker_id: str = "") -> ExtractedFields:
         """
         Extract all configured fields from content.
         
         Args:
             content: Raw text content between markers
+            marker_id: Identifier for the marker config
             
         Returns:
             ExtractedFields object with parsed data
@@ -57,7 +161,7 @@ class FieldExtractor:
             else:
                 fields[field_name] = None
         
-        return ExtractedFields(raw_content=content, fields=fields)
+        return ExtractedFields(marker_id=marker_id, raw_content=content, fields=fields)
     
     def extract_list(self, content: str, field_name: str) -> List[str]:
         """
@@ -82,6 +186,7 @@ class MarkerConfig(NamedTuple):
     """Configuration for a single marker pair."""
     begin_marker: str
     end_marker: str
+    marker_id: str = ""
     start_wrapper: str = ""
     end_wrapper: str = ""
     target_step: Optional[Union[cl.Step, CustomElementStep]] = None
@@ -100,7 +205,7 @@ class MarkerConfig(NamedTuple):
             ExtractedFields if extractor configured, otherwise raw string
         """
         if self.field_extractor:
-            return self.field_extractor.extract(content)
+            return self.field_extractor.extract(content, self.marker_id)
         return content
 
 class StreamProcessor:
@@ -307,7 +412,7 @@ class StreamProcessor:
             
             return True
     
-    def _format_extracted_fields(self, extracted: Union[str, ExtractedFields]) -> str:
+    def _format_extracted_fields(self, extracted: Union[str, ExtractedFields]) -> Union[str, Dict[str, any]]:
         """
         Format extracted fields for streaming output.
         
@@ -315,12 +420,16 @@ class StreamProcessor:
             extracted: Either raw string or ExtractedFields object
             
         Returns:
-            Formatted string representation
+            Formatted string for regular steps or dict for CustomElementStep
         """
         if isinstance(extracted, str):
             return extracted
         
-        # Format ExtractedFields into a readable output
+        # If target is CustomElementStep, return dict format
+        if isinstance(self.current_config.target_step, CustomElementStep):
+            return extracted.to_dict()
+        
+        # For regular steps, format as string
         output_parts = []
         
         for field_name, field_value in extracted.fields.items():
