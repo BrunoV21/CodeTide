@@ -1,5 +1,82 @@
-from typing import Optional, List, NamedTuple
+from typing import Dict, Literal, Optional, List, NamedTuple, Union
+from dataclasses import dataclass
 import chainlit as cl
+import re
+
+class CustomElementStep:
+    ...
+
+    def stream_token(self, content :str)->str:
+        pass
+
+@dataclass
+class ExtractedFields:
+    """Container for extracted field data from a marker block."""
+    raw_content: str
+    fields: Dict[str, any]
+
+class FieldExtractor:
+    """Handles extraction of structured fields from marker content."""
+    
+    def __init__(self, field_patterns: Dict[str, str]):
+        """
+        Initialize with field extraction patterns.
+        
+        Args:
+            field_patterns: Dict mapping field names to regex patterns.
+                           Patterns should have named groups or return the match.
+        """
+        self.field_patterns = {
+            name: re.compile(pattern, re.MULTILINE | re.DOTALL)
+            for name, pattern in field_patterns.items()
+        }
+    
+    def extract(self, content: str) -> ExtractedFields:
+        """
+        Extract all configured fields from content.
+        
+        Args:
+            content: Raw text content between markers
+            
+        Returns:
+            ExtractedFields object with parsed data
+        """
+        fields = {}
+        
+        for field_name, pattern in self.field_patterns.items():
+            match = pattern.search(content)
+            if match:
+                # If pattern has named groups, use them
+                if match.groupdict():
+                    fields[field_name] = match.groupdict()
+                # Otherwise use the first group or full match
+                elif match.groups():
+                    fields[field_name] = match.group(1).strip()
+                else:
+                    fields[field_name] = match.group(0).strip()
+            else:
+                fields[field_name] = None
+        
+        return ExtractedFields(raw_content=content, fields=fields)
+    
+    def extract_list(self, content: str, field_name: str) -> List[str]:
+        """
+        Extract a list of items (e.g., candidate_identifiers).
+        
+        Args:
+            content: Raw text content
+            field_name: Name of the field containing list items
+            
+        Returns:
+            List of extracted strings
+        """
+        pattern = self.field_patterns.get(field_name)
+        if not pattern:
+            return []
+        
+        matches = pattern.findall(content)
+        return [m.strip() if isinstance(m, str) else m[0].strip() 
+                for m in matches if m]
 
 class MarkerConfig(NamedTuple):
     """Configuration for a single marker pair."""
@@ -7,8 +84,24 @@ class MarkerConfig(NamedTuple):
     end_marker: str
     start_wrapper: str = ""
     end_wrapper: str = ""
-    target_step: Optional[cl.Step] = None
+    target_step: Optional[Union[cl.Step, CustomElementStep]] = None
     fallback_msg: Optional[cl.Message] = None
+    stream_mode: Literal["chunk", "full"] = "chunk"
+    field_extractor: Optional[FieldExtractor] = None
+    
+    def process_content(self, content: str) -> Union[str, ExtractedFields]:
+        """
+        Process content, extracting fields if field_extractor is configured.
+        
+        Args:
+            content: Raw content between markers
+            
+        Returns:
+            ExtractedFields if extractor configured, otherwise raw string
+        """
+        if self.field_extractor:
+            return self.field_extractor.extract(content)
+        return content
 
 class StreamProcessor:
     """
@@ -33,6 +126,7 @@ class StreamProcessor:
         self.buffer = ""
         self.current_config = None  # Currently active marker config
         self.current_config_index = None
+        self.accumulated_content = ""  # For full mode with field extractor
     
     def __init_single__(
         self,
@@ -137,6 +231,7 @@ class StreamProcessor:
             
             self.current_config = earliest_config
             self.current_config_index = earliest_config_index
+            self.accumulated_content = ""  # Reset accumulator for full mode
             
             # Remove everything up to and including the begin marker
             self.buffer = self.buffer[earliest_idx + len(earliest_config.begin_marker):]
@@ -156,21 +251,46 @@ class StreamProcessor:
             return False
             
         idx = self.buffer.find(self.current_config.end_marker)
+        
+        # Check if we're in full mode with field extractor
+        is_full_mode = (self.current_config.stream_mode == "full" and 
+                       self.current_config.field_extractor is not None)
+        
         if idx == -1:
-            # No end marker found, stream everything except potential partial marker
+            # No end marker found
             marker_len = len(self.current_config.end_marker)
             if len(self.buffer) >= marker_len:
                 stream_content = self.buffer[:-marker_len+1]
-                ### TODO target step cannot receive stream_token or can it? Maybe we could just build a wrapper aound custom element
-                if stream_content and self.current_config.target_step:
-                    await self.current_config.target_step.stream_token(stream_content)
+                
+                if is_full_mode:
+                    # Accumulate content for processing at the end
+                    self.accumulated_content += stream_content
+                else:
+                    # Stream immediately in chunk mode
+                    if stream_content and self.current_config.target_step:
+                        await self.current_config.target_step.stream_token(stream_content)
+                
                 self.buffer = self.buffer[-marker_len+1:]
             return False
         else:
             # Found end marker
-            if idx > 0 and self.current_config.target_step:
-                # Stream content before the end marker to target step
-                await self.current_config.target_step.stream_token(self.buffer[:idx])
+            block_content = self.buffer[:idx]
+            
+            if is_full_mode:
+                # Add final content to accumulator
+                self.accumulated_content += block_content
+                
+                # Process the complete content with field extractor
+                extracted = self.current_config.process_content(self.accumulated_content)
+                
+                # Stream the processed result
+                if self.current_config.target_step:
+                    processed_output = self._format_extracted_fields(extracted)
+                    await self.current_config.target_step.stream_token(processed_output)
+            else:
+                # Stream content before the end marker in chunk mode
+                if block_content and self.current_config.target_step:
+                    await self.current_config.target_step.stream_token(block_content)
             
             # Close the special block
             if self.current_config.target_step and self.current_config.end_wrapper:
@@ -179,12 +299,54 @@ class StreamProcessor:
             self.buffer = self.buffer[idx + len(self.current_config.end_marker):]
             self.current_config = None
             self.current_config_index = None
+            self.accumulated_content = ""  # Clear accumulator
             
             # Remove everything up to and including the end marker
             if self.buffer.startswith('\n'):
                 self.buffer = self.buffer[1:]
             
             return True
+    
+    def _format_extracted_fields(self, extracted: Union[str, ExtractedFields]) -> str:
+        """
+        Format extracted fields for streaming output.
+        
+        Args:
+            extracted: Either raw string or ExtractedFields object
+            
+        Returns:
+            Formatted string representation
+        """
+        if isinstance(extracted, str):
+            return extracted
+        
+        # Format ExtractedFields into a readable output
+        output_parts = []
+        
+        for field_name, field_value in extracted.fields.items():
+            if field_value is None:
+                continue
+                
+            # Handle list fields specially (like candidate_identifiers)
+            if field_name in self.current_config.field_extractor.field_patterns:
+                # Try to extract as list
+                list_items = self.current_config.field_extractor.extract_list(
+                    extracted.raw_content, 
+                    field_name
+                )
+                if list_items:
+                    output_parts.append(f"**{field_name}**:")
+                    for item in list_items:
+                        output_parts.append(f"  - {item}")
+                    continue
+            
+            # Handle regular fields
+            if isinstance(field_value, dict):
+                output_parts.append(f"**{field_name}**: {field_value}")
+            else:
+                output_parts.append(f"**{field_name}**: {field_value}")
+        
+        return "\n".join(output_parts) if output_parts else extracted.raw_content
     
     def _get_fallback_msg(self) -> Optional[cl.Message]:
         """Get the appropriate fallback message."""
@@ -196,10 +358,24 @@ class StreamProcessor:
         """
         if self.buffer:
             if self.current_config is not None:
-                if self.current_config.target_step:
-                    await self.current_config.target_step.stream_token(self.buffer)
-                    if self.current_config.end_wrapper:
-                        await self.current_config.target_step.stream_token(self.current_config.end_wrapper)
+                is_full_mode = (self.current_config.stream_mode == "full" and 
+                               self.current_config.field_extractor is not None)
+                
+                if is_full_mode:
+                    # Process accumulated content with field extractor
+                    self.accumulated_content += self.buffer
+                    extracted = self.current_config.process_content(self.accumulated_content)
+                    
+                    if self.current_config.target_step:
+                        processed_output = self._format_extracted_fields(extracted)
+                        await self.current_config.target_step.stream_token(processed_output)
+                else:
+                    # Stream remaining content in chunk mode
+                    if self.current_config.target_step:
+                        await self.current_config.target_step.stream_token(self.buffer)
+                
+                if self.current_config.target_step and self.current_config.end_wrapper:
+                    await self.current_config.target_step.stream_token(self.current_config.end_wrapper)
             else:
                 fallback_msg = self._get_fallback_msg()
                 if fallback_msg:
@@ -210,3 +386,4 @@ class StreamProcessor:
         self.buffer = ""
         self.current_config = None
         self.current_config_index = None
+        self.accumulated_content = ""
