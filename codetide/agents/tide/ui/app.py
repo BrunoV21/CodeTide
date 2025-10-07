@@ -143,6 +143,37 @@ example1 = {
     "finished": False
 }
 
+"""
+*** Begin Reasoning
+1. **first task header**
+   **content**: brief summary of the logic behind this task and the files to look into and why
+   **candidate_identifiers**:
+     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step might need to use as context
+*** End Reasoning
+*** Begin Reasoning
+2. **first task header**
+   **content**: brief summary of the logic behind this task and the files to look into and why
+   **candidate_identifiers**:
+     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step might need to modify or update
+*** End Reasoning
+"""
+### use current expansion logic here then move to the next one once all possible candidate_identifiers have been found
+
+"""
+*** Begin Summary
+summary of the reasoning steps so far
+*** End Summary
+
+*** Begin Context Identifiers
+<identifiers - one per line, or empty>
+*** End Context Identifiers
+
+*** Begin Modify Identifiers  
+<identifiers - one per line, or empty>
+*** End Modify Identifiers
+
+"""
+
 # Example 2: Complete data with all fields populated and finished as true
 example2 = {
     "reasoning_steps": [
@@ -437,6 +468,9 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
     
     context_msg = cl.Message(content="", author="AgentTide")
     msg = cl.Message(content="", author="Agent Tide")
+
+    # ReasoningCustomElementStep = CustomElementStep()
+
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
 
@@ -463,7 +497,12 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     start_wrapper="\n```shell\n",
                     end_wrapper="\n```\n",
                     target_step=msg
-                )
+                ),
+                # MarkerConfig(
+                #     begin_marker="*** Begin Reasoning",
+                #     end_marker="*** End Reasoning",
+                #     target_step=CustomElement
+                # )
             ],
             global_fallback_msg=msg
         )
