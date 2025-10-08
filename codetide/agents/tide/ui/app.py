@@ -470,8 +470,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
         chat_history.append({"role": "user", "content": message.content})
         await agent_tide_ui.add_to_history(message.content)
-    
-    context_msg = cl.Message(content="", author="AgentTide").send()
+
     reasoning_element = cl.CustomElement(name="ReasoningExplorer", props={
         "reasoning_steps": [],
         "summary": "",
@@ -479,6 +478,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         "modify_identifiers": [],
         "finished": False
     })
+    context_msg = cl.Message(content="", author="AgentTide", elements=reasoning_element).send()
     ### TODO this needs to receive the message as well to call update
     reasoning_step = CustomElementStep(
         element=reasoning_element,
@@ -554,8 +554,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     end_marker="*** End Modify Identifiers",
                     target_step=reasoning_step,
                     stream_mode="full"
-                ),
-
+                    # TODO add support to ignore global_fallback_message
+                )
             ],
             global_fallback_msg=msg
         )
