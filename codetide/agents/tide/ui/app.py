@@ -9,7 +9,7 @@ try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
-    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
+    from aicore.const import SPECIAL_TOKENS # STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
     from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg
     from codetide.agents.tide.ui.persistance import check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
@@ -29,6 +29,8 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
+from codetide.agents.tide.agent import ROUND_FINISHED
+from codetide.agents.tide.ui.stream_processor import CustomElementStep, FieldExtractor
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.core.defaults import DEFAULT_ENCODING
@@ -140,24 +142,26 @@ example1 = {
     ],
     "context_identifiers": ["user_context", "system_requirements", "api_documentation"],
     "modify_identifiers": ["configuration_settings", "user_preferences"],
+    "summary": "no summary yet",
     "finished": False
 }
 
 """
 *** Begin Reasoning
-1. **first task header**
-   **content**: brief summary of the logic behind this task and the files to look into and why
-   **candidate_identifiers**:
-     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step might need to use as context
+**first task header**
+**content**: brief summary of the logic behind this task and the files to look into and why
+**candidate_identifiers**:
+  - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step might need to use as context
 *** End Reasoning
 *** Begin Reasoning
-2. **first task header**
-   **content**: brief summary of the logic behind this task and the files to look into and why
-   **candidate_identifiers**:
-     - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step might need to modify or update
+**first task header**
+**content**: brief summary of the logic behind this task and the files to look into and why
+**candidate_identifiers**:
+   - fully qualified code identifiers or file paths (as taken from the repo_tree) that this step might need to modify or update
 *** End Reasoning
 """
 ### use current expansion logic here then move to the next one once all possible candidate_identifiers have been found
+### decide here together with expand_paths if we need to expand history i.e load older messages
 
 """
 *** Begin Summary
@@ -195,6 +199,7 @@ example2 = {
     ],
     "context_identifiers": ["application_logs", "performance_metrics", "system_architecture"],
     "modify_identifiers": ["memory_management_module", "allocation_policies"],
+    "summary": "This is the final reasoning summary",
     "finished": True
 }
 
@@ -248,17 +253,17 @@ async def start_chat():
     await cl.context.emitter.set_commands(AgentTideUi.commands)
     cl.user_session.set("chat_history", [])
 
-    props = await get_ticket()
+    # props = await get_ticket()
     
-    ticket_element = cl.CustomElement(name="LinearTicket", props=props)
-    # Store the element if we want to update it server side at a later stage.
-    cl.user_session.set("ticket_el", ticket_element)
+    # ticket_element = cl.CustomElement(name="LinearTicket", props=props)
+    # # Store the element if we want to update it server side at a later stage.
+    # cl.user_session.set("ticket_el", ticket_element)
     
-    await cl.Message(content="Here is the ticket information!", elements=[ticket_element]).send()
+    # await cl.Message(content="Here is the ticket information!", elements=[ticket_element]).send()
 
-    await asyncio.sleep(2)
-    ticket_element.props["title"] = "Could not Fix Authentication Bug"
-    await ticket_element.update()
+    # await asyncio.sleep(2)
+    # ticket_element.props["title"] = "Could not Fix Authentication Bug"
+    # await ticket_element.update()
 
     card_element = cl.CustomElement(name="ReasoningExplorer", props=example1)
     await cl.Message(content="", elements=[card_element]).send()
@@ -438,19 +443,19 @@ async def on_reject_patch(action :cl.Action):
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
 
-    loading_msg = await cl.Message(
-        content="",
-        elements=[
-            cl.CustomElement(
-                name="LoadingMessage",
-                props={
-                    "messages": ["Working", "Syncing CodeTide", "Thinking", "Looking for context"],
-                    "interval": 1500,  # 1.5 seconds between messages
-                    "showIcon": True
-                }
-            )
-        ]
-    ).send()
+    # loading_msg = await cl.Message(
+    #     content="",
+    #     elements=[
+    #         cl.CustomElement(
+    #             name="LoadingMessage",
+    #             props={
+    #                 "messages": ["Working", "Syncing CodeTide", "Thinking", "Looking for context"],
+    #                 "interval": 1500,  # 1.5 seconds between messages
+    #                 "showIcon": True
+    #             }
+    #         )
+    #     ]
+    # ).send()
 
     if agent_tide_ui is None:
         agent_tide_ui = await loadAgentTideUi()
@@ -466,7 +471,26 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         chat_history.append({"role": "user", "content": message.content})
         await agent_tide_ui.add_to_history(message.content)
     
-    context_msg = cl.Message(content="", author="AgentTide")
+    context_msg = cl.Message(content="", author="AgentTide").send()
+    reasoning_element = cl.CustomElement(name="ReasoningExplorer", props={
+        "reasoning_steps": [],
+        "summary": "",
+        "context_identifiers": [], # amrker
+        "modify_identifiers": [],
+        "finished": False
+    })
+    ### TODO this needs to receive the message as well to call update
+    reasoning_step = CustomElementStep(
+        element=reasoning_element,
+        props_schema = {
+            "reasoning_steps": list,  # Will accumulate reasoning blocks as list
+            "summary": str,
+            "context_identifiers": list,
+            "modify_identifiers": list
+        }
+    )
+
+
     msg = cl.Message(content="", author="Agent Tide")
 
     # ReasoningCustomElementStep = CustomElementStep()
@@ -497,12 +521,41 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     start_wrapper="\n```shell\n",
                     end_wrapper="\n```\n",
                     target_step=msg
+                ), 
+                MarkerConfig(
+                    marker_id="reasoning_steps",
+                    begin_marker="*** Begin Reasoning",
+                    end_marker="*** End Reasoning",
+                    target_step=reasoning_step,
+                    stream_mode="full",
+                    field_extractor=FieldExtractor({
+                        "header": r"\*\*([^*]+)\*\*(?=\s*\n\s*\*\*content\*\*)",
+                        "content": r"\*\*content\*\*:\s*(.+?)(?=\s*\*\*candidate_identifiers\*\*|$)",
+                        "candidate_identifiers": r"^\s*-\s*(.+?)$"
+                    })
                 ),
-                # MarkerConfig(
-                #     begin_marker="*** Begin Reasoning",
-                #     end_marker="*** End Reasoning",
-                #     target_step=CustomElement
-                # )
+                MarkerConfig(
+                    marker_id="summary",
+                    begin_marker="*** Begin Summary",
+                    end_marker="*** End Summary",
+                    target_step=reasoning_step,
+                    stream_mode="full"
+                ),
+                MarkerConfig(
+                    marker_id="context_identifiers",
+                    begin_marker="*** Begin Context Identifiers",
+                    end_marker="*** End Context Identifiers",
+                    target_step=reasoning_step,
+                    stream_mode="full"
+                ),
+                MarkerConfig(
+                    marker_id="modify_identifiers",
+                    begin_marker="*** Begin Modify Identifiers",
+                    end_marker="*** End Modify Identifiers",
+                    target_step=reasoning_step,
+                    stream_mode="full"
+                ),
+
             ],
             global_fallback_msg=msg
         )
@@ -514,14 +567,15 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             ### TODO update this to check FROM AGENT TIDE if reasoning is being ran and if so we need
             ### to send is finished true to custom element when the next STREAM_START_TOKEN_arrives
 
-            if chunk == STREAM_START_TOKEN:
-                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+            if chunk in SPECIAL_TOKENS:
                 continue
+            #     is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+            #     continue
 
-            elif not is_reasonig_sent:
-                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+            # elif not is_reasonig_sent:
+            #     is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
 
-            elif chunk == STREAM_END_TOKEN:
+            elif chunk == ROUND_FINISHED:
                 #  Handle any remaining content
                 await stream_processor.finalize()
                 await asyncio.sleep(0.5)
