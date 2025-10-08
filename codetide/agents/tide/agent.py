@@ -1,3 +1,4 @@
+import json
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_STORAGE_PATH
@@ -5,7 +6,7 @@ from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    AGENT_TIDE_SYSTEM_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
@@ -33,6 +34,8 @@ from ulid import ulid
 import asyncio
 import pygit2
 import os
+
+ROUND_FINISHED = "<FINISHED-GEN>"
 
 class AgentTide(BaseModel):
     llm :Llm
@@ -126,11 +129,170 @@ class AgentTide(BaseModel):
             message = self.history[i]
             if isinstance(message, dict):
                 self.history[i] = message.get("content" ,"")
+    
+    async def get_identifiers_two_phase(self, autocomplete :AutoComplete, codeIdentifiers=None, TODAY :str=None):
+        """
+        Two-phase identifier resolution:
+        Phase 1: Gather candidates through iterative tree expansion
+        Phase 2: Classify and finalize identifiers with operation mode
+        """
+        # Initialize tracking
+        last_message = self.history[-1] if self.history else ""
+        matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
+        
+        self._context_identifier_window.append(set(matches))
+        if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
+            self._context_identifier_window.pop(0)
+        
+        window_identifiers = set()
+        for s in self._context_identifier_window:
+            window_identifiers.update(s)
+        
+        initial_identifiers = set(codeIdentifiers) if codeIdentifiers else set()
+        initial_identifiers.update(window_identifiers)
+        
+        # ===== PHASE 1: CANDIDATE GATHERING =====
+        candidate_pool = set()
+        all_reasoning = []
+        iteration_count = 0
+        max_iterations = 3
+        repo_tree = None
+        expand_paths = ["./"]
+        enough_identifiers = False
+        expanded_history = list(self.history)[-3:]  # Track expanded history
+        
+        while not enough_identifiers and iteration_count < max_iterations:
+            iteration_count += 1
+            
+            # Get current repo tree state
+            if repo_tree is None or iteration_count > 1:
+                repo_tree = await self.get_repo_tree_from_user_prompt(
+                    expanded_history,
+                    include_modules=bool(iteration_count > 1),
+                    expand_paths=expand_paths
+                )
+            
+            # Prepare accumulated context
+            accumulated_context = "\n".join(sorted(candidate_pool)) if candidate_pool else "None yet"
+            
+            # Phase 1 LLM call
+            phase1_response = await self.llm.acomplete(
+                expanded_history,
+                system_prompt=[GATHER_CANDIDATES_PROMPT.format(
+                    DATE=TODAY,
+                    SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
+                    TREE_STATE="Current view" if iteration_count == 1 else "Expanded view",
+                    ACCUMULATED_CONTEXT=accumulated_context,
+                    ITERATION_COUNT=iteration_count
+                )],
+                prefix_prompt=repo_tree,
+                stream=True
+            )
+            
+            print(f"Phase 1 Iteration {iteration_count}: {phase1_response}")
+            
+            # Parse Phase 1 response
+            reasoning_blocks = parse_blocks(phase1_response, block_word="Reasoning", multiple=True)
+            expand_paths_block = parse_blocks(phase1_response, block_word="Expand Paths", multiple=False)
+            
+            # Extract and accumulate candidates from reasoning blocks
+            for reasoning in reasoning_blocks:
+                all_reasoning.append(reasoning)
+                # Extract candidate identifiers from reasoning block
+                if "**Candidate Identifiers**:" in reasoning or "**candidate_identifiers**:" in reasoning.lower():
+                    lines = reasoning.split('\n')
+                    capture = False
+                    for line in lines:
+                        if "candidate" in line.lower() and "identifier" in line.lower():
+                            capture = True
+                            continue
+                        if capture and line.strip().startswith('-'):
+                            ident = line.strip().lstrip('-').strip()
+                            if ident := self.get_valid_identifier(autocomplete, ident):
+                                candidate_pool.add(ident)
+            
+            # Check if we need to expand more
+            if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper():
+                enough_identifiers = True
+            
+            # Check if we need more history
+            if "ENOUGH_HISTORY: FALSE" in phase1_response.upper() and iteration_count == 1:
+                # Load more history for next iteration
+                # TODO this should be imcremental i.e starting += 2 each time!
+                expanded_history = self.history[-5:] if len(self.history) > 1 else self.history
+            
+            # Parse expansion paths for next iteration
+            if expand_paths_block and not enough_identifiers:
+                expand_paths = [
+                    path.strip() for path in expand_paths_block.strip().split('\n')
+                    if path.strip() and self.get_valid_identifier(autocomplete, path.strip())
+                ]
+            else:
+                expand_paths = []
+        
+        # ===== PHASE 2: FINAL SELECTION AND CLASSIFICATION =====
+        
+        # Prepare Phase 2 input
+        all_reasoning_text = "\n\n".join(all_reasoning)
+        all_candidates_text = "\n".join(sorted(candidate_pool))
+        
+        phase2_response = await self.llm.acomplete(
+            expanded_history,
+            system_prompt=[FINALIZE_IDENTIFIERS_PROMPT.format(
+                DATE=TODAY,
+                SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
+                USER_REQUEST=last_message,
+                ALL_CANDIDATES=all_candidates_text
+            )],
+            prefix_prompt=f"Phase 1 Exploration Results:\n\n{all_reasoning_text}",
+            stream=True
+        )
+        
+        print(f"Phase 2 Final Selection: {phase2_response}")
+        
+        # Parse Phase 2 response
+        summary = parse_blocks(phase2_response, block_word="Summary", multiple=False)
+        context_identifiers = parse_blocks(phase2_response, block_word="Context Identifiers", multiple=False)
+        modify_identifiers = parse_blocks(phase2_response, block_word="Modify Identifiers", multiple=False)
+        
+        # Extract operation mode
+        operation_mode = "STANDARD"  # default
+        if "OPERATION_MODE:" in phase2_response:
+            mode_line = [line for line in phase2_response.split('\n') if 'OPERATION_MODE:' in line]
+            if mode_line:
+                operation_mode = mode_line[0].split('OPERATION_MODE:')[1].strip()
+        
+        # Process final identifiers
+        final_context = set()
+        final_modify = set()
+        
+        if context_identifiers:
+            for ident in context_identifiers.strip().split('\n'):
+                if ident := self.get_valid_identifier(autocomplete, ident.strip()):
+                    final_context.add(ident)
+        
+        if modify_identifiers:
+            for ident in modify_identifiers.strip().split('\n'):
+                if ident := self.get_valid_identifier(autocomplete, ident.strip()):
+                    final_modify.add(ident)
+        
+        return {
+            "matches": matches,
+            "context_identifiers": list(final_context),
+            "modify_identifiers": self.tide._as_file_paths(list(final_modify)),
+            "operation_mode": operation_mode,
+            "summary": summary,
+            "expanded_history": expanded_history,  # Make available for downstream
+            "all_reasoning": all_reasoning_text,
+            "iteration_count": iteration_count
+        }
 
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+        print("Finished check for updates")
         self._clean_history()
+        print("Finished clean history")
 
         # Initialize the context identifier window if not present
         if self._context_identifier_window is None:
@@ -138,9 +300,10 @@ class AgentTide(BaseModel):
 
         codeContext = None
         if self._skip_context_retrieval:
-            ...
+            expanded_history = self.history[-1]
         else:
             autocomplete = AutoComplete(self.tide.cached_ids)
+            print(f"{autocomplete=}")
             if self._direct_mode:
                 self.contextIdentifiers = None
                 # Only extract matches from the last message
@@ -153,105 +316,17 @@ class AgentTide(BaseModel):
                 self._context_identifier_window.append(set(exact_matches))
                 if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
                     self._context_identifier_window.pop(0)
+                expanded_history = self.history[-5:]
+                operation_mode = "STANDARD, PATH_CODE"
+                ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
             else:
-                # Only extract matches from the last message
-                last_message = self.history[-1] if self.history else ""
-                matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
-                print(f"{matches=}")
-                # Update the context identifier window
-                self._context_identifier_window.append(set(matches))
-                if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
-                    self._context_identifier_window.pop(0)
-                # Combine identifiers from the last N interactions
-                window_identifiers = set()
-                for s in self._context_identifier_window:
-                    window_identifiers.update(s)
-                # If codeIdentifiers is passed, include them as well
-                identifiers_accum = set(codeIdentifiers) if codeIdentifiers else set()
-                identifiers_accum.update(window_identifiers)
-                modify_accum = set()
-                reasoning_accum = []
-                repo_tree = None
-                smart_search_attempts = 0
-                max_smart_search_attempts = 3
-                done = False
-                previous_reason = None
+                reasoning_output = await self.get_identifiers_two_phase(autocomplete, codeIdentifiers, TODAY)
+                print(json.dumps(reasoning_output, indent=4))
 
-                while not done:
-                    expand_paths = ["./"]
-                    # 1. SmartCodeSearch to filter repo tree
-                    if repo_tree is None or smart_search_attempts > 0:
-                        repo_history = self.history
-                        if previous_reason:
-                            repo_history += [previous_reason]
-
-                        repo_tree = await self.get_repo_tree_from_user_prompt(self.history, include_modules=bool(smart_search_attempts), expand_paths=expand_paths)
-
-                    # 2. Single LLM call with unified prompt
-                    # Pass accumulated identifiers for context if this isn't the first iteration
-                    accumulated_context = "\n".join(
-                        sorted((identifiers_accum or set()) | (modify_accum or set()))
-                    ) if (identifiers_accum or modify_accum) else ""
-
-                    unified_response = await self.llm.acomplete(
-                        self.history,
-                        system_prompt=[GET_CODE_IDENTIFIERS_UNIFIED_PROMPT.format(
-                            DATE=TODAY,
-                            SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
-                            IDENTIFIERS=accumulated_context
-                        )],
-                        prefix_prompt=repo_tree,
-                        stream=False
-                    )
-
-                    # Parse the unified response
-                    contextIdentifiers = parse_blocks(unified_response, block_word="Context Identifiers", multiple=False)
-                    modifyIdentifiers = parse_blocks(unified_response, block_word="Modify Identifiers", multiple=False)
-                    expandPaths = parse_blocks(unified_response, block_word="Expand Paths", multiple=False)
-
-                    # Extract reasoning (everything before the first "*** Begin")
-                    reasoning_parts = unified_response.split("*** Begin")
-                    if reasoning_parts:
-                        reasoning_accum.append(reasoning_parts[0].strip())
-                        previous_reason = reasoning_accum[-1]
-
-                    # Accumulate identifiers
-                    if contextIdentifiers:
-                        if smart_search_attempts == 0:
-                            identifiers_accum = set()
-                        for ident in contextIdentifiers.splitlines():
-                            if ident := self.get_valid_identifier(autocomplete, ident.strip()):
-                                identifiers_accum.add(ident)
-
-                    if modifyIdentifiers:
-                        for ident in modifyIdentifiers.splitlines():
-                            if ident := self.get_valid_identifier(autocomplete, ident.strip()):
-                                modify_accum.add(ident.strip())
-
-                    if expandPaths:
-                        expand_paths = [
-                            path for ident in expandPaths if (path := self.get_valid_identifier(autocomplete, ident.strip()))
-                        ]
-
-                    # Check if we have enough identifiers (unified prompt includes this decision)
-                    if "ENOUGH_IDENTIFIERS: TRUE" in unified_response.upper():
-                        done = True
-                    else:
-                        smart_search_attempts += 1
-                        if smart_search_attempts >= max_smart_search_attempts:
-                            done = True
-
-                # Finalize identifiers
-                self.reasoning = "\n\n".join(reasoning_accum)
-                self.contextIdentifiers = list(identifiers_accum) if identifiers_accum else None
-                self.modifyIdentifiers = list(modify_accum) if modify_accum else None
-
-                codeIdentifiers = self.contextIdentifiers or []
-                if self.modifyIdentifiers:
-                    self.modifyIdentifiers = self.tide._as_file_paths(self.modifyIdentifiers)
-                    codeIdentifiers.extend(self.modifyIdentifiers)
-                # TODO preserve passed identifiers by the user
-                codeIdentifiers += matches
+                codeIdentifiers = reasoning_output.get("context_identifiers", []) + reasoning_output.get("modify_identifiers", [])
+                matches = reasoning_output.get("matches")
+                operation_mode = reasoning_output.get("operation_mode")
+                expanded_history = reasoning_output.get("expanded_history")
 
             # --- End Unified Identifier Retrieval ---
             if codeIdentifiers:
@@ -268,7 +343,7 @@ class AgentTide(BaseModel):
         self._last_code_context = codeContext
         await delete_file(self.patch_path)
         response = await self.llm.acomplete(
-            self.history,
+            expanded_history,
             system_prompt=[
                 AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
                 STEPS_SYSTEM_PROMPT.format(DATE=TODAY),
@@ -300,6 +375,7 @@ class AgentTide(BaseModel):
                     response = response.replace(f"*** Begin Patch\n{patch}*** End Patch", "")
 
         self.history.append(response)
+        await self.llm.logger_fn(ROUND_FINISHED)
 
     @staticmethod
     async def get_git_diff_staged_simple(directory: str) -> str:
