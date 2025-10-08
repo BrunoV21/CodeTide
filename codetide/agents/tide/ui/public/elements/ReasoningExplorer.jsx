@@ -48,7 +48,7 @@ export default function ReasoningStepsCard() {
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-medium">
-              Reasoning Process
+              {props.finished ? "Reasoning Completed" : "Reasoning ..."}
             </CardTitle>
             {!props.finished && (
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
@@ -65,6 +65,11 @@ export default function ReasoningStepsCard() {
             )}
           </button>
         </div>
+        {props.finished && props.summary && (
+          <div className="mt-4 text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+            {props.summary}
+          </div>
+        )}
       </CardHeader>
 
       {/* Timeline */}
@@ -72,7 +77,7 @@ export default function ReasoningStepsCard() {
         <CardContent className="space-y-6">
           {/* Reasoning Steps */}
           {props.reasoning_steps.map((step, index) => (
-            <div key={index} className="relative flex gap-6">
+            <div key={index} className="relative flex gap-6" style={{}}>
               {/* Timeline Icon + Connector */}
               <div className="flex flex-col items-center pt-2">
                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
