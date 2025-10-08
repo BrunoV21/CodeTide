@@ -46,6 +46,72 @@ class CustomElementStep:
                     initialized[marker_id] = None
         return initialized
     
+    def _smart_update_props(self, updates: Dict[str, any]) -> None:
+        """
+        Update props dict based on the type of each value.
+        - list: append new items
+        - str: concatenate strings
+        - dict: merge/update dictionaries
+        - set: union sets
+        - int/float: add values
+        - bool: logical OR
+        - other: replace value
+        
+        Args:
+            updates: Dictionary of prop updates to apply
+        """
+        for key, new_value in updates.items():
+            if key not in self.props:
+                # If key doesn't exist, just set it
+                self.props[key] = new_value
+                continue
+            
+            current_value = self.props[key]
+            prop_type = self.props_schema.get(key)
+            
+            # Handle based on type
+            if prop_type is list or isinstance(current_value, list):
+                if isinstance(new_value, list):
+                    self.props[key].extend(new_value)
+                else:
+                    self.props[key].append(new_value)
+                    
+            elif prop_type is str or isinstance(current_value, str):
+                if isinstance(new_value, str):
+                    self.props[key] += new_value
+                else:
+                    self.props[key] += str(new_value)
+                    
+            elif prop_type is dict or isinstance(current_value, dict):
+                if isinstance(new_value, dict):
+                    self.props[key].update(new_value)
+                else:
+                    # Can't merge non-dict into dict, replace instead
+                    self.props[key] = new_value
+                    
+            elif prop_type is set or isinstance(current_value, set):
+                if isinstance(new_value, set):
+                    self.props[key] = self.props[key].union(new_value)
+                elif isinstance(new_value, (list, tuple)):
+                    self.props[key].update(new_value)
+                else:
+                    self.props[key].add(new_value)
+                    
+            elif prop_type in (int, float) or isinstance(current_value, (int, float)):
+                if isinstance(new_value, (int, float)):
+                    self.props[key] += new_value
+                else:
+                    self.props[key] = new_value
+                    
+            elif prop_type is bool or isinstance(current_value, bool):
+                if isinstance(new_value, bool):
+                    self.props[key] = current_value or new_value
+                else:
+                    self.props[key] = bool(new_value)
+            else:
+                # Default: replace value
+                self.props[key] = new_value
+    
     async def stream_token(self, content: Union[str, Dict[str, any]]) -> None:
         """
         Stream content to the custom element by updating props.
@@ -55,8 +121,8 @@ class CustomElementStep:
         """
         if isinstance(content, str):
             # Raw string content - append to default prop if exists
-            if "content" in self.props and isinstance(self.props["content"], str):
-                self.props["content"] += content
+            if "content" in self.props:
+                self._smart_update_props({"content": content})
             return
         
         # Handle ExtractedFields dict
@@ -68,28 +134,25 @@ class CustomElementStep:
         fields = content.get("fields", {})
         
         if not marker_id or marker_id not in self.props:
+            print(f"{marker_id=} not in {self.props.keys()=}")
             return
         
         # Update prop based on its type
         prop_type = self.props_schema.get(marker_id)
-        current_value = self.props[marker_id]
         
         if prop_type is list:
             # Append fields dict to list
-            if isinstance(current_value, list):
-                self.props[marker_id].append(fields)
+            self._smart_update_props({marker_id: fields})
         elif prop_type is str:
             # Concatenate string representation of fields
-            if isinstance(current_value, str):
-                formatted = self._format_fields_as_string(fields)
-                self.props[marker_id] += formatted
+            formatted = self._format_fields_as_string(fields)
+            self._smart_update_props({marker_id: formatted})
         elif prop_type is dict:
             # Merge fields into dict
-            if isinstance(current_value, dict):
-                self.props[marker_id].update(fields)
+            self._smart_update_props({marker_id: fields})
         
-        # Update the element
-        self.element.props.update(self.props)
+        # Update the element using smart update
+        self._smart_update_props(self.props)
         await self.element.update()
     
     def _format_fields_as_string(self, fields: Dict[str, any]) -> str:
