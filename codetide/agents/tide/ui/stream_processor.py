@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Literal, Optional, List, NamedTuple, Union
+from typing import Any, Dict, Literal, Optional, List, NamedTuple, Type, Union
 import chainlit as cl
 import re
 
@@ -114,15 +114,13 @@ class CustomElementStep:
         Args:
             content: Either a string (for raw content) or ExtractedFields.fields dict
         """
-        if isinstance(content, str):
-            # Raw string content - append to default prop if exists
-            if "content" in self.props:
-                self._smart_update_props({"content": content})
-            return
-        
+
         # Handle ExtractedFields dict
         if not isinstance(content, dict):
             return
+        
+        
+        print(f"UPDATING STREAM TOKEN {type(content)=}")
         
         # content should have 'marker_id' and 'fields'
         marker_id = content.get("marker_id")
@@ -177,20 +175,42 @@ class ExtractedFields:
 
 class FieldExtractor:
     """Handles extraction of structured fields from marker content."""
-    
-    def __init__(self, field_patterns: Dict[str, str]):
+
+    def __init__(self, field_patterns: Dict[str, Union[str, Dict[str, Any]]]):
         """
         Initialize with field extraction patterns.
         
         Args:
-            field_patterns: Dict mapping field names to regex patterns.
-                           Patterns should have named groups or return the match.
+            field_patterns: Dict mapping field names to either:
+                - str: regex pattern (returns string by default)
+                - dict: {"pattern": str, "schema": type} where schema can be list, str, int, etc.
+                
+        Examples:
+            FieldExtractor({
+                "header": r"\*\*([^*]+)\*\*",
+                "items": {"pattern": r"^\s*-\s*(.+?)$", "schema": list}
+            })
         """
-        self.field_patterns = {
-            name: re.compile(pattern, re.MULTILINE | re.DOTALL)
-            for name, pattern in field_patterns.items()
-        }
-    
+        self.field_configs = {}
+        
+        for name, config in field_patterns.items():
+            if isinstance(config, str):
+                # Simple string pattern - default to string type
+                self.field_configs[name] = {
+                    "pattern": re.compile(config, re.MULTILINE | re.DOTALL),
+                    "schema": str
+                }
+            elif isinstance(config, dict):
+                # Dict with pattern and schema
+                pattern = config.get("pattern", "")
+                schema = config.get("schema", str)
+                self.field_configs[name] = {
+                    "pattern": re.compile(pattern, re.MULTILINE | re.DOTALL),
+                    "schema": schema
+                }
+            else:
+                raise ValueError(f"Invalid config for field '{name}': must be str or dict")
+
     def extract(self, content: str, marker_id: str = "") -> ExtractedFields:
         """
         Extract all configured fields from content.
@@ -203,23 +223,68 @@ class FieldExtractor:
             ExtractedFields object with parsed data
         """
         fields = {}
-        
-        for field_name, pattern in self.field_patterns.items():
-            match = pattern.search(content)
-            if match:
-                # If pattern has named groups, use them
-                if match.groupdict():
-                    fields[field_name] = match.groupdict()
-                # Otherwise use the first group or full match
-                elif match.groups():
-                    fields[field_name] = match.group(1).strip()
+        print("EXTRACTING")
+
+        for field_name, config in self.field_configs.items():
+            pattern = config["pattern"]
+            schema = config["schema"]
+            
+            if schema is list:
+                # For list schema, find all matches
+                matches = pattern.findall(content)
+                if matches:
+                    # Clean up the matches
+                    fields[field_name] = [m.strip() if isinstance(m, str) else m for m in matches]
                 else:
-                    fields[field_name] = match.group(0).strip()
+                    fields[field_name] = []
             else:
-                fields[field_name] = None
+                # For non-list schemas, find first match
+                match = pattern.search(content)
+                if match:
+                    # If pattern has named groups, use them
+                    if match.groupdict():
+                        value = match.groupdict()
+                    # Otherwise use the first group or full match
+                    elif match.groups():
+                        value = match.group(1).strip()
+                    else:
+                        value = match.group(0).strip()
+                    
+                    # Apply schema conversion
+                    fields[field_name] = self._convert_to_schema(value, schema)
+                else:
+                    fields[field_name] = None
         
         return ExtractedFields(marker_id=marker_id, raw_content=content, fields=fields)
-    
+
+    def _convert_to_schema(self, value: Any, schema: Type) -> Any:
+        """
+        Convert extracted value to the specified schema type.
+        
+        Args:
+            value: The extracted value
+            schema: Target type (str, int, float, bool, etc.)
+            
+        Returns:
+            Converted value
+        """
+        if schema is str or value is None:
+            return value
+        
+        try:
+            if schema is int:
+                return int(value)
+            elif schema is float:
+                return float(value)
+            elif schema is bool:
+                return value.lower() in ('true', '1', 'yes', 'on')
+            else:
+                # For custom types, attempt direct conversion
+                return schema(value)
+        except (ValueError, TypeError):
+            # If conversion fails, return original value
+            return value
+
     def extract_list(self, content: str, field_name: str) -> List[str]:
         """
         Extract a list of items (e.g., candidate_identifiers).

@@ -531,7 +531,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     field_extractor=FieldExtractor({
                         "header": r"\*\*([^*]+)\*\*(?=\s*\n\s*\*\*content\*\*)",
                         "content": r"\*\*content\*\*:\s*(.+?)(?=\s*\*\*candidate_identifiers\*\*|$)",
-                        "candidate_identifiers": r"^\s*-\s*(.+?)$"
+                        "candidate_identifiers": {"pattern": "^\s*-\s*(.+?)$", "schema": list}
                     })
                 ),
                 MarkerConfig(
