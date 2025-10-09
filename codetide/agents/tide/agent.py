@@ -36,6 +36,8 @@ import pygit2
 import os
 
 ROUND_FINISHED = "<FINISHED-GEN>"
+REASONING_STARTED = "<STARTED-REASONING>"
+REASONING_FINISHED = "<FINISHED-REASONING>"
 
 class AgentTide(BaseModel):
     llm :Llm
@@ -319,8 +321,10 @@ class AgentTide(BaseModel):
                 expanded_history = self.history[-5:]
                 operation_mode = "STANDARD, PATH_CODE"
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
-            else:
+            else:                
+                await self.llm.logger_fn(REASONING_STARTED)
                 reasoning_output = await self.get_identifiers_two_phase(autocomplete, codeIdentifiers, TODAY)
+                await self.llm.logger_fn(REASONING_FINISHED)
                 print(json.dumps(reasoning_output, indent=4))
 
                 codeIdentifiers = reasoning_output.get("context_identifiers", []) + reasoning_output.get("modify_identifiers", [])

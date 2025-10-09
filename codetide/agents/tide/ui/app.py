@@ -29,7 +29,7 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
-from codetide.agents.tide.agent import ROUND_FINISHED
+from codetide.agents.tide.agent import REASONING_FINISHED, REASONING_STARTED, ROUND_FINISHED
 from codetide.agents.tide.ui.stream_processor import CustomElementStep, FieldExtractor
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
@@ -554,7 +554,6 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     end_marker="*** End Modify Identifiers",
                     target_step=reasoning_step,
                     stream_mode="full"
-                    # TODO add support to ignore global_fallback_message
                 )
             ],
             global_fallback_msg=msg
@@ -574,7 +573,16 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
 
             # elif not is_reasonig_sent:
             #     is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
-
+            elif chunk == REASONING_STARTED:
+                stream_processor.global_fallback_msg = None
+                stream_processor.buffer = ""
+                stream_processor.accumulated_content = ""
+            
+            elif chunk == REASONING_FINISHED:
+                stream_processor.global_fallback_msg = msg
+                stream_processor.buffer = ""
+                stream_processor.accumulated_content = ""
+                
             elif chunk == ROUND_FINISHED:
                 #  Handle any remaining content
                 await stream_processor.finalize()
