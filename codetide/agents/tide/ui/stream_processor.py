@@ -61,11 +61,6 @@ class CustomElementStep:
             updates: Dictionary of prop updates to apply
         """
         for key, new_value in updates.items():
-            if key not in self.props:
-                # If key doesn't exist, just set it
-                self.props[key] = new_value
-                continue
-            
             current_value = self.props[key]
             prop_type = self.props_schema.get(key)
             
@@ -151,8 +146,7 @@ class CustomElementStep:
             # Merge fields into dict
             self._smart_update_props({marker_id: fields})
         
-        # Update the element using smart update
-        self._smart_update_props(self.props)
+        self.element.props.update(self.props)
         await self.element.update()
     
     def _format_fields_as_string(self, fields: Dict[str, any]) -> str:

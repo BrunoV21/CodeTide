@@ -478,7 +478,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         "modify_identifiers": [],
         "finished": False
     })
-    context_msg = cl.Message(content="", author="AgentTide", elements=reasoning_element).send()
+    context_msg = await cl.Message(content="", author="AgentTide", elements=[reasoning_element]).send()
     ### TODO this needs to receive the message as well to call update
     reasoning_step = CustomElementStep(
         element=reasoning_element,
