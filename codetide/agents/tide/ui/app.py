@@ -577,11 +577,13 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 stream_processor.global_fallback_msg = None
                 stream_processor.buffer = ""
                 stream_processor.accumulated_content = ""
+                continue
             
             elif chunk == REASONING_FINISHED:
                 stream_processor.global_fallback_msg = msg
                 stream_processor.buffer = ""
                 stream_processor.accumulated_content = ""
+                continue
                 
             elif chunk == ROUND_FINISHED:
                 #  Handle any remaining content
