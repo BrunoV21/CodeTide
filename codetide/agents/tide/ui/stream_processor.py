@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 from typing import Any, Dict, Literal, Optional, List, NamedTuple, Type, Union
 import chainlit as cl
 import re
@@ -119,6 +120,7 @@ class CustomElementStep:
         if not isinstance(content, dict):
             return
         
+        ### TODO this  is only working with reasoning steps as the received content is not a dict
         
         print(f"UPDATING STREAM TOKEN {type(content)=}")
         
@@ -144,6 +146,7 @@ class CustomElementStep:
             # Merge fields into dict
             self._smart_update_props({marker_id: fields})
         
+        print(json.dumps(self.props, indent=4))
         self.element.props.update(self.props)
         await self.element.update()
     

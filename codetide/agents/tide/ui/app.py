@@ -540,6 +540,9 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     end_marker="*** End Summary",
                     target_step=reasoning_step,
                     stream_mode="full"
+                    ### TODO update marker_config so that default field_extractor returns marker_id: contents as string
+                    ### or list or whatever is specified
+                    ### format should be {markerd_id, no_regex + type if None set to str}
                 ),
                 MarkerConfig(
                     marker_id="context_identifiers",
@@ -583,6 +586,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 stream_processor.global_fallback_msg = msg
                 stream_processor.buffer = ""
                 stream_processor.accumulated_content = ""
+                reasoning_element.props["finished"] =True
+                await reasoning_element.update()
                 continue
                 
             elif chunk == ROUND_FINISHED:
