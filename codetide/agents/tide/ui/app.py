@@ -529,8 +529,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     target_step=reasoning_step,
                     stream_mode="full",
                     field_extractor=FieldExtractor({
-                        "header": r"\*\*([^*]+)\*\*(?=\s*\n\s*\*\*content\*\*)",
-                        "content": r"\*\*content\*\*:\s*(.+?)(?=\s*\*\*candidate_identifiers\*\*|$)",
+                        "header": r"\*\*Task\*\*:\s*(.+?)(?=\n\s*\*\*Rationale\*\*)",
+                        "content": r"\*\*Rationale\*\*:\s*(.+?)(?=\s*\*\*Candidate Identifiers\*\*|$)",
                         "candidate_identifiers": {"pattern": "^\s*-\s*(.+?)$", "schema": list}
                     })
                 ),
