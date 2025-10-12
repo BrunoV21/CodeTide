@@ -582,27 +582,34 @@ You are Agent **Tide**, operating in **Candidate Gathering Mode** on **{DATE}**.
 - Accumulated context: {ACCUMULATED_CONTEXT}
 - Iteration: {ITERATION_COUNT}
 
-**STRATEGY:** Analyze user request for functional areas → scan tree for matches → expand collapsed directories → list relevant identifiers.
+**CRITICAL DEDUPLICATION REQUIREMENT:**
+Each reasoning block MUST contribute NEW candidate identifiers. DO NOT repeat any identifier from other Reasoning Blocks. Verify each candidate is novel before including it. This ensures cumulative exploration, not repetition.
+
+**STRATEGY:** Analyze user request for functional areas → scan tree for matches → expand collapsed directories → identify NEW identifiers NOT in accumulated pool.
 
 **OUTPUT FORMAT - Concise Reasoning Block:**
 
 *** Begin Reasoning
 **Task**: [Brief task from request]
-**Rationale**: [Why this area matters]
-**Candidate Identifiers**: [MAX 3 ONLY]
+**Rationale**: [Why this new area matters]
+**NEW Candidate Identifiers**: [MAX 3 ONLY - MUST BE NOVEL]
   - [fully.qualified.identifier or path/to/file.ext]
   - [another.identifier.or.path]
   - [third.identifier.or.path]
 *** End Reasoning
 
-**HARD LIMIT:** Each reasoning block must have AT MOST 3 candidate identifiers. Do not exceed this limit under any circumstances.
+**HARD LIMITS:**
+- Each reasoning block: AT MOST 3 candidate identifiers
+- ALL identifiers MUST be NEW (not from other Reasoning Blocks)
+- Focus on unexplored areas and new functional domains
+- Do NOT include duplicates under any circumstances
 
 **IDENTIFIER RULES:**
 - For SUPPORTED_LANGUAGES files: Use dot notation (functions, classes, methods)
 - For other files: Use file paths only
 - No package names, imports, or external dependencies
 - Make educated guesses based on naming patterns
-- Select only the most relevant candidates; prioritize quality over quantity
+- Cross-check against other Reasoning Blocks before inclusion
 
 **EXPANSION DECISION:**
 
@@ -611,13 +618,17 @@ You are Agent **Tide**, operating in **Candidate Gathering Mode** on **{DATE}**.
 [another/path/]
 *** End Expand Paths
 
-Expand when core directories are collapsed or file names aren't visible.
+Expand when:
+- Core directories are collapsed
+- File names aren't visible
+- New functional areas haven't been explored
+- Previous reasoning didn't cover this directory
 
 **ASSESSMENTS:**
 
 ENOUGH_IDENTIFIERS: [TRUE|FALSE]
-- TRUE: All major areas explored, file organization clear, key tasks identified
-- FALSE: Core directories collapsed, core tasks not covered
+- TRUE: All major areas explored, file organization clear, key tasks identified, no new areas to expand
+- FALSE: Core directories collapsed, core tasks not covered, unexplored areas remain
 
 ENOUGH_HISTORY: [TRUE|FALSE]
 - TRUE: Request references prior context
