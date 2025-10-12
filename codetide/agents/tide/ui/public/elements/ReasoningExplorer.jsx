@@ -8,14 +8,39 @@ export default function ReasoningStepsCard() {
   const [expandedAll, setExpandedAll] = useState(true);
   const [expandedIdentifiers, setExpandedIdentifiers] = useState(false);
   const [waveOffset, setWaveOffset] = useState(0);
+  const [loadingText, setLoadingText] = useState("Analyzing");
+  const [thinkingTime, setThinkingTime] = useState(0);
 
-  // Animate wave effect
+  const loadingStates = ["Analyzing", "Thinking", "Updating", "Processing"];
+
+  // Animate wave effect and loading text
   useEffect(() => {
-    const interval = setInterval(() => {
+    const waveInterval = setInterval(() => {
       setWaveOffset((prev) => (prev + 1) % 360);
     }, 50);
-    return () => clearInterval(interval);
+
+    const textInterval = setInterval(() => {
+      setLoadingText((prev) => {
+        const idx = loadingStates.indexOf(prev);
+        return loadingStates[(idx + 1) % loadingStates.length];
+      });
+    }, 1000);
+
+    return () => {
+      clearInterval(waveInterval);
+      clearInterval(textInterval);
+    };
   }, []);
+
+  // Track thinking time
+  useEffect(() => {
+    if (!props.finished) {
+      const timer = setInterval(() => {
+        setThinkingTime((prev) => prev + 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [props.finished]);
 
   const toggleStep = (index) => {
     setExpandedSteps((prev) => ({
@@ -41,8 +66,8 @@ export default function ReasoningStepsCard() {
 
   if (hasNoData && !props.finished) {
     return (
-      <Card className="w-full max-w-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
-        <CardContent className="flex flex-col items-center justify-center py-12">
+      <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
+        <CardContent className="flex flex-col items-center justify-center py-12 px-6">
           <svg className="w-8 h-8 mb-4 opacity-60" viewBox="0 0 100 100">
             <defs>
               <style>{`
@@ -65,21 +90,21 @@ export default function ReasoningStepsCard() {
             <path d="M0,50 Q25,40,50,50 T100,50" className="wave-line" strokeLinecap="round" />
             <path d="M0,60 Q25,50,50,60 T100,60" className="wave-line" strokeLinecap="round" style={{animationDelay: '0.2s', opacity: 0.6}} />
           </svg>
-          <span className="text-slate-400 text-sm">Analyzing...</span>
+          <span className="text-slate-400 text-sm">{loadingText}...</span>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="w-full max-w-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
-      {/* Header - Summary or Loading Wave */}
-      <CardHeader className="pb-4">
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex-1">
+    <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
+      {/* Header */}
+      <CardHeader className="px-6 py-4 border-b border-slate-700/50">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
             {isLoadingState ? (
-              <div className="flex justify-center items-center py-8">
-                <svg className="w-8 h-8 opacity-60" viewBox="0 0 100 60">
+              <div className="flex items-center gap-3">
+                <svg className="w-5 h-5 opacity-60 flex-shrink-0" viewBox="0 0 100 60">
                   <defs>
                     <style>{`
                       @keyframes wave-motion {
@@ -95,18 +120,21 @@ export default function ReasoningStepsCard() {
                   </defs>
                   <path d="M0,30 Q25,20,50,30 T100,30 L100,60 L0,60" className="wave-fill" />
                 </svg>
+                <span className="text-slate-400 text-sm">{loadingText}...</span>
               </div>
             ) : (
-              props.summary && (
-                <p className="text-sm text-slate-300 leading-relaxed">
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500 font-medium">Thought for {thinkingTime}s</p>
+                <p className="text-sm text-slate-200 leading-relaxed line-clamp-1">
                   {props.summary}
                 </p>
-              )
+              </div>
             )}
           </div>
           <button
             onClick={toggleAll}
-            className="p-1 hover:bg-slate-800 rounded transition flex-shrink-0 mt-1"
+            className="p-1 hover:bg-slate-700 rounded transition flex-shrink-0 mt-0.5"
+            aria-label="Toggle details"
           >
             {expandedAll ? (
               <ChevronDown className="h-4 w-4 text-slate-400" />
@@ -117,49 +145,52 @@ export default function ReasoningStepsCard() {
         </div>
       </CardHeader>
 
-      {/* Timeline */}
+      {/* Content */}
       {expandedAll && (
-        <CardContent className="space-y-6 pt-2">
+        <CardContent className="px-6 py-6 space-y-8">
           {/* Reasoning Steps */}
           {props.reasoning_steps.map((step, index) => (
-            <div key={index} className="relative flex gap-6">
-              {/* Timeline Icon + Connector */}
-              <div className="flex flex-col items-center pt-1">
-                <div className="w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
-                  <Brain className="w-3.5 h-3.5 text-blue-400" />
+            <div key={index} className="relative flex gap-4">
+              {/* Timeline */}
+              <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
+                <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+                  <Brain className="w-3 h-3 text-blue-400" />
                 </div>
                 {index < props.reasoning_steps.length - 1 && (
-                  <div className="w-px bg-gradient-to-b from-blue-500/40 to-transparent flex-grow mt-2" style={{ minHeight: "48px" }}></div>
+                  <div className="w-px bg-gradient-to-b from-blue-500/40 to-transparent flex-grow mt-3" style={{ minHeight: "60px" }}></div>
                 )}
               </div>
 
-              {/* Step Content */}
+              {/* Content */}
               <div className="flex-1 pt-0.5">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-slate-100 mb-1">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-slate-100 mb-2">
                       {step.header}
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed">
                       {step.content}
                     </p>
                   </div>
-                  <button
-                    onClick={() => toggleStep(index)}
-                    className="p-1 hover:bg-slate-800 rounded flex-shrink-0 transition"
-                  >
-                    {expandedSteps[index] ? (
-                      <ChevronDown className="h-4 w-4 text-slate-500" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-slate-500" />
-                    )}
-                  </button>
+                  {step.candidate_identifiers?.length > 0 && (
+                    <button
+                      onClick={() => toggleStep(index)}
+                      className="p-1 hover:bg-slate-700 rounded flex-shrink-0 transition"
+                      aria-label="Toggle identifiers"
+                    >
+                      {expandedSteps[index] ? (
+                        <ChevronDown className="h-4 w-4 text-slate-500" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-slate-500" />
+                      )}
+                    </button>
+                  )}
                 </div>
 
-                {/* Expanded candidate identifiers */}
+                {/* Identifiers */}
                 {expandedSteps[index] && step.candidate_identifiers?.length > 0 && (
-                  <div className="mt-6 mb-6 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg transition-all">
-                    <p className="text-xs font-medium text-slate-500 mb-4">
+                  <div className="mt-4 p-3 bg-slate-800/30 border border-slate-700/50 rounded">
+                    <p className="text-xs font-medium text-slate-500 mb-3">
                       Context Identifiers
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -179,28 +210,28 @@ export default function ReasoningStepsCard() {
             </div>
           ))}
 
-          {/* Deep Analysis Section */}
+          {/* Deep Analysis */}
           {(props.context_identifiers.length > 0 ||
             props.modify_identifiers.length > 0) && (
-            <div className="border-t border-slate-700/50 pt-6 mt-6">
+            <div className="border-t border-slate-700/50 pt-8">
               <button
                 onClick={toggleIdentifiers}
-                className="w-full flex items-center justify-center gap-2 py-2 hover:bg-slate-800/50 rounded transition group"
+                className="w-full flex items-center justify-between px-0 py-2 hover:bg-slate-800/30 rounded transition group text-left"
               >
-                <span className="text-sm font-medium text-slate-400 group-hover:text-slate-300">
+                <span className="text-sm font-semibold text-slate-300 group-hover:text-slate-100">
                   Deeper Analysis
                 </span>
-                <svg className={`w-4 h-4 text-slate-500 transition-transform ${expandedIdentifiers ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className={`w-4 h-4 text-slate-500 transition-transform flex-shrink-0 ${expandedIdentifiers ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
 
               {expandedIdentifiers && (
-                <div className="mt-6 space-y-6 p-6 bg-slate-800/20 border border-slate-700/30 rounded-lg">
+                <div className="mt-4 p-4 bg-slate-800/20 border border-slate-700/30 rounded-lg space-y-6">
                   {/* Context Identifiers */}
                   {props.context_identifiers.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-4">
+                      <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">
                         Context Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -225,7 +256,7 @@ export default function ReasoningStepsCard() {
                   {/* Modify Identifiers */}
                   {props.modify_identifiers.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-4">
+                      <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">
                         Modify Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
