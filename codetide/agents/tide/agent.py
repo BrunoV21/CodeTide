@@ -161,7 +161,8 @@ class AgentTide(BaseModel):
         repo_tree = None
         expand_paths = ["./"]
         enough_identifiers = False
-        expanded_history = list(self.history)[-3:]  # Track expanded history
+        history_memory = 3
+        expanded_history = list(self.history)[-history_memory:]  # Track expanded history
         
         while not enough_identifiers and iteration_count < max_iterations:
             iteration_count += 1
@@ -191,7 +192,7 @@ class AgentTide(BaseModel):
                 stream=True
             )
             
-            print(f"Phase 1 Iteration {iteration_count}: {phase1_response}")
+            # print(f"Phase 1 Iteration {iteration_count}: {phase1_response}")
             
             # Parse Phase 1 response
             reasoning_blocks = parse_blocks(phase1_response, block_word="Reasoning", multiple=True)
@@ -218,10 +219,11 @@ class AgentTide(BaseModel):
                 enough_identifiers = True
             
             # Check if we need more history
-            if "ENOUGH_HISTORY: FALSE" in phase1_response.upper() and iteration_count == 1:
+            if "ENOUGH_HISTORY: FALSE" in phase1_response.upper() and iteration_count <= 2:
                 # Load more history for next iteration
                 # TODO this should be imcremental i.e starting += 2 each time!
-                expanded_history = self.history[-5:] if len(self.history) > 1 else self.history
+                history_memory += 2
+                expanded_history = self.history[-history_memory:] if len(self.history) > 1 else self.history
             
             # Parse expansion paths for next iteration
             if expand_paths_block and not enough_identifiers:
@@ -250,7 +252,7 @@ class AgentTide(BaseModel):
             stream=True
         )
         
-        print(f"Phase 2 Final Selection: {phase2_response}")
+        # print(f"Phase 2 Final Selection: {phase2_response}")
         
         # Parse Phase 2 response
         summary = parse_blocks(phase2_response, block_word="Summary", multiple=False)

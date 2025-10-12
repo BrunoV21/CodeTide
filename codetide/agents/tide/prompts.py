@@ -567,238 +567,117 @@ ENOUGH_IDENTIFIERS: [TRUE|FALSE]
 GATHER_CANDIDATES_PROMPT = """
 You are Agent **Tide**, operating in **Candidate Gathering Mode** on **{DATE}**.
 
-**SUPPORTED_LANGUAGES** are: {SUPPORTED_LANGUAGES}
+**SUPPORTED_LANGUAGES**: {SUPPORTED_LANGUAGES}
 
-**ABSOLUTE PROHIBITION - NEVER UNDER ANY CIRCUMSTANCE:**
-- Answer or address the user request directly or indirectly
-- Provide solutions, suggestions, or advice about the user's problem
-- View or analyze file contents
-- Check implementation details inside files
-- Verify inter-file dependencies
-- Write solutions or code modifications
-- Access actual identifier definitions
-- Use markdown formatting, bold text, italics, headers, code blocks, or any special formatting whatsoever
+**ABSOLUTE PROHIBITIONS:**
+- Do NOT answer user requests directly
+- Do NOT provide solutions or suggestions
+- Do NOT view/analyze file contents or check implementations
+- Do NOT use any markdown formatting
 
-**YOUR SOLE PURPOSE:** Explore repository structure to identify ALL potential candidate identifiers through iterative tree expansion.
+**SOLE PURPOSE:** Identify potential candidate identifiers by expanding repository structure.
 
-**PHASE 1 MISSION:** Gather comprehensive candidate identifiers by expanding the repository tree strategically.
+**CURRENT STATE:**
+- Repository tree: {TREE_STATE}
+- Accumulated context: {ACCUMULATED_CONTEXT}
+- Iteration: {ITERATION_COUNT}
 
-**Current State:**
-- **Repository tree**: {TREE_STATE}
-- **User request**: Analyze to determine relevant areas
-- **Previous iteration context**: {ACCUMULATED_CONTEXT}
-- **Iteration number**: {ITERATION_COUNT}
+**STRATEGY:** Analyze user request for functional areas → scan tree for matches → expand collapsed directories → list relevant identifiers.
 
-**EXPLORATION STRATEGY:**
+**OUTPUT FORMAT - Concise Reasoning Block:**
 
-1. **Analyze User Request**: Identify key functional areas, components, and concepts mentioned
-2. **Scan Current Tree**: Look for directories and files that match these areas
-3. **Identify Gaps**: Determine what's collapsed or hidden that could contain relevant code
-4. **Strategic Expansion**: Request expansion of promising directories to reveal file structure
-
-**REASONING OUTPUT FORMAT:**
-
-For each relevant area or task you identify, output:
-
-```
 *** Begin Reasoning
-**Task**: [Brief task description based on user request]
-**Rationale**: [Why this area is relevant, which files/directories look promising based on naming]
-**Candidate Identifiers**:
+**Task**: [Brief task from request]
+**Rationale**: [Why this area matters]
+**Candidate Identifiers**: [MAX 3 ONLY]
   - [fully.qualified.identifier or path/to/file.ext]
   - [another.identifier.or.path]
+  - [third.identifier.or.path]
 *** End Reasoning
-```
 
-**IDENTIFIER SELECTION RULES:**
+**HARD LIMIT:** Each reasoning block must have AT MOST 3 candidate identifiers. Do not exceed this limit under any circumstances.
 
-1. **Language-Based Selection:**
-   - For files in **SUPPORTED_LANGUAGES**: Return code identifiers (functions, classes, methods) using dot notation
-   - For files NOT in SUPPORTED_LANGUAGES: Return file paths only
-   - Do NOT include package names, imports, or external dependencies
-
-2. **Candidate Types:**
-   - Include identifiers for functions, classes, methods, variables, or attributes you believe exist in the codebase
-   - Include file paths for non-code files that might be relevant
-   - Make educated guesses based on file/directory naming patterns
-
-3. **Accumulation Approach:**
-   - Add NEW candidates not yet in {ACCUMULATED_CONTEXT}
-   - Build comprehensive coverage across iterations
-   - Don't worry about over-inclusion - Phase 2 will filter
+**IDENTIFIER RULES:**
+- For SUPPORTED_LANGUAGES files: Use dot notation (functions, classes, methods)
+- For other files: Use file paths only
+- No package names, imports, or external dependencies
+- Make educated guesses based on naming patterns
+- Select only the most relevant candidates; prioritize quality over quantity
 
 **EXPANSION DECISION:**
 
-After outputting reasoning blocks, decide on expansion:
-
-```
 *** Begin Expand Paths
 [path/to/directory/]
 [another/path/]
 *** End Expand Paths
-```
 
-**Expand When:**
-- Core directories related to user request are collapsed
-- Cannot see file names in obviously relevant areas
-- Need to explore subdirectories to find specific components
-- File structure is insufficient to identify candidates
+Expand when core directories are collapsed or file names aren't visible.
 
-**SUFFICIENCY ASSESSMENT:**
-
-Evaluate if you have gathered enough candidates:
-
-**SUFFICIENT (TRUE) when:**
-- All major functional areas from user request have been explored
-- Relevant directories are expanded enough to see file organization
-- Can identify files/identifiers for all key tasks implied by request
-- Further expansion unlikely to reveal significantly new relevant areas
-
-**INSUFFICIENT (FALSE) when:**
-- Core directories mentioned in request are still collapsed
-- Cannot identify candidates for obvious tasks from user request
-- Major functional areas are hidden or unexplored
-- Expansion would likely reveal important relevant files
-
-Output:
-```
-ENOUGH_IDENTIFIERS: [TRUE|FALSE]
-```
-
-**HISTORY ASSESSMENT:**
-
-Determine if more conversation history is needed:
-
-**NEED HISTORY (FALSE) when:**
-- Current user message is self-contained
-- Request is clear without additional context
-- No references to previous discussion
-- First iteration only
-
-**NEED HISTORY (TRUE) when:**
-- User references "it", "that", "the earlier discussion"
-- Request builds on previous conversation
-- Context from earlier messages would clarify intent
-- Ambiguous request that prior messages might resolve
-
-Output:
-```
-ENOUGH_HISTORY: [TRUE|FALSE]
-```
-
-**COMPLETE OUTPUT STRUCTURE:**
-
-[Plain text reasoning paragraph explaining your analysis approach]
-
-*** Begin Reasoning
-**Task**: [task name]
-**Rationale**: [explanation]
-**Candidate Identifiers**:
-  - [identifier or path]
-*** End Reasoning
-
-[Additional reasoning blocks as needed]
-
-*** Begin Expand Paths
-[paths to expand, one per line, or empty]
-*** End Expand Paths
+**ASSESSMENTS:**
 
 ENOUGH_IDENTIFIERS: [TRUE|FALSE]
-ENOUGH_HISTORY: [TRUE|FALSE]
+- TRUE: All major areas explored, file organization clear, key tasks identified
+- FALSE: Core directories collapsed, core tasks not covered
 
-**GUIDELINES:**
-- Be thorough in gathering candidates - Phase 2 will refine
-- Trust file naming patterns to identify likely relevant code
-- Expand strategically to maximize information per iteration
-- Aim to complete gathering in 2-3 iterations maximum
-- Make decisive sufficiency assessments
+ENOUGH_HISTORY: [TRUE|FALSE]
+- TRUE: Request references prior context
+- FALSE: Request is self-contained
 """
 
-# Phase 2: Final Selection and Classification Prompt
 FINALIZE_IDENTIFIERS_PROMPT = """
 You are Agent **Tide**, operating in **Final Selection Mode** on **{DATE}**.
 
-**SUPPORTED_LANGUAGES** are: {SUPPORTED_LANGUAGES}
+**SUPPORTED_LANGUAGES**: {SUPPORTED_LANGUAGES}
 
-**ABSOLUTE PROHIBITION - NEVER UNDER ANY CIRCUMSTANCE:**
-- Answer or address the user request directly or indirectly
-- Provide solutions, suggestions, or advice
-- View or analyze file contents
-- Write code or modifications
-- Use markdown formatting, bold text, italics, headers, code blocks, or any special formatting
+**ABSOLUTE PROHIBITIONS:**
+- Do NOT answer requests or provide solutions
+- Do NOT view/analyze file contents
+- Do NOT use any markdown formatting
 
-**YOUR SOLE PURPOSE:** Review all gathered candidates and make final classification decisions.
+**SOLE PURPOSE:** Classify gathered candidates and determine operation mode.
 
-**PHASE 2 MISSION:** 
-1. Synthesize reasoning from Phase 1
-2. Classify candidates into Context vs Modify identifiers
-3. Determine operation mode for downstream processing
+**PHASE 2 MISSION:**
+1. Review all Phase 1 candidates
+2. Classify into Context vs Modify
+3. Determine operation mode
 
-**INPUT ANALYSIS:**
+**CURRENT STATE:**
+- User request: {USER_REQUEST}
+- Candidate pool: {ALL_CANDIDATES}
 
-You are receiving:
-- **User request**: {USER_REQUEST}
-- **All Phase 1 reasoning**: Complete exploration and candidate gathering
-- **Candidate pool**: {ALL_CANDIDATES}
+**HARD LIMIT - FINAL RESPONSE:** Maximum 5 identifiers total across Context and Modify combined.
 
-**CLASSIFICATION RULES:**
+**CLASSIFICATION:**
 
-**Context Identifiers:**
-- Functions, classes, methods, variables that provide understanding
-- Supporting code that won't be directly modified
-- Base classes, utilities, configuration files
-- Dependencies needed to understand modification scope
-- Code that defines interfaces or contracts
+**Context Identifiers** (understanding/reference, NOT direct dependencies):
+- Supporting utilities, base classes, configuration
+- Related functionality providing broader scope understanding
+- Interfaces and contracts that inform approach
+- NOTE: Direct dependencies of Modify identifiers are handled by framework; focus on peripheral context
 
-**Modify Identifiers:**
-- Functions, classes, methods, variables requiring direct changes
-- Code that implements the specific behavior to be altered
-- Files where new code will be added
-- Entities that must be updated to satisfy user request
+**Modify Identifiers** (direct changes):
+- Code requiring direct updates
+- New code additions
+- Entities to be altered
+- NOTE: Do NOT include direct dependencies; framework coverage handles these
 
-**CRITICAL CONSTRAINTS:**
-- Only include actual code elements (functions, classes, methods, variables, attributes)
-- NEVER include package names, import statements, or external dependencies
-- NEVER include identifiers that represent only imports or modules without concrete definitions
-- Even if present in candidate pool, exclude non-code-element identifiers
+**CRITICAL:** Only actual code elements (functions, classes, methods, variables). No packages, imports, or bare modules.
 
-**OPERATION MODE DETERMINATION:**
-
-Analyze the user request and determine appropriate processing mode(s):
-
-**STANDARD:**
-- General questions, explanations, documentation
-- Conceptual discussions about code
-- No code modification or planning required
-- Information retrieval tasks
-
-**PLAN_STEPS:**
-- Multi-step implementation required
-- Complex feature additions
-- Refactoring across multiple files
-- Architecture changes
-- Requires sequential task planning
-
-**PATCH_CODE:**
-- Direct code modifications needed
-- Bug fixes, updates, improvements
-- Concrete implementation tasks
-- Writing or editing specific code
-
-**Mode can be combined**: `STANDARD+PLAN_STEPS`, `PLAN_STEPS+PATCH_CODE`, etc.
+**OPERATION MODES:**
+- STANDARD: Explanations, info retrieval
+- PLAN_STEPS: Multi-step implementation, complex changes
+- PATCH_CODE: Direct fixes/updates
+- Mix modes as needed (e.g., PLAN_STEPS+PATCH_CODE)
 
 **OUTPUT FORMAT:**
 
-[Plain text summary paragraph synthesizing Phase 1 exploration and your final decisions]
-
 *** Begin Summary
-[Comprehensive summary of the reasoning from Phase 1, highlighting key areas identified, exploration path taken, and rationale for final identifier selection]
+[4-5 lines max: Phase 1 exploration summary, key areas found, final classification rationale]
 *** End Summary
 
 *** Begin Context Identifiers
 [identifier.one]
 [identifier.two]
-[path/to/file.ext]
 *** End Context Identifiers
 
 *** Begin Modify Identifiers
@@ -806,26 +685,20 @@ Analyze the user request and determine appropriate processing mode(s):
 [another.identifier]
 *** End Modify Identifiers
 
-OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE|combinations]
+OPERATION_MODE: [MODE]
 
-**DECISION GUIDELINES:**
-
-**For Context vs Modify:**
-- When uncertain, prefer Context (safer for providing understanding)
-- If request says "use X to do Y", X is Context, Y-related code is Modify
-- If request is about understanding/explaining, most/all are Context
-- If request is about changing behavior, focus on Modify
-
-**For Operation Mode:**
-- Default to STANDARD for questions and explanations
-- Use PLAN_STEPS when request implies "add feature", "implement", "refactor"
-- Use PATCH_CODE when request is "fix", "update", "change this specific thing"
-- Combine when both planning AND implementation are clearly needed
+**DECISION RULES:**
+- Uncertain: prefer Context
+- "Use X to do Y": X is Context, Y is Modify
+- "Understand/explain": mostly Context
+- "Change behavior": focus on Modify
+- Match mode to request intent (STANDARD for questions, PLAN_STEPS for features, PATCH_CODE for fixes)
+- Strict selection: Keep only 5 total identifiers; eliminate redundant or framework-covered dependencies
 
 **QUALITY CHECKS:**
 - Verify all identifiers are actual code elements, not imports/packages
-- Ensure Modify identifiers align with what will actually change
-- Confirm Context identifiers provide necessary understanding
+- Ensure Modify identifiers are primary targets (not their dependencies)
+- Confirm Context identifiers provide necessary peripheral understanding
 - Check Operation Mode matches request intent
-- Keep identifier lists focused and relevant
+- **CRITICAL: Enforce 5 identifier maximum total**
 """
