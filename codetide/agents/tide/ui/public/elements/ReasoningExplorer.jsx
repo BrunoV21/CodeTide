@@ -147,73 +147,81 @@ export default function ReasoningStepsCard() {
 
       {/* Content */}
       {expandedAll && (
-        <CardContent className="px-6 py-6 space-y-8">
+        <CardContent className="px-6 py-6">
           {/* Reasoning Steps */}
           {props.reasoning_steps.map((step, index) => (
-            <div key={index} className="relative flex gap-4">
-              {/* Timeline */}
-              <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
-                <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
-                  <Brain className="w-3 h-3 text-blue-400" />
-                </div>
-                {index < props.reasoning_steps.length - 1 && (
-                  <div className="w-px bg-gradient-to-b from-blue-500/40 to-transparent flex-grow mt-3" style={{ minHeight: "60px" }}></div>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 pt-0.5">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-slate-100 mb-2">
-                      {step.header}
-                    </h3>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      {step.content}
-                    </p>
+            <div key={index}>
+              <div className="relative flex gap-4">
+                {/* Timeline */}
+                <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+                    <Brain className="w-3 h-3 text-blue-400" />
                   </div>
-                  {step.candidate_identifiers?.length > 0 && (
-                    <button
-                      onClick={() => toggleStep(index)}
-                      className="p-1 hover:bg-slate-700 rounded flex-shrink-0 transition"
-                      aria-label="Toggle identifiers"
-                    >
-                      {expandedSteps[index] ? (
-                        <ChevronDown className="h-4 w-4 text-slate-500" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-slate-500" />
-                      )}
-                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 pt-0.5">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-100 mb-2">
+                        {step.header}
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        {step.content}
+                      </p>
+                    </div>
+                    {step.candidate_identifiers?.length > 0 && (
+                      <button
+                        onClick={() => toggleStep(index)}
+                        className="p-1 hover:bg-slate-700 rounded flex-shrink-0 transition"
+                        aria-label="Toggle identifiers"
+                      >
+                        {expandedSteps[index] ? (
+                          <ChevronDown className="h-4 w-4 text-slate-500" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-500" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Identifiers */}
+                  {expandedSteps[index] && step.candidate_identifiers?.length > 0 && (
+                    <div className="mt-4 p-3 bg-slate-800/30 border border-slate-700/50 rounded">
+                      <p className="text-xs font-medium text-slate-500 mb-3">
+                        Context Identifiers
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {step.candidate_identifiers.map((id, idIndex) => (
+                          <Badge
+                            key={idIndex}
+                            variant="outline"
+                            className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700"
+                          >
+                            {id}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-
-                {/* Identifiers */}
-                {expandedSteps[index] && step.candidate_identifiers?.length > 0 && (
-                  <div className="mt-4 p-3 bg-slate-800/30 border border-slate-700/50 rounded">
-                    <p className="text-xs font-medium text-slate-500 mb-3">
-                      Context Identifiers
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {step.candidate_identifiers.map((id, idIndex) => (
-                        <Badge
-                          key={idIndex}
-                          variant="outline"
-                          className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700"
-                        >
-                          {id}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
+
+              {/* Connector line - only between steps */}
+              {index < props.reasoning_steps.length - 1 && (
+                <div className="relative flex gap-4 mt-6">
+                  <div className="w-6 flex justify-center flex-shrink-0">
+                    <div className="w-px bg-gradient-to-b from-orange-500 to-transparent" style={{ height: "28px" }}></div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
 
           {/* Deep Analysis */}
           {(props.context_identifiers.length > 0 ||
             props.modify_identifiers.length > 0) && (
-            <div className="border-t border-slate-700/50 pt-8">
+            <div className="mt-6 pt-6 border-t border-slate-700/50">
               <button
                 onClick={toggleIdentifiers}
                 className="w-full flex items-center justify-between px-0 py-2 hover:bg-slate-800/30 rounded transition group text-left"
