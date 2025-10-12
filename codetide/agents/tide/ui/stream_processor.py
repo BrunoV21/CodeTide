@@ -1,6 +1,6 @@
+from typing import Any, Dict, Literal, Optional, List, Type, Union
+from pydantic import BaseModel, ConfigDict
 from dataclasses import dataclass
-import json
-from typing import Any, Dict, Literal, Optional, List, NamedTuple, Type, Union
 import chainlit as cl
 import re
 
@@ -120,13 +120,10 @@ class CustomElementStep:
         if not isinstance(content, dict):
             return
         
-        ### TODO this  is only working with reasoning steps as the received content is not a dict
-        
-        print(f"UPDATING STREAM TOKEN {type(content)=}")
-        
         # content should have 'marker_id' and 'fields'
         marker_id = content.get("marker_id")
-        fields = content.get("fields", {})
+        fields = content.get("fields")
+        raw_content = content.get("raw_content")
         
         if not marker_id or marker_id not in self.props:
             print(f"{marker_id=} not in {self.props.keys()=}")
@@ -135,18 +132,24 @@ class CustomElementStep:
         # Update prop based on its type
         prop_type = self.props_schema.get(marker_id)
         
-        if prop_type is list:
-            # Append fields dict to list
-            self._smart_update_props({marker_id: fields})
-        elif prop_type is str:
-            # Concatenate string representation of fields
-            formatted = self._format_fields_as_string(fields)
-            self._smart_update_props({marker_id: formatted})
-        elif prop_type is dict:
-            # Merge fields into dict
-            self._smart_update_props({marker_id: fields})
+        if fields is not None:
+            if prop_type is list:
+                # Append fields dict to list
+                self._smart_update_props({marker_id: fields})
+            elif prop_type is str:
+                # Concatenate string representation of fields
+                formatted = self._format_fields_as_string(fields)
+                self._smart_update_props({marker_id: formatted})
+            elif prop_type is dict:
+                # Merge fields into dict
+                self._smart_update_props({marker_id: fields})
         
-        print(json.dumps(self.props, indent=4))
+        elif raw_content is not None:
+            if raw_content := raw_content.strip():
+                if prop_type is list:
+                    raw_content = [stripped for entry in raw_content.split("\n") if (stripped := entry.strip())]
+                self._smart_update_props({marker_id: raw_content})
+
         self.element.props.update(self.props)
         await self.element.update()
     
@@ -167,12 +170,13 @@ class ExtractedFields:
     """Container for extracted field data from a marker block."""
     marker_id: str
     raw_content: str
-    fields: Dict[str, any]
+    fields: Optional[Dict[str, any]]=None
     
     def to_dict(self) -> Dict[str, any]:
         """Convert to dict for streaming to CustomElementStep."""
         return {
             "marker_id": self.marker_id,
+            "raw_content": self.raw_content,
             "fields": self.fields
         }
 
@@ -226,7 +230,6 @@ class FieldExtractor:
             ExtractedFields object with parsed data
         """
         fields = {}
-        print("EXTRACTING")
 
         for field_name, config in self.field_configs.items():
             pattern = config["pattern"]
@@ -307,17 +310,22 @@ class FieldExtractor:
         return [m.strip() if isinstance(m, str) else m[0].strip() 
                 for m in matches if m]
 
-class MarkerConfig(NamedTuple):
+class MarkerConfig(BaseModel):
     """Configuration for a single marker pair."""
     begin_marker: str
     end_marker: str
     marker_id: str = ""
     start_wrapper: str = ""
     end_wrapper: str = ""
-    target_step: Optional[Union[cl.Step, CustomElementStep]] = None
+    target_step: Optional[Union[cl.Message, cl.Step, CustomElementStep]] = None
     fallback_msg: Optional[cl.Message] = None
     stream_mode: Literal["chunk", "full"] = "chunk"
     field_extractor: Optional[FieldExtractor] = None
+    _is_custom_element: Optional[bool] = None
+
+    model_config = ConfigDict(
+        arbitrary_types_allowed=True
+    )
     
     def process_content(self, content: str) -> Union[str, ExtractedFields]:
         """
@@ -331,7 +339,25 @@ class MarkerConfig(NamedTuple):
         """
         if self.field_extractor:
             return self.field_extractor.extract(content, self.marker_id)
+
+        elif self.is_custom_element:
+            return ExtractedFields(
+                marker_id=self.marker_id,
+                raw_content=content
+            )
+
         return content
+    
+    @property
+    def is_custom_element(self)->bool:
+        if self._is_custom_element is not None:
+            ...
+        elif isinstance(self.target_step, CustomElementStep):
+            self._is_custom_element = True
+        else:
+            self._is_custom_element = False
+        
+        return self._is_custom_element
 
 class StreamProcessor:
     """
@@ -483,8 +509,7 @@ class StreamProcessor:
         idx = self.buffer.find(self.current_config.end_marker)
         
         # Check if we're in full mode with field extractor
-        is_full_mode = (self.current_config.stream_mode == "full" and 
-                       self.current_config.field_extractor is not None)
+        is_full_mode = self.current_config.stream_mode == "full"
         
         if idx == -1:
             # No end marker found
