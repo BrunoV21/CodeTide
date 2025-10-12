@@ -37,6 +37,8 @@ export default function ReasoningStepsCard() {
     props.context_identifiers.length === 0 &&
     props.modify_identifiers.length === 0;
 
+  const isLoadingState = !props.finished && !props.summary;
+
   if (hasNoData && !props.finished) {
     return (
       <Card className="w-full max-w-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
@@ -71,14 +73,35 @@ export default function ReasoningStepsCard() {
 
   return (
     <Card className="w-full max-w-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
-      {/* Header - Summary Only */}
+      {/* Header - Summary or Loading Wave */}
       <CardHeader className="pb-4">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1">
-            {props.summary && (
-              <p className="text-sm text-slate-300 leading-relaxed">
-                {props.summary}
-              </p>
+            {isLoadingState ? (
+              <div className="flex justify-center items-center py-8">
+                <svg className="w-8 h-8 opacity-60" viewBox="0 0 100 60">
+                  <defs>
+                    <style>{`
+                      @keyframes wave-motion {
+                        0%, 100% { d: path('M0,30 Q25,${15 + Math.sin(0 * Math.PI / 180) * 12},50,30 T100,30 L100,60 L0,60'); }
+                        50% { d: path('M0,30 Q25,${45 - Math.sin(180 * Math.PI / 180) * 12},50,30 T100,30 L100,60 L0,60'); }
+                      }
+                      .wave-fill { fill: url(#waveGradient); animation: wave-motion 3s ease-in-out infinite; }
+                    `}</style>
+                    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="rgb(96, 165, 250)" stopOpacity="0.5" />
+                      <stop offset="100%" stopColor="rgb(96, 165, 250)" stopOpacity="0.1" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M0,30 Q25,20,50,30 T100,30 L100,60 L0,60" className="wave-fill" />
+                </svg>
+              </div>
+            ) : (
+              props.summary && (
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {props.summary}
+                </p>
+              )
             )}
           </div>
           <button
@@ -135,8 +158,8 @@ export default function ReasoningStepsCard() {
 
                 {/* Expanded candidate identifiers */}
                 {expandedSteps[index] && step.candidate_identifiers?.length > 0 && (
-                  <div className="mt-3 p-2.5 bg-slate-800/30 border border-slate-700/50 rounded-lg transition-all">
-                    <p className="text-xs font-medium text-slate-500 mb-2">
+                  <div className="mt-6 mb-6 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg transition-all">
+                    <p className="text-xs font-medium text-slate-500 mb-4">
                       Context Identifiers
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -173,11 +196,11 @@ export default function ReasoningStepsCard() {
               </button>
 
               {expandedIdentifiers && (
-                <div className="mt-4 space-y-4 p-3 bg-slate-800/20 border border-slate-700/30 rounded-lg">
+                <div className="mt-6 space-y-6 p-6 bg-slate-800/20 border border-slate-700/30 rounded-lg">
                   {/* Context Identifiers */}
                   {props.context_identifiers.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-2">
+                      <p className="text-xs font-medium text-slate-500 mb-4">
                         Context Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -202,7 +225,7 @@ export default function ReasoningStepsCard() {
                   {/* Modify Identifiers */}
                   {props.modify_identifiers.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-2">
+                      <p className="text-xs font-medium text-slate-500 mb-4">
                         Modify Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -220,28 +243,6 @@ export default function ReasoningStepsCard() {
                   )}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Loading indicator at bottom */}
-          {!props.finished && (
-            <div className="flex justify-center items-center pt-4 mt-4 border-t border-slate-700/50">
-              <svg className="w-6 h-6 opacity-50" viewBox="0 0 100 60">
-                <defs>
-                  <style>{`
-                    @keyframes wave-motion {
-                      0%, 100% { d: path('M0,30 Q25,${15 + Math.sin(0 * Math.PI / 180) * 12},50,30 T100,30 L100,60 L0,60'); }
-                      50% { d: path('M0,30 Q25,${45 - Math.sin(180 * Math.PI / 180) * 12},50,30 T100,30 L100,60 L0,60'); }
-                    }
-                    .wave-fill { fill: url(#waveGradient); animation: wave-motion 3s ease-in-out infinite; }
-                  `}</style>
-                  <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="rgb(96, 165, 250)" stopOpacity="0.5" />
-                    <stop offset="100%" stopColor="rgb(96, 165, 250)" stopOpacity="0.1" />
-                  </linearGradient>
-                </defs>
-                <path d="M0,30 Q25,20,50,30 T100,30 L100,60 L0,60" className="wave-fill" />
-              </svg>
             </div>
           )}
         </CardContent>
