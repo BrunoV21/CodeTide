@@ -322,6 +322,7 @@ class AgentTide(BaseModel):
                     self._context_identifier_window.pop(0)
                 expanded_history = self.history[-5:]
                 operation_mode = "STANDARD, PATH_CODE"
+                await self.llm.logger_fn(REASONING_FINISHED)
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
             else:                
                 await self.llm.logger_fn(REASONING_STARTED)
