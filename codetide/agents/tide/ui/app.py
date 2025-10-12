@@ -478,7 +478,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         "modify_identifiers": [],
         "finished": False
     })
-    context_msg = await cl.Message(content="", author="AgentTide", elements=[reasoning_element]).send()
+    _ = await cl.Message(content="", author="AgentTide", elements=[reasoning_element]).send()
     ### TODO this needs to receive the message as well to call update
     reasoning_step = CustomElementStep(
         element=reasoning_element,
@@ -529,8 +529,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     target_step=reasoning_step,
                     stream_mode="full",
                     field_extractor=FieldExtractor({
-                        "header": r"\*\*Task\*\*:\s*(.+?)(?=\n\s*\*\*Rationale\*\*)",
-                        "content": r"\*\*Rationale\*\*:\s*(.+?)(?=\s*\*\*Candidate Identifiers\*\*|$)",
+                        "header": r"\*{0,2}Task\*{0,2}:\s*(.+?)(?=\n\s*\*{0,2}Rationale\*{0,2})",
+                        "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}Candidate Identifiers\*{0,2}|$)",
                         "candidate_identifiers": {"pattern": r"^\s*-\s*(.+?)$", "schema": list}
                     })
                 ),
@@ -562,8 +562,6 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             global_fallback_msg=msg
         )
 
-        st = time.time()
-        is_reasonig_sent = False
         loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
         async for chunk in loop:
             ### TODO update this to check FROM AGENT TIDE if reasoning is being ran and if so we need
