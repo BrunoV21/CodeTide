@@ -184,7 +184,7 @@ class AgentTide(BaseModel):
                 system_prompt=[GATHER_CANDIDATES_PROMPT.format(
                     DATE=TODAY,
                     SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
-                    TREE_STATE="Current view" if iteration_count == 1 else "Expanded view",
+                    TREE_STATE="`Current view`" if iteration_count == 1 else "`Expanded view`",
                     ACCUMULATED_CONTEXT=accumulated_context,
                     ITERATION_COUNT=iteration_count
                 )],
@@ -233,6 +233,7 @@ class AgentTide(BaseModel):
                 ]
             else:
                 expand_paths = []
+            ## TODO shoudla append previous reasoning as input / prefix
         
         # ===== PHASE 2: FINAL SELECTION AND CLASSIFICATION =====
         

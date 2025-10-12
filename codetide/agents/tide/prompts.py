@@ -604,12 +604,14 @@ Each reasoning block MUST contribute NEW candidate identifiers. DO NOT repeat an
 - Focus on unexplored areas and new functional domains
 - Do NOT include duplicates under any circumstances
 
-**IDENTIFIER RULES:**
+**IDENTIFIER RULES - VALIDATION-FIRST APPROACH:**
 - For SUPPORTED_LANGUAGES files: Use dot notation (functions, classes, methods)
 - For other files: Use file paths only
 - No package names, imports, or external dependencies
-- Make educated guesses based on naming patterns
-- Cross-check against other Reasoning Blocks before inclusion
+- ONLY suggest identifiers traceable to {TREE_STATE} or inferable from visible file/directory patterns
+- Cross-reference each identifier against {TREE_STATE} before inclusion
+- If unsure whether identifier exists in tree: DO NOT include it
+- Never speculate, only include identifiers you are sure are valid, to maximize validation success
 
 **EXPANSION DECISION:**
 
