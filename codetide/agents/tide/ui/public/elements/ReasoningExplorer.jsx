@@ -112,7 +112,7 @@ export default function ReasoningStepsCard() {
                 {expandedAll && props.finished && (
                   <p className="text-xs text-slate-500 font-medium">Thought for {thinkingTime}s</p>
                 )}
-                <p className={`text-slate-200 leading-relaxed line-clamp-1 transition-all duration-300 ${expandedAll ? 'text-sm' : 'text-xs opacity-75'}`}>
+                <p className={`text-slate-200 transition-all duration-300 ${expandedAll ? 'text-sm leading-relaxed' : 'text-xs opacity-75 truncate'}`}>
                   {previewText}
                 </p>
               </div>
