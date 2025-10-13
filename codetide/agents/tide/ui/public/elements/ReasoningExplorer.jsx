@@ -82,35 +82,51 @@ export default function ReasoningStepsCard() {
           className="w-full flex items-center justify-between gap-4 hover:opacity-80 transition text-left group"
         >
         <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3">
-              {isLoadingState && (
-                <svg className="w-5 h-5 opacity-60 flex-shrink-0" viewBox="0 0 100 60">
-                  <defs>
-                    <style>{`
-                      @keyframes wave-motion {
-                        0%, 100% { d: path('M0,30 Q25,${15 + Math.sin(0 * Math.PI / 180) * 12},50,30 T100,30 L100,60 L0,60'); }
-                        50% { d: path('M0,30 Q25,${45 - Math.sin(180 * Math.PI / 180) * 12},50,30 T100,30 L100,60 L0,60'); }
-                      }
-                      .wave-fill { fill: url(#waveGradient); animation: wave-motion 3s ease-in-out infinite; }
-                    `}</style>
-                    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="rgb(96, 165, 250)" stopOpacity="0.5" />
-                      <stop offset="100%" stopColor="rgb(96, 165, 250)" stopOpacity="0.1" />
-                    </linearGradient>
-                  </defs>
-                  <path d="M0,30 Q25,20,50,30 T100,30 L100,60 L0,60" className="wave-fill" />
-                </svg>
-              )}
-              <div className={`transition-all duration-300 ${expandedAll ? 'space-y-2' : ''}`}>
-                {expandedAll && props.finished && (
-                  <p className="text-xs text-slate-500 font-medium">Thought for {thinkingTime}s</p>
-                )}
-                <p className={`text-slate-200 transition-all duration-300 truncate ${expandedAll ? 'text-sm leading-relaxed' : 'text-xs opacity-75'}`}>
-                  {previewText}
-                </p>
-              </div>
-            </div>
+        <div className="flex items-center gap-3">
+          {isLoadingState && (
+            <svg
+              className="w-5 h-5 opacity-60 flex-shrink-0"
+              viewBox="0 0 100 60"
+            >
+              <defs>
+                <style>{`
+                  @keyframes wave-motion {
+                    0%, 100% { d: path('M0,30 Q25,20,50,30 T100,30 L100,60 L0,60'); }
+                    50% { d: path('M0,30 Q25,40,50,30 T100,30 L100,60 L0,60'); }
+                  }
+                  .wave-fill { fill: url(#waveGradient); animation: wave-motion 3s ease-in-out infinite; }
+                `}</style>
+                <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="rgb(96, 165, 250)" stopOpacity="0.5" />
+                  <stop offset="100%" stopColor="rgb(96, 165, 250)" stopOpacity="0.1" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M0,30 Q25,20,50,30 T100,30 L100,60 L0,60"
+                className="wave-fill"
+              />
+            </svg>
+          )}
+
+          {/* 💥 Key change: ensure min-w-0 and overflow-hidden on the flex item */}
+          <div className={`flex-1 min-w-0 overflow-hidden transition-all duration-300 ${expandedAll ? 'space-y-2' : ''}`}>
+            {expandedAll && props.finished && (
+              <p className="text-xs text-slate-500 font-medium">
+                Thought for {thinkingTime}s
+              </p>
+            )}
+            {/* Text always trimmed to width */}
+            <p
+              className={`text-slate-200 transition-all duration-300 truncate ${
+                expandedAll ? 'text-sm leading-relaxed' : 'text-xs opacity-75'
+              }`}
+            >
+              {previewText}
+            </p>
           </div>
+        </div>
+      </div>
+
           <div className="flex-shrink-0 p-1">
             {expandedAll ? (
               <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-300 transition" />
