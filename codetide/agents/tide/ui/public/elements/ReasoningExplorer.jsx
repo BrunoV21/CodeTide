@@ -68,6 +68,9 @@ export default function ReasoningStepsCard() {
       const lastStep = props.reasoning_steps[props.reasoning_steps.length - 1];
       return lastStep.content.split('\n')[0];
     }
+    if (props.finished) {
+      return `Finished`
+    }
     return `${loadingText}...`;
   };
 
