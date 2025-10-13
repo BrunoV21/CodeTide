@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 
 export default function ReasoningStepsCard() {
   const [expandedSteps, setExpandedSteps] = useState({});
-  const [expandedAll, setExpandedAll] = useState(true);
+  const [expandedAll, setExpandedAll] = useState(false);
   const [expandedIdentifiers, setExpandedIdentifiers] = useState(false);
   const [waveOffset, setWaveOffset] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing");
@@ -64,43 +64,28 @@ export default function ReasoningStepsCard() {
 
   const isLoadingState = !props.finished && !props.summary;
 
-  if (hasNoData && !props.finished) {
-    return (
-      <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
-        <CardContent className="flex flex-col items-center justify-center py-12 px-6">
-          <svg className="w-8 h-8 mb-4 opacity-60" viewBox="0 0 100 100">
-            <defs>
-              <style>{`
-                @keyframes wave {
-                  0%, 100% { 
-                    d: path('M0,50 Q25,${25 + Math.sin(waveOffset * Math.PI / 180) * 15},50,50 T100,50'); 
-                  }
-                  50% { 
-                    d: path('M0,50 Q25,${75 - Math.sin((180 + waveOffset) * Math.PI / 180) * 15},50,50 T100,50'); 
-                  }
-                }
-                .wave-line { 
-                  fill: none; 
-                  stroke: rgb(96, 165, 250); 
-                  stroke-width: 2; 
-                  animation: wave 3s ease-in-out infinite; 
-                }
-              `}</style>
-            </defs>
-            <path d="M0,50 Q25,40,50,50 T100,50" className="wave-line" strokeLinecap="round" />
-            <path d="M0,60 Q25,50,50,60 T100,60" className="wave-line" strokeLinecap="round" style={{animationDelay: '0.2s', opacity: 0.6}} />
-          </svg>
-          <span className="text-slate-400 text-sm">{loadingText}...</span>
-        </CardContent>
-      </Card>
-    );
-  }
+  // Get preview text for collapsed state
+  const getPreviewText = () => {
+    if (props.summary) {
+      return props.summary.split('\n')[0];
+    }
+    if (props.reasoning_steps.length > 0) {
+      const lastStep = props.reasoning_steps[props.reasoning_steps.length - 1];
+      return lastStep.content.split('\n')[0];
+    }
+    return `${loadingText}...`;
+  };
+
+  const previewText = getPreviewText();
 
   return (
-    <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800">
-      {/* Header */}
-      <CardHeader className="px-6 py-4 border-b border-slate-700/50">
-        <div className="flex items-start justify-between gap-4">
+    <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800 transition-all duration-300">
+      {/* Header - Always visible */}
+      <CardHeader className={`px-6 border-b border-slate-700/50 transition-all duration-300 ${expandedAll ? 'py-4' : 'py-3'}`}>
+        <button
+          onClick={toggleAll}
+          className="w-full flex items-center justify-between gap-4 hover:opacity-80 transition text-left group"
+        >
           <div className="flex-1 min-w-0">
             {isLoadingState ? (
               <div className="flex items-center gap-3">
@@ -123,31 +108,29 @@ export default function ReasoningStepsCard() {
                 <span className="text-slate-400 text-sm">{loadingText}...</span>
               </div>
             ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-slate-500 font-medium">Thought for {thinkingTime}s</p>
-                <p className="text-sm text-slate-200 leading-relaxed line-clamp-1">
-                  {props.summary}
+              <div className={`transition-all duration-300 ${expandedAll ? 'space-y-2' : ''}`}>
+                {expandedAll && props.finished && (
+                  <p className="text-xs text-slate-500 font-medium">Thought for {thinkingTime}s</p>
+                )}
+                <p className={`text-slate-200 leading-relaxed line-clamp-1 transition-all duration-300 ${expandedAll ? 'text-sm' : 'text-xs opacity-75'}`}>
+                  {previewText}
                 </p>
               </div>
             )}
           </div>
-          <button
-            onClick={toggleAll}
-            className="p-1 hover:bg-slate-700 rounded transition flex-shrink-0 mt-0.5"
-            aria-label="Toggle details"
-          >
+          <div className="flex-shrink-0 p-1">
             {expandedAll ? (
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-300 transition" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-slate-400" />
+              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-300 transition" />
             )}
-          </button>
-        </div>
+          </div>
+        </button>
       </CardHeader>
 
-      {/* Content */}
+      {/* Content - Expanded view */}
       {expandedAll && (
-        <CardContent className="px-6 py-6">
+        <CardContent className="px-6 py-6 animate-in fade-in duration-300">
           {/* Reasoning Steps */}
           {props.reasoning_steps.map((step, index) => (
             <div key={index}>
