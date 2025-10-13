@@ -182,8 +182,8 @@ export default function ReasoningStepsCard() {
 
                   {/* Identifiers */}
                   {expandedSteps[index] && step.candidate_identifiers?.length > 0 && (
-                    <div className="mt-4 p-3 bg-slate-800/30 border border-slate-700/50 rounded">
-                      <p className="text-xs font-medium text-slate-500 mb-3">
+                    <div className="mt-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg">
+                      <p className="text-xs font-medium text-slate-500 mb-4">
                         Context Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -228,13 +228,11 @@ export default function ReasoningStepsCard() {
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
-
               {expandedIdentifiers && (
                 <div className="mt-4 p-4 bg-slate-800/20 border border-slate-700/30 rounded-lg space-y-6">
-                  {/* Context Identifiers */}
                   {props.context_identifiers.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">
+                      <p className="text-xs font-medium text-slate-500 mb-4 uppercase tracking-wider">
                         Context Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -251,15 +249,13 @@ export default function ReasoningStepsCard() {
                     </div>
                   )}
 
-                  {/* Divider */}
                   {props.context_identifiers.length > 0 && props.modify_identifiers.length > 0 && (
                     <div className="border-t border-slate-700/30"></div>
                   )}
 
-                  {/* Modify Identifiers */}
                   {props.modify_identifiers.length > 0 && (
                     <div>
-                      <p className="text-xs font-medium text-slate-500 mb-3 uppercase tracking-wider">
+                      <p className="text-xs font-medium text-slate-500 mb-4 uppercase tracking-wider">
                         Modify Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
