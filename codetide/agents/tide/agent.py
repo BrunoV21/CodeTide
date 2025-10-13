@@ -306,6 +306,7 @@ class AgentTide(BaseModel):
         codeContext = None
         if self._skip_context_retrieval:
             expanded_history = self.history[-1]
+            await self.llm.logger_fn(REASONING_FINISHED)
         else:
             autocomplete = AutoComplete(self.tide.cached_ids)
             print(f"{autocomplete=}")
@@ -325,7 +326,7 @@ class AgentTide(BaseModel):
                 operation_mode = "STANDARD, PATH_CODE"
                 await self.llm.logger_fn(REASONING_FINISHED)
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
-            else:                
+            else:
                 await self.llm.logger_fn(REASONING_STARTED)
                 reasoning_output = await self.get_identifiers_two_phase(autocomplete, codeIdentifiers, TODAY)
                 await self.llm.logger_fn(REASONING_FINISHED)
