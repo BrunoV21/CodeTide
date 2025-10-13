@@ -57,12 +57,7 @@ export default function ReasoningStepsCard() {
     setExpandedIdentifiers(!expandedIdentifiers);
   };
 
-  const hasNoData =
-    props.reasoning_steps.length === 0 &&
-    props.context_identifiers.length === 0 &&
-    props.modify_identifiers.length === 0;
-
-  const isLoadingState = !props.finished && !props.summary;
+  const isLoadingState = !props.finished;
 
   // Get preview text for collapsed state
   const getPreviewText = () => {
@@ -86,9 +81,9 @@ export default function ReasoningStepsCard() {
           onClick={toggleAll}
           className="w-full flex items-center justify-between gap-4 hover:opacity-80 transition text-left group"
         >
-          <div className="flex-1 min-w-0">
-            {isLoadingState ? (
-              <div className="flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3">
+              {isLoadingState && (
                 <svg className="w-5 h-5 opacity-60 flex-shrink-0" viewBox="0 0 100 60">
                   <defs>
                     <style>{`
@@ -105,18 +100,16 @@ export default function ReasoningStepsCard() {
                   </defs>
                   <path d="M0,30 Q25,20,50,30 T100,30 L100,60 L0,60" className="wave-fill" />
                 </svg>
-                <span className="text-slate-400 text-sm">{loadingText}...</span>
-              </div>
-            ) : (
+              )}
               <div className={`transition-all duration-300 ${expandedAll ? 'space-y-2' : ''}`}>
                 {expandedAll && props.finished && (
                   <p className="text-xs text-slate-500 font-medium">Thought for {thinkingTime}s</p>
                 )}
-                <p className={`text-slate-200 transition-all duration-300 ${expandedAll ? 'text-sm leading-relaxed' : 'text-xs opacity-75 truncate'}`}>
+                <p className={`text-slate-200 transition-all duration-300 truncate ${expandedAll ? 'text-sm leading-relaxed' : 'text-xs opacity-75'}`}>
                   {previewText}
                 </p>
               </div>
-            )}
+            </div>
           </div>
           <div className="flex-shrink-0 p-1">
             {expandedAll ? (
