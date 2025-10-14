@@ -153,16 +153,17 @@ export default function ReasoningStepsCard() {
         {/* Context + Modify Identifiers */}
         {(props?.context_identifiers?.length > 0 ||
           props?.modify_identifiers?.length > 0) && (
-          <div className="pt-8 border-t border-slate-700/30 space-y-6">
+          <div className="pt-10 border-t border-slate-700/30 space-y-8">
             {props.context_identifiers?.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Context</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Context Identifiers</p>
+                <div className="flex flex-wrap gap-2" style={{marginBottom: "2 rem"}}>
                   {props.context_identifiers.map((id, index) => (
                     <Badge
                       key={index}
                       variant="outline"
-                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
+                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
+                      style={{marginTop: "2 rem"}}
                     >
                       {id}
                     </Badge>
@@ -173,13 +174,14 @@ export default function ReasoningStepsCard() {
 
             {props.modify_identifiers?.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Modifications</p>
-                <div className="flex flex-wrap gap-2">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Modification Identifiers</p>
+                <div className="flex flex-wrap gap-2" style={{marginBottom: "2 rem"}}>
                   {props.modify_identifiers.map((id, index) => (
                     <Badge
                       key={index}
                       variant="outline"
-                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
+                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
+                      style={{marginTop: "2 rem"}}
                     >
                       {id}
                     </Badge>
