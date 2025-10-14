@@ -100,19 +100,19 @@ export default function ReasoningStepsCard() {
               <div key={index} className="relative flex gap-4">
                 {/* Timeline Column with SVG connector */}
                 <div className="flex flex-col items-center flex-shrink-0 relative">
+                  <div className="w-6 h-6 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0" style={{background: "hsl(216, 100%, 10%)"}}>
+                    {/* <!-- Subtle overlay for glow effect --> */}
+                    <div className="absolute inset-0 rounded-full bg-blue-500/100"></div>
+                    
+                    {/* <!-- Icon in front --> */}
+                    <Brain className="w-3 h-3 text-blue-400 relative z-10" />
+                  </div>
                   {/* Vertical connector line SVG */}
                   {index < props.reasoning_steps.length && (
                     <svg className="absolute top-6 left-1/2 transform -translate-x-1/2 w-1 pointer-events-none" style={{ height: "70px" }} viewBox="0 0 2 56" preserveAspectRatio="none">
                       <line x1="1" y1="0" x2="1" y2="56" stroke="#475569" strokeWidth="1" />
                     </svg>
                   )}
-                  
-                  {/* Brain Icon Circle */}
-                  <div className="w-6 h-6 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
-                      <Brain className="w-3 h-3 text-blue-400" />
-                    </div>
-                  </div>
                 </div>
 
                 {/* Step Content */}
