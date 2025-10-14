@@ -95,56 +95,52 @@ export default function ReasoningStepsCard() {
       <CardContent className="px-6 py-6 space-y-8">
         {/* Reasoning Steps */}
         {props?.reasoning_steps?.length > 0 && (
-          <div className="space-y-8">
+          <div>
             {props.reasoning_steps.map((step, index) => (
-              <div key={index}>
-                <div className="relative flex gap-4">
-                  {/* Timeline */}
-                  <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+              <div key={index} className="relative flex gap-4">
+                {/* Timeline Column with SVG connector */}
+                <div className="flex flex-col items-center flex-shrink-0 relative">
+                  {/* Vertical connector line SVG */}
+                  {index < props.reasoning_steps.length - 1 && (
+                    <svg className="absolute top-6 left-1/2 transform -translate-x-1/2 w-1 pointer-events-none" style={{ height: "56px" }} viewBox="0 0 2 56" preserveAspectRatio="none">
+                      <line x1="1" y1="0" x2="1" y2="56" stroke="#475569" strokeWidth="1" />
+                    </svg>
+                  )}
+                  
+                  {/* Brain Icon Circle */}
+                  <div className="w-6 h-6 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center">
                       <Brain className="w-3 h-3 text-blue-400" />
                     </div>
                   </div>
-
-                  {/* Step Content */}
-                  <div className="flex-1 pt-0.5">
-                    <h3 className="text-sm font-semibold text-slate-100 mb-2">
-                      {step.header}
-                    </h3>
-                    <p className="text-xs text-slate-400 leading-relaxed mb-3">
-                      {step.content}
-                    </p>
-
-                    {/* Candidate Identifiers — inline badges, left vertical line */}
-                    {step.candidate_identifiers?.length > 0 && (
-                      <div className="relative pl-4 border-l border-slate-700 ml-1">
-                        <div className="flex flex-wrap gap-2">
-                          {step.candidate_identifiers.map((id, idIndex) => (
-                            <Badge
-                              key={idIndex}
-                              variant="outline"
-                              className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700 rounded-lg px-2 py-1"
-                            >
-                              {id}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
-                {/* Connector line between steps */}
-                {index < props.reasoning_steps.length - 1 && (
-                  <div className="relative flex gap-4 mt-6">
-                    <div className="w-6 flex justify-center flex-shrink-0">
-                      <div
-                        className="w-px bg-gradient-to-b from-orange-500 to-transparent"
-                        style={{ height: "28px" }}
-                      ></div>
+                {/* Step Content */}
+                <div className="flex-1 pt-0.5 pb-12">
+                  <h3 className="text-sm font-semibold text-slate-100 mb-2">
+                    {step.header}
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                    {step.content}
+                  </p>
+
+                  {/* Candidate Identifiers — inline badges, left vertical line */}
+                  {step.candidate_identifiers?.length > 0 && (
+                    <div className="relative pl-4 border-l border-slate-700 ml-1">
+                      <div className="flex flex-wrap gap-2">
+                        {step.candidate_identifiers.map((id, idIndex) => (
+                          <Badge
+                            key={idIndex}
+                            variant="outline"
+                            className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700 rounded-lg px-2 py-1"
+                          >
+                            {id}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ))}
           </div>
