@@ -101,8 +101,8 @@ export default function ReasoningStepsCard() {
                 {/* Timeline Column with SVG connector */}
                 <div className="flex flex-col items-center flex-shrink-0 relative">
                   {/* Vertical connector line SVG */}
-                  {index < props.reasoning_steps.length - 1 && (
-                    <svg className="absolute top-6 left-1/2 transform -translate-x-1/2 w-1 pointer-events-none" style={{ height: "56px" }} viewBox="0 0 2 56" preserveAspectRatio="none">
+                  {index < props.reasoning_steps.length && (
+                    <svg className="absolute top-6 left-1/2 transform -translate-x-1/2 w-1 pointer-events-none" style={{ height: "70px" }} viewBox="0 0 2 56" preserveAspectRatio="none">
                       <line x1="1" y1="0" x2="1" y2="56" stroke="#475569" strokeWidth="1" />
                     </svg>
                   )}
