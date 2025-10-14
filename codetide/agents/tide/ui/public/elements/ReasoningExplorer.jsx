@@ -51,11 +51,11 @@ export default function ReasoningStepsCard() {
   return (
     <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800 transition-all duration-300">
       {/* Header */}
-      <CardHeader className="px-6 py-4 border-b border-slate-700/50">
-        <div className="flex items-center gap-3">
+      <CardHeader className="px-8 py-6 border-b border-slate-700/50">
+        <div className="flex items-start gap-4">
           {isLoadingState && (
             <svg
-              className="w-5 h-5 opacity-60 flex-shrink-0"
+              className="w-5 h-5 opacity-60 flex-shrink-0 mt-1"
               viewBox="0 0 100 60"
             >
               <defs>
@@ -80,64 +80,68 @@ export default function ReasoningStepsCard() {
 
           <div className="flex-1">
             {props?.finished && (
-              <p className="text-xs text-slate-500 font-medium mb-1">
+              <p className="text-xs text-slate-500 font-medium mb-2 tracking-wide">
                 Thought for {thinkingTime}s
               </p>
             )}
-            <p className="text-slate-200 text-sm leading-relaxed">
+            <p className="text-slate-100 text-base leading-relaxed font-medium">
               {previewText}
             </p>
           </div>
         </div>
       </CardHeader>
 
-      {/* Always visible content */}
-      <CardContent className="px-6 py-6 space-y-8">
+      {/* Main Content */}
+      <CardContent className="px-8 py-8 space-y-10">
         {/* Reasoning Steps */}
         {props?.reasoning_steps?.length > 0 && (
-          <div>
+          <div className="space-y-2">
             {props.reasoning_steps.map((step, index) => (
-              <div key={index} className="relative flex gap-4">
-                {/* Timeline Column with SVG connector */}
-                <div className="flex flex-col items-center flex-shrink-0 relative">
-                  <div className="w-6 h-6 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0" style={{background: "hsl(216, 100%, 10%)"}}>
-                    {/* <!-- Subtle overlay for glow effect --> */}
-                    <div className="absolute inset-0 rounded-full bg-blue-500/100"></div>
-                    
-                    {/* <!-- Icon in front --> */}
-                    <Brain className="w-3 h-3 text-blue-400 relative z-10" />
+              <div key={index} className="relative flex gap-6">
+                {/* Timeline Column */}
+                <div className="flex flex-col items-center flex-shrink-0 relative pt-1">
+                  <div 
+                    className="w-7 h-7 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0 shadow-lg"
+                    style={{background: "hsl(216, 100%, 10%)"}}
+                  >
+                    <div className="absolute inset-0 rounded-full bg-blue-500/20"></div>
+                    <Brain className="w-3.5 h-3.5 text-blue-300 relative z-10" />
                   </div>
-                  {/* Vertical connector line SVG */}
-                  {index < props.reasoning_steps.length && (
-                    <svg className="absolute top-6 left-1/2 transform -translate-x-1/2 w-1 pointer-events-none" style={{ height: "70px" }} viewBox="0 0 2 56" preserveAspectRatio="none">
-                      <line x1="1" y1="0" x2="1" y2="56" stroke="#475569" strokeWidth="1" />
+                  
+                  {/* Vertical connector line */}
+                  {index < props.reasoning_steps.length - 1 && (
+                    <svg 
+                      className="absolute top-7 left-1/2 transform -translate-x-1/2 w-0.5 pointer-events-none flex-shrink-0" 
+                      style={{ height: "120px" }} 
+                      viewBox="0 0 2 80" 
+                      preserveAspectRatio="none"
+                    >
+                      <line x1="1" y1="0" x2="1" y2="80" stroke="#334155" strokeWidth="1" opacity="0.6" />
                     </svg>
                   )}
                 </div>
 
                 {/* Step Content */}
-                <div className="flex-1 pt-0.5 pb-12">
-                  <h3 className="text-sm font-semibold text-slate-100 mb-2">
+                <div className="flex-1 pt-1 pb-4">
+                  <h3 className="text-sm font-semibold text-slate-50 mb-3 tracking-tight">
                     {step.header}
                   </h3>
-                  <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                  <p className="text-sm text-slate-400 leading-relaxed mb-4">
                     {step.content}
                   </p>
 
-                  {/* Candidate Identifiers — inline badges, left vertical line */}
+                  {/* Candidate Identifiers */}
                   {step.candidate_identifiers?.length > 0 && (
-                    <div className="relative pl-4 border-l border-slate-700 ml-1">
-                      <div className="flex flex-wrap gap-2">
-                        {step.candidate_identifiers.map((id, idIndex) => (
-                          <Badge
-                            key={idIndex}
-                            variant="outline"
-                            className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700 rounded-lg px-2 py-1"
-                          >
-                            {id}
-                          </Badge>
-                        ))}
-                      </div>
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {step.candidate_identifiers.map((id, idIndex) => (
+                        <Badge
+                          key={idIndex}
+                          variant="outline"
+                          className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
+                        >
+                          {id}
+                        </Badge>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -149,15 +153,16 @@ export default function ReasoningStepsCard() {
         {/* Context + Modify Identifiers */}
         {(props?.context_identifiers?.length > 0 ||
           props?.modify_identifiers?.length > 0) && (
-          <div className="pt-6 border-t border-slate-700/50 space-y-6">
+          <div className="pt-8 border-t border-slate-700/30 space-y-6">
             {props.context_identifiers?.length > 0 && (
-              <div className="relative pl-4 border-l border-slate-700 ml-1">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Context</p>
                 <div className="flex flex-wrap gap-2">
                   {props.context_identifiers.map((id, index) => (
                     <Badge
                       key={index}
                       variant="outline"
-                      className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700 rounded-lg px-2 py-1"
+                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
                     >
                       {id}
                     </Badge>
@@ -167,13 +172,14 @@ export default function ReasoningStepsCard() {
             )}
 
             {props.modify_identifiers?.length > 0 && (
-              <div className="relative pl-4 border-l border-slate-700 ml-1">
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">Modifications</p>
                 <div className="flex flex-wrap gap-2">
                   {props.modify_identifiers.map((id, index) => (
                     <Badge
                       key={index}
                       variant="outline"
-                      className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700 rounded-lg px-2 py-1"
+                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
                     >
                       {id}
                     </Badge>
