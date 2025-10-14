@@ -157,13 +157,12 @@ export default function ReasoningStepsCard() {
             {props.context_identifiers?.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Context Identifiers</p>
-                <div className="flex flex-wrap gap-2" style={{marginBottom: "2 rem"}}>
+                <div className="flex flex-wrap gap-2" style={{marginTop: "1rem", marginBottom: "1rem"}}>
                   {props.context_identifiers.map((id, index) => (
                     <Badge
                       key={index}
                       variant="outline"
                       className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
-                      style={{marginTop: "2 rem"}}
                     >
                       {id}
                     </Badge>
@@ -175,13 +174,12 @@ export default function ReasoningStepsCard() {
             {props.modify_identifiers?.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Modification Identifiers</p>
-                <div className="flex flex-wrap gap-2" style={{marginBottom: "2 rem"}}>
+                <div className="flex flex-wrap gap-2">
                   {props.modify_identifiers.map((id, index) => (
                     <Badge
                       key={index}
                       variant="outline"
                       className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
-                      style={{marginTop: "2 rem"}}
                     >
                       {id}
                     </Badge>
