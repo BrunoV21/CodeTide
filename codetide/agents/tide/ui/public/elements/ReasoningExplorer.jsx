@@ -1,15 +1,16 @@
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Brain } from "lucide-react";
+import { ChevronDown, ChevronRight, Brain } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function ReasoningStepsCard() {
+  const [expanded, setExpanded] = useState(false);
   const [waveOffset, setWaveOffset] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing");
   const [thinkingTime, setThinkingTime] = useState(0);
 
   const loadingStates = ["Analyzing", "Thinking", "Updating", "Processing"];
-  const isLoadingState = !props?.finished;
+  const isLoadingState = props.finished;
 
   useEffect(() => {
     const waveInterval = setInterval(() => {
@@ -30,19 +31,23 @@ export default function ReasoningStepsCard() {
   }, []);
 
   useEffect(() => {
-    if (!props?.finished) {
+    if (isLoadingState) {
       const timer = setInterval(() => {
         setThinkingTime((prev) => prev + 1);
       }, 1000);
       return () => clearInterval(timer);
     }
-  }, [props?.finished]);
+  }, [isLoadingState]);
 
   const getPreviewText = () => {
-    if (props?.summary) return props.summary.split("\n")[0];
-    if (props?.reasoning_steps?.length > 0)
-      return props.reasoning_steps.at(-1).content.split("\n")[0];
-    if (props?.finished) return "Finished";
+    // Mock data for demo
+    const reasoning_steps = props.reasoning_steps;
+    const summary = props.summary;
+
+    if (summary) return summary.split("\n")[0];
+    if (reasoning_steps?.length > 0)
+      return reasoning_steps.at(-1).content.split("\n")[0];
+
     return `${loadingText}...`;
   };
 
@@ -50,9 +55,12 @@ export default function ReasoningStepsCard() {
 
   return (
     <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800 transition-all duration-300">
-      {/* Header */}
+      {/* Header - Collapsible */}
       <CardHeader className="px-8 py-6 border-b border-slate-700/50">
-        <div className="flex items-start gap-4">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-start gap-4 hover:opacity-80 transition text-left group"
+        >
           {isLoadingState && (
             <svg
               className="w-5 h-5 opacity-60 flex-shrink-0 mt-1"
@@ -78,118 +86,133 @@ export default function ReasoningStepsCard() {
             </svg>
           )}
 
-          <div className="flex-1">
-            {props?.finished && (
+          <div className="flex-1 min-w-0">
+            {props?.finished && !expanded && (
               <p className="text-xs text-slate-500 font-medium mb-2 tracking-wide">
                 Thought for {thinkingTime}s
               </p>
             )}
-            <p className="text-slate-100 text-base leading-relaxed font-medium">
-              {previewText}
-            </p>
+            <div className="flex items-start gap-3 justify-between">
+              <p className={`leading-relaxed font-medium transition-all ${
+                expanded 
+                  ? "text-slate-100 text-base" 
+                  : "text-slate-300 text-sm opacity-75 truncate"
+              }`}>
+                {previewText}
+              </p>
+              <div className="flex-shrink-0">
+                {expanded ? (
+                  <ChevronDown className="h-5 w-5 text-slate-400 group-hover:text-slate-300 transition" />
+                ) : (
+                  <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-300 transition" />
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        </button>
       </CardHeader>
 
-      {/* Main Content */}
-      <CardContent className="px-8 py-8 space-y-10">
-        {/* Reasoning Steps */}
-        {props?.reasoning_steps?.length > 0 && (
-          <div className="space-y-2">
-            {props.reasoning_steps.map((step, index) => (
-              <div key={index} className="relative flex gap-6">
-                {/* Timeline Column */}
-                <div className="flex flex-col items-center flex-shrink-0 relative pt-1">
-                  <div 
-                    className="w-7 h-7 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0 shadow-lg"
-                    style={{background: "hsl(216, 100%, 10%)"}}
-                  >
-                    <div className="absolute inset-0 rounded-full bg-blue-500/20"></div>
-                    <Brain className="w-3.5 h-3.5 text-blue-300 relative z-10" />
-                  </div>
-                  
-                  {/* Vertical connector line */}
-                  {index < props.reasoning_steps.length - 1 && (
-                    <svg 
-                      className="absolute top-7 left-1/2 transform -translate-x-1/2 w-0.5 pointer-events-none flex-shrink-0" 
-                      style={{ height: "120px" }} 
-                      viewBox="0 0 2 80" 
-                      preserveAspectRatio="none"
+      {/* Content - Expands when clicked */}
+      {expanded && (
+        <CardContent className="px-8 py-8 space-y-10 animate-in fade-in slide-in-from-top duration-300">
+          {/* Reasoning Steps */}
+          {props?.reasoning_steps?.length > 0 && (
+            <div className="space-y-2">
+              {props.reasoning_steps.map((step, index) => (
+                <div key={index} className="relative flex gap-6">
+                  {/* Timeline Column */}
+                  <div className="flex flex-col items-center flex-shrink-0 relative pt-1">
+                    <div 
+                      className="w-7 h-7 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0 shadow-lg"
+                      style={{background: "hsl(216, 100%, 10%)"}}
                     >
-                      <line x1="1" y1="0" x2="1" y2="80" stroke="#334155" strokeWidth="1" opacity="0.6" />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Step Content */}
-                <div className="flex-1 pt-1 pb-4">
-                  <h3 className="text-sm font-semibold text-slate-50 mb-3 tracking-tight">
-                    {step.header}
-                  </h3>
-                  <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                    {step.content}
-                  </p>
-
-                  {/* Candidate Identifiers */}
-                  {step.candidate_identifiers?.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      {step.candidate_identifiers.map((id, idIndex) => (
-                        <Badge
-                          key={idIndex}
-                          variant="outline"
-                          className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
-                        >
-                          {id}
-                        </Badge>
-                      ))}
+                      <div className="absolute inset-0 rounded-full bg-blue-500/20"></div>
+                      <Brain className="w-3.5 h-3.5 text-blue-300 relative z-10" />
                     </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+                    
+                    {/* Vertical connector line */}
+                    {index < props.reasoning_steps.length - 1 && (
+                      <svg 
+                        className="absolute top-7 left-1/2 transform -translate-x-1/2 w-0.5 pointer-events-none flex-shrink-0" 
+                        style={{ height: "120px" }} 
+                        viewBox="0 0 2 80" 
+                        preserveAspectRatio="none"
+                      >
+                        <line x1="1" y1="0" x2="1" y2="80" stroke="#334155" strokeWidth="1" opacity="0.6" />
+                      </svg>
+                    )}
+                  </div>
 
-        {/* Context + Modify Identifiers */}
-        {(props?.context_identifiers?.length > 0 ||
-          props?.modify_identifiers?.length > 0) && (
-          <div className="pt-10 border-t border-slate-700/30 space-y-8">
-            {props.context_identifiers?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Context Identifiers</p>
-                <div className="flex flex-wrap gap-2" style={{marginTop: "1rem", marginBottom: "1rem"}}>
-                  {props.context_identifiers.map((id, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
-                    >
-                      {id}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
+                  {/* Step Content */}
+                  <div className="flex-1 pt-1 pb-4">
+                    <h3 className="text-sm font-semibold text-slate-50 mb-3 tracking-tight">
+                      {step.header}
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                      {step.content}
+                    </p>
 
-            {props.modify_identifiers?.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Modification Identifiers</p>
-                <div className="flex flex-wrap gap-2">
-                  {props.modify_identifiers.map((id, index) => (
-                    <Badge
-                      key={index}
-                      variant="outline"
-                      className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
-                    >
-                      {id}
-                    </Badge>
-                  ))}
+                    {/* Candidate Identifiers */}
+                    {step.candidate_identifiers?.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        {step.candidate_identifiers.map((id, idIndex) => (
+                          <Badge
+                            key={idIndex}
+                            variant="outline"
+                            className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1 transition-colors"
+                          >
+                            {id}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </CardContent>
+              ))}
+            </div>
+          )}
+
+          {/* Context + Modify Identifiers */}
+          {(props?.context_identifiers?.length > 0 ||
+            props?.modify_identifiers?.length > 0) && (
+            <div className="pt-10 border-t border-slate-700/30 space-y-8">
+              {props.context_identifiers?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Context Identifiers</p>
+                  <div className="flex flex-wrap gap-2">
+                    {props.context_identifiers.map((id, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
+                      >
+                        {id}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {props.modify_identifiers?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Modification Identifiers</p>
+                  <div className="flex flex-wrap gap-2">
+                    {props.modify_identifiers.map((id, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="text-xs bg-slate-800/60 border-slate-600/60 text-slate-300 hover:bg-slate-700/80 hover:text-slate-200 rounded-md px-2.5 py-1.5 transition-colors"
+                      >
+                        {id}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      )}
     </Card>
   );
 }
