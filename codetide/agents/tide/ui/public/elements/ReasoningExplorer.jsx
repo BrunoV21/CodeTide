@@ -4,16 +4,13 @@ import { ChevronDown, ChevronRight, Brain } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function ReasoningStepsCard() {
-  const [expandedSteps, setExpandedSteps] = useState({});
   const [expandedAll, setExpandedAll] = useState(false);
-  const [expandedIdentifiers, setExpandedIdentifiers] = useState(false);
   const [waveOffset, setWaveOffset] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing");
   const [thinkingTime, setThinkingTime] = useState(0);
 
   const loadingStates = ["Analyzing", "Thinking", "Updating", "Processing"];
 
-  // Animate wave effect and loading text
   useEffect(() => {
     const waveInterval = setInterval(() => {
       setWaveOffset((prev) => (prev + 1) % 360);
@@ -32,7 +29,6 @@ export default function ReasoningStepsCard() {
     };
   }, []);
 
-  // Track thinking time
   useEffect(() => {
     if (!props.finished) {
       const timer = setInterval(() => {
@@ -42,35 +38,15 @@ export default function ReasoningStepsCard() {
     }
   }, [props.finished]);
 
-  const toggleStep = (index) => {
-    setExpandedSteps((prev) => ({
-      ...prev,
-      [index]: !prev[index],
-    }));
-  };
-
-  const toggleAll = () => {
-    setExpandedAll(!expandedAll);
-  };
-
-  const toggleIdentifiers = () => {
-    setExpandedIdentifiers(!expandedIdentifiers);
-  };
+  const toggleAll = () => setExpandedAll(!expandedAll);
 
   const isLoadingState = !props.finished;
 
-  // Get preview text for collapsed state
   const getPreviewText = () => {
-    if (props.summary) {
-      return props.summary.split("\n")[0];
-    }
-    if (props.reasoning_steps && props.reasoning_steps.length > 0) {
-      const lastStep = props.reasoning_steps[props.reasoning_steps.length - 1];
-      return lastStep.content.split("\n")[0];
-    }
-    if (props.finished) {
-      return `Finished`;
-    }
+    if (props.summary) return props.summary.split("\n")[0];
+    if (props.reasoning_steps?.length > 0)
+      return props.reasoning_steps.at(-1).content.split("\n")[0];
+    if (props.finished) return "Finished";
     return `${loadingText}...`;
   };
 
@@ -78,7 +54,7 @@ export default function ReasoningStepsCard() {
 
   return (
     <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800 transition-all duration-300">
-      {/* Header - Always visible */}
+      {/* Header */}
       <CardHeader
         className={`px-6 border-b border-slate-700/50 transition-all duration-300 ${
           expandedAll ? "py-4" : "py-3"
@@ -103,13 +79,7 @@ export default function ReasoningStepsCard() {
                       }
                       .wave-fill { fill: url(#waveGradient); animation: wave-motion 3s ease-in-out infinite; }
                     `}</style>
-                    <linearGradient
-                      id="waveGradient"
-                      x1="0%"
-                      y1="0%"
-                      x2="0%"
-                      y2="100%"
-                    >
+                    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
                       <stop
                         offset="0%"
                         stopColor="rgb(96, 165, 250)"
@@ -138,7 +108,6 @@ export default function ReasoningStepsCard() {
                     Thought for {thinkingTime}s
                   </p>
                 )}
-                {/* Text always trimmed to width */}
                 <p
                   className={`text-slate-200 transition-all duration-300 truncate ${
                     expandedAll
@@ -151,70 +120,47 @@ export default function ReasoningStepsCard() {
               </div>
             </div>
           </div>
-
           <div className="flex-shrink-0 p-1">
             {expandedAll ? (
-              <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-300 transition" />
+              <ChevronDown className="h-4 w-4 text-slate-400" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-slate-400 group-hover:text-slate-300 transition" />
+              <ChevronRight className="h-4 w-4 text-slate-400" />
             )}
           </div>
         </button>
       </CardHeader>
 
-      {/* Content - Expanded view */}
+      {/* Expanded Content */}
       {expandedAll && (
         <CardContent className="px-6 py-6 animate-in fade-in slide-in-from-top duration-300">
           {/* Reasoning Steps */}
-          {props.reasoning_steps?.map((step, index) => {
-            const isOpen = !!expandedSteps[index];
-            return (
-              <div key={index}>
-                <div className="relative flex gap-4">
-                  {/* Timeline */}
-                  <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
-                      <Brain className="w-3 h-3 text-blue-400" />
-                    </div>
+          {props.reasoning_steps?.map((step, index) => (
+            <div key={index}>
+              <div className="relative flex gap-4">
+                {/* Timeline */}
+                <div className="flex flex-col items-center pt-0.5 flex-shrink-0">
+                  <div className="w-6 h-6 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
+                    <Brain className="w-3 h-3 text-blue-400" />
                   </div>
+                </div>
 
-                  {/* Content */}
-                  <div className="flex-1 pt-0.5">
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-slate-100 mb-2">
-                          {step.header}
-                        </h3>
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                          {step.content}
-                        </p>
-                      </div>
-                      {step.candidate_identifiers?.length > 0 && (
-                        <button
-                          onClick={() => toggleStep(index)}
-                          className="p-1 hover:bg-slate-700 rounded flex-shrink-0 transition"
-                          aria-label="Toggle identifiers"
-                        >
-                          {isOpen ? (
-                            <ChevronDown className="h-4 w-4 text-slate-500" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-slate-500" />
-                          )}
-                        </button>
-                      )}
-                    </div>
+                {/* Step Content */}
+                <div className="flex-1 pt-0.5">
+                  <h3 className="text-sm font-semibold text-slate-100 mb-2">
+                    {step.header}
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    {step.content}
+                  </p>
 
-                    {/* Identifiers - always in DOM, animate visibility/height */}
-                    <div
-                      className={`mt-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg overflow-hidden transform transition-all duration-300 ease-out
-                        ${isOpen ? "opacity-100 translate-y-0 max-h-[1000px] visible" : "opacity-0 -translate-y-2 max-h-0 invisible"}`}
-                      aria-hidden={!isOpen}
-                    >
+                  {/* Identifiers — always visible */}
+                  {step.candidate_identifiers?.length > 0 && (
+                    <div className="mt-4 p-4 bg-slate-800/30 border border-slate-700/50 rounded-lg">
                       <p className="text-xs font-medium text-slate-500 mb-4">
                         Context Identifiers
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        {step.candidate_identifiers?.map((id, idIndex) => (
+                        {step.candidate_identifiers.map((id, idIndex) => (
                           <Badge
                             key={idIndex}
                             variant="outline"
@@ -225,97 +171,65 @@ export default function ReasoningStepsCard() {
                         ))}
                       </div>
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Connector line */}
+              {index < props.reasoning_steps.length - 1 && (
+                <div className="relative flex gap-4 mt-6">
+                  <div className="w-6 flex justify-center flex-shrink-0">
+                    <div
+                      className="w-px bg-gradient-to-b from-orange-500 to-transparent"
+                      style={{ height: "28px" }}
+                    ></div>
                   </div>
                 </div>
+              )}
+            </div>
+          ))}
 
-                {/* Connector line - only between steps */}
-                {index < props.reasoning_steps.length - 1 && (
-                  <div className="relative flex gap-4 mt-6">
-                    <div className="w-6 flex justify-center flex-shrink-0">
-                      <div
-                        className="w-px bg-gradient-to-b from-orange-500 to-transparent"
-                        style={{ height: "28px" }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Deep Analysis */}
+          {/* Context + Modify Identifiers — always visible */}
           {(props.context_identifiers?.length > 0 ||
             props.modify_identifiers?.length > 0) && (
-            <div className="mt-6 pt-6 border-t border-slate-700/50">
-              <button
-                onClick={toggleIdentifiers}
-                className="w-full flex items-center justify-between px-0 py-2 hover:bg-slate-800/30 rounded transition group text-left"
-              >
-                <span className="text-sm font-semibold text-slate-300 group-hover:text-slate-100">
-                  Deeper Analysis
-                </span>
-                <svg
-                  className={`w-4 h-4 text-slate-500 transition-transform flex-shrink-0 ${
-                    expandedIdentifiers ? "rotate-180" : ""
-                  }`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-
-              {/* Deeper analysis block: always in DOM, animated visibility */}
-              <div
-                className={`mt-4 p-4 bg-slate-800/20 border border-slate-700/30 rounded-lg space-y-6 overflow-hidden transform transition-all duration-300 ease-out
-                  ${expandedIdentifiers ? "opacity-100 translate-y-0 max-h-[1200px] visible" : "opacity-0 -translate-y-2 max-h-0 invisible"}`}
-                aria-hidden={!expandedIdentifiers}
-              >
-                {props.context_identifiers?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-4 uppercase tracking-wider">
-                      Context Identifiers
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {props.context_identifiers.map((id, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700"
-                        >
-                          {id}
-                        </Badge>
-                      ))}
-                    </div>
+            <div className="mt-6 pt-6 border-t border-slate-700/50 space-y-6">
+              {props.context_identifiers?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-4 uppercase tracking-wider">
+                    Context Identifiers
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {props.context_identifiers.map((id, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700"
+                      >
+                        {id}
+                      </Badge>
+                    ))}
                   </div>
-                )}
+                </div>
+              )}
 
-                {props.context_identifiers?.length > 0 &&
-                  props.modify_identifiers?.length > 0 && (
-                    <div className="border-t border-slate-700/30"></div>
-                  )}
-
-                {props.modify_identifiers?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-slate-500 mb-4 uppercase tracking-wider">
-                      Modify Identifiers
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {props.modify_identifiers.map((id, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700"
-                        >
-                          {id}
-                        </Badge>
-                      ))}
-                    </div>
+              {props.modify_identifiers?.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-4 uppercase tracking-wider">
+                    Modify Identifiers
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {props.modify_identifiers.map((id, index) => (
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="text-xs bg-slate-700/50 border-slate-600/50 text-slate-300 hover:bg-slate-700"
+                      >
+                        {id}
+                      </Badge>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
