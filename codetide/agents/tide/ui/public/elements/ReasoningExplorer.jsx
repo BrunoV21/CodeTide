@@ -47,7 +47,7 @@ export default function ReasoningStepsCard() {
     if (summary) return summary.split("\n")[0];
     if (reasoning_steps?.length > 0)
       return reasoning_steps.at(-1).content.split("\n")[0];
-
+    if (props?.finished) return "Finished";
     return `${loadingText}...`;
   };
 
