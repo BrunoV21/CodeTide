@@ -10,7 +10,7 @@ export default function ReasoningStepsCard() {
   const [thinkingTime, setThinkingTime] = useState(0);
 
   const loadingStates = ["Analyzing", "Thinking", "Updating", "Processing"];
-  const isLoadingState = props.finished;
+  const isLoadingState = !props.finished;
 
   useEffect(() => {
     const waveInterval = setInterval(() => {
@@ -134,7 +134,7 @@ export default function ReasoningStepsCard() {
                     {index < props.reasoning_steps.length - 1 && (
                       <svg 
                         className="absolute top-7 left-1/2 transform -translate-x-1/2 w-0.5 pointer-events-none flex-shrink-0" 
-                        style={{ height: "120px" }} 
+                        style={{ height: "200px" }} 
                         viewBox="0 0 2 80" 
                         preserveAspectRatio="none"
                       >
