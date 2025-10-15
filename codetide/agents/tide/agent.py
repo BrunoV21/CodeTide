@@ -1,4 +1,5 @@
 import json
+import re
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
 from ...core.defaults import DEFAULT_STORAGE_PATH
@@ -6,7 +7,7 @@ from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    AGENT_TIDE_SYSTEM_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
@@ -198,21 +199,39 @@ class AgentTide(BaseModel):
             reasoning_blocks = parse_blocks(phase1_response, block_word="Reasoning", multiple=True)
             expand_paths_block = parse_blocks(phase1_response, block_word="Expand Paths", multiple=False)
             
+            ### TODO update to use Rationale and New Candidates Indeintifiers and extract based onr egex ffs
             # Extract and accumulate candidates from reasoning blocks
+
+            patterns = {
+                "header": r"\*{0,2}Task\*{0,2}:\s*(.+?)(?=\n\s*\*{0,2}Rationale\*{0,2})",
+                "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}Candidate Identifiers\*{0,2}|$)",
+                "candidate_identifiers": r"^\s*-\s*(.+?)$"
+            }
+
             for reasoning in reasoning_blocks:
-                all_reasoning.append(reasoning)
-                # Extract candidate identifiers from reasoning block
-                if "**Candidate Identifiers**:" in reasoning or "**candidate_identifiers**:" in reasoning.lower():
-                    lines = reasoning.split('\n')
-                    capture = False
-                    for line in lines:
-                        if "candidate" in line.lower() and "identifier" in line.lower():
-                            capture = True
-                            continue
-                        if capture and line.strip().startswith('-'):
-                            ident = line.strip().lstrip('-').strip()
-                            if ident := self.get_valid_identifier(autocomplete, ident):
-                                candidate_pool.add(ident)
+                # Extract header
+                header_match = re.search(patterns["header"], reasoning, re.DOTALL)
+                header = header_match.group(1).strip() if header_match else None
+                
+                # Extract content (rationale)
+                content_match = re.search(patterns["content"], reasoning, re.DOTALL | re.MULTILINE)
+                content = content_match.group(1).strip() if content_match else None
+                
+                # Append only header and content to all_reasoning
+                if header and content:
+                    all_reasoning.append(REASONING_TEMPLTAE.format(**{
+                        "header": header,
+                        "content": content
+                    }))
+                
+                # Extract candidate identifiers using regex
+                candidate_pattern = patterns["candidate_identifiers"]
+                candidate_matches = re.findall(candidate_pattern, reasoning, re.MULTILINE)
+                
+                for match in candidate_matches:
+                    ident = match.strip()
+                    if ident := self.get_valid_identifier(autocomplete, ident):
+                        candidate_pool.add(ident)
             
             # Check if we need to expand more
             if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper():
@@ -240,16 +259,24 @@ class AgentTide(BaseModel):
         # Prepare Phase 2 input
         all_reasoning_text = "\n\n".join(all_reasoning)
         all_candidates_text = "\n".join(sorted(candidate_pool))
+
+        candidates_to_filter_tree = self.tide._as_file_paths(list(candidate_pool))
+        self.tide.codebase._build_tree_dict(candidates_to_filter_tree, slim=True)
+        sub_tree = self.tide.codebase.get_tree_view()
+
+        # print(sub_tree)
+
+        # print(f"{all_candidates_text=}")
         
         phase2_response = await self.llm.acomplete(
             expanded_history,
             system_prompt=[FINALIZE_IDENTIFIERS_PROMPT.format(
                 DATE=TODAY,
                 SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
-                USER_REQUEST=last_message,
-                ALL_CANDIDATES=all_candidates_text
+                EXPLORATION_STEPS=all_reasoning_text,
+                ALL_CANDIDATES=all_candidates_text,
             )],
-            prefix_prompt=f"Phase 1 Exploration Results:\n\n{all_reasoning_text}",
+            prefix_prompt=sub_tree,
             stream=True
         )
         
