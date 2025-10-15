@@ -9,7 +9,17 @@ export default function ReasoningStepsCard() {
   const [loadingText, setLoadingText] = useState("Analyzing");
   const [thinkingTime, setThinkingTime] = useState(0);
 
-  const loadingStates = ["Analyzing", "Thinking", "Updating", "Processing"];
+  const loadingStates = [
+    "Diving deep into the code",
+    "Charting uncharted waters",
+    "Debugging the tide",
+    "Navigating the current flow",
+    "Riding the wave of logic",
+    "Casting nets into the depths",
+    "Exploring the digital ocean",
+    "Following the stream of creation"
+  ].sort(() => Math.random() - 0.5);
+
   const isLoadingState = !props.finished;
 
   useEffect(() => {
@@ -22,7 +32,7 @@ export default function ReasoningStepsCard() {
         const idx = loadingStates.indexOf(prev);
         return loadingStates[(idx + 1) % loadingStates.length];
       });
-    }, 1000);
+    }, 2500);
 
     return () => {
       clearInterval(waveInterval);
