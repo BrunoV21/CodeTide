@@ -179,17 +179,18 @@ class AgentTide(BaseModel):
             # Prepare accumulated context
             accumulated_context = "\n".join(sorted(candidate_pool)) if candidate_pool else "None yet"
             
+            view_type = "`Current view`" if iteration_count == 1 else "`Expanded view`"
             # Phase 1 LLM call
             phase1_response = await self.llm.acomplete(
                 expanded_history,
                 system_prompt=[GATHER_CANDIDATES_PROMPT.format(
                     DATE=TODAY,
                     SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
-                    TREE_STATE="`Current view`" if iteration_count == 1 else "`Expanded view`",
+                    TREE_STATE=view_type,
                     ACCUMULATED_CONTEXT=accumulated_context,
                     ITERATION_COUNT=iteration_count
                 )],
-                prefix_prompt=repo_tree,
+                prefix_prompt=rf"# {view_type}\n\n{repo_tree}",
                 stream=True
             )
             
