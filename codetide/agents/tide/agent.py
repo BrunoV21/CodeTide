@@ -338,6 +338,10 @@ class AgentTide(BaseModel):
         else:
             autocomplete = AutoComplete(self.tide.cached_ids)
             print(f"{autocomplete=}")
+
+            ### TODO super quick prompt here for operation mode
+            ### needs more context based on cached identifiers or not
+            ### needs more history or not, default is last 5 iteratinos
             if self._direct_mode:
                 self.contextIdentifiers = None
                 # Only extract matches from the last message
@@ -379,6 +383,7 @@ class AgentTide(BaseModel):
 
         self._last_code_context = codeContext
         await delete_file(self.patch_path)
+        ### TODO get system prompt based on OEPRATION_MODE
         response = await self.llm.acomplete(
             expanded_history,
             system_prompt=[
