@@ -205,7 +205,7 @@ export default function ReasoningStepsCard() {
 
               {props.modify_identifiers?.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5">Modification Identifiers</p>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5" style={{marginTop: "1rem"}}>Modification Identifiers</p>
                   <div className="flex flex-wrap gap-2">
                     {props.modify_identifiers.map((id, index) => (
                       <Badge
