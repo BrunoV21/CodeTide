@@ -142,7 +142,7 @@ example1 = {
     ],
     "context_identifiers": ["user_context", "system_requirements", "api_documentation"],
     "modify_identifiers": ["configuration_settings", "user_preferences"],
-    "summary": "no summary yet",
+    "summary": "",
     "finished": False
 }
 
@@ -268,9 +268,9 @@ async def start_chat():
     card_element = cl.CustomElement(name="ReasoningExplorer", props=example1)
     await cl.Message(content="", elements=[card_element]).send()
 
-    await asyncio.sleep(2)
-    card_element.props.update(example2)
-    await card_element.update()
+    # await asyncio.sleep(2)
+    # card_element.props.update(example2)
+    # await card_element.update()
 
 @cl.set_starters
 async def set_starters():
