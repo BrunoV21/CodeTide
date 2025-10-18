@@ -478,7 +478,10 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         "modify_identifiers": [],
         "finished": False
     })
-    _ = await cl.Message(content="", author="AgentTide", elements=[reasoning_element]).send()
+
+    if not agent_tide_ui.agent_tide._skip_context_retrieval:
+        reasoning_mg = cl.Message(content="", author="AgentTide", elements=[reasoning_element])
+        _ = await reasoning_mg.send()
     ### TODO this needs to receive the message as well to call update
     reasoning_step = CustomElementStep(
         element=reasoning_element,

@@ -322,10 +322,6 @@ class AgentTide(BaseModel):
 
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
-        await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
-        print("Finished check for updates")
-        self._clean_history()
-        print("Finished clean history")
 
         # Initialize the context identifier window if not present
         if self._context_identifier_window is None:
@@ -335,7 +331,12 @@ class AgentTide(BaseModel):
         if self._skip_context_retrieval:
             expanded_history = self.history[-1]
             await self.llm.logger_fn(REASONING_FINISHED)
-        else:
+        else:            
+            await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+            print("Finished check for updates")
+            self._clean_history()
+            print("Finished clean history")
+
             autocomplete = AutoComplete(self.tide.cached_ids)
             print(f"{autocomplete=}")
 
