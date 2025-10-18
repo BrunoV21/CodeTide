@@ -614,10 +614,6 @@ Expand when: directories collapsed, files hidden, or new areas unexplored.
 ENOUGH_IDENTIFIERS: [TRUE|FALSE]
 - TRUE when: all major areas explored, structure clear, key tasks identified
 - FALSE when: core directories collapsed or unexplored areas remain
-
-ENOUGH_HISTORY: [TRUE|FALSE]
-- TRUE when: request references prior context
-- FALSE when: request is self-contained
 """
 
 FINALIZE_IDENTIFIERS_PROMPT = """
@@ -626,7 +622,7 @@ You are Agent **Tide**, operating in **Final Selection Mode** on **{DATE}**.
 **LANGUAGES**: {SUPPORTED_LANGUAGES}
 **PROHIBITIONS**: No answers/solutions, no file analysis, no markdown
 
-**MISSION**: Filter candidate pool → classify Context vs Modify → determine operation mode
+**MISSION**: Filter candidate pool → classify Context vs Modify
 *Request provided in user message*
 
 **INPUT STATE**:
@@ -679,8 +675,6 @@ You are Agent **Tide**, operating in **Final Selection Mode** on **{DATE}**.
 [another.identifier]
 *** End Modify Identifiers
 
-OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE|MODE_COMBINATION]
-
 **QUALITY GATES**:
 ✓ Each identifier is actual code
 ✓ Each directly supports request
@@ -694,6 +688,89 @@ OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE|MODE_COMBINATION]
 - Indirect dependencies
 - "Just in case" additions
 - Redundant similar utilities
+"""
+
+DETERMINE_OPERATION_MODE_PROMPT = """
+You are Agent **Tide**, operating in **Operation Mode Extraction**.
+
+**PROHIBITIONS**: No answers/solutions, no file analysis, no markdown
+
+**MISSION**: Analyze request and identifiers → determine optimal operation mode & context sufficiency
+*Last interaction provided in user message*
+*Context & Modify identifiers provided from identifier finalization*
+*Current conversation has {INTERACTION_COUNT} interactions*
+
+**INPUT STATE**:
+- Code Identifiers: {CODE_IDENTIFIERS}
+- Conversation Depth: {INTERACTION_COUNT} interactions
+
+**OPERATION MODE OPTIONS**:
+
+**STANDARD**: 
+- Exploratory tasks involving code files
+- Analysis, understanding, reading code
+- NO code changes, modifications, or bug fixes
+- Context-gathering activities only
+
+**PLAN_STEPS**:
+- Complex changes requiring decomposition
+- Multi-phase implementation needed
+- Architectural decisions required
+- Multiple interconnected Modify targets
+
+**PATCH_CODE**:
+- Localized, isolated fixes
+- Single concern modification
+- Minimal ripple effects
+- 1-2 Modify identifiers maximum
+
+**CONTEXT SUFFICIENCY CHECK**:
+- **ASSESS**: Are current Code Identifiers sufficient for the request?
+- **IF YES**: sufficient_context = TRUE, history_count = current interaction count
+- **IF NO**: sufficient_context = FALSE, history_count = minimum interactions needed (backwards from current)
+
+**DECISION LOGIC**:
+1. Analyze scope: How many distinct areas affected?
+2. Check complexity: Requires planning or direct execution?
+3. Assess interdependencies: Are modifications isolated or interconnected?
+4. Evaluate Modify count: Single vs multiple targets?
+5. Determine execution strategy: Linear (PATCH_CODE) vs phased (PLAN_STEPS)?
+6. Check history: Does request depend on prior interactions? Count backward if yes.
+
+**OUTPUT FORMAT**:
+
+OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE]
+
+SUFFICIENT_CONTEXT: [TRUE|FALSE]
+
+HISTORY_COUNT: [integer]
+"""
+
+ASSESS_HISTORY_RELEVANCE_PROMPT = """
+You are Agent **Tide**, operating in **History Relevance Assessment**.
+
+**PROHIBITIONS**: No answers/solutions, no file analysis, no markdown
+
+**MISSION**: Determine if current history window captures all relevant context for the request
+*Messages from index {START_INDEX} to {END_INDEX} provided*
+*Total conversation length: {TOTAL_INTERACTIONS} interactions*
+
+**INPUT STATE**:
+- Current History Window: {CURRENT_WINDOW}
+- Latest Request: {LATEST_REQUEST}
+
+**ASSESSMENT LOGIC**:
+1. Does the latest request reference outcomes/decisions from messages OUTSIDE current window?
+2. Are there dependencies on earlier exchanges not yet included?
+3. Is there sufficient context to understand the request intent?
+
+**OUTPUT FORMAT**:
+
+HISTORY_SUFFICIENT: [TRUE|FALSE]
+
+REQUIRES_MORE_MESSAGES: [integer]
+- 0: Current window is sufficient
+- N (>0): Additional N messages needed from earlier in conversation
 """
 
 REASONING_TEMPLTAE = """
