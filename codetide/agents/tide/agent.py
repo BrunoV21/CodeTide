@@ -138,7 +138,7 @@ class AgentTide(BaseModel):
             if isinstance(message, dict):
                 self.history[i] = message.get("content" ,"")
     
-    async def get_identifiers_two_phase(self, autocomplete :AutoComplete, codeIdentifiers=None, TODAY :str=None):
+    async def get_identifiers_two_phase(self, autocomplete :AutoComplete, expanded_history :list, codeIdentifiers=None, TODAY :str=None):
         """
         Two-phase identifier resolution:
         Phase 1: Gather candidates through iterative tree expansion
@@ -168,7 +168,6 @@ class AgentTide(BaseModel):
         expand_paths = ["./"]
         enough_identifiers = False
         history_memory = 3
-        expanded_history = list(self.history)[-history_memory:]  # Track expanded history
         
         while not enough_identifiers and iteration_count < max_iterations:
             iteration_count += 1
@@ -243,13 +242,6 @@ class AgentTide(BaseModel):
             if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper():
                 enough_identifiers = True
             
-            # Check if we need more history
-            if "ENOUGH_HISTORY: FALSE" in phase1_response.upper() and iteration_count <= 2:
-                # Load more history for next iteration
-                # TODO this should be imcremental i.e starting += 2 each time!
-                history_memory += 2
-                expanded_history = self.history[-history_memory:] if len(self.history) > 1 else self.history
-            
             # Parse expansion paths for next iteration
             if expand_paths_block and not enough_identifiers:
                 expand_paths = [
@@ -293,13 +285,6 @@ class AgentTide(BaseModel):
         context_identifiers = parse_blocks(phase2_response, block_word="Context Identifiers", multiple=False)
         modify_identifiers = parse_blocks(phase2_response, block_word="Modify Identifiers", multiple=False)
         
-        # Extract operation mode
-        operation_mode = "STANDARD"  # default
-        if "OPERATION_MODE:" in phase2_response:
-            mode_line = [line for line in phase2_response.split('\n') if 'OPERATION_MODE:' in line]
-            if mode_line:
-                operation_mode = mode_line[0].split('OPERATION_MODE:')[1].strip()
-        
         # Process final identifiers
         final_context = set()
         final_modify = set()
@@ -318,9 +303,7 @@ class AgentTide(BaseModel):
             "matches": matches,
             "context_identifiers": list(final_context),
             "modify_identifiers": self.tide._as_file_paths(list(final_modify)),
-            "operation_mode": operation_mode,
             "summary": summary,
-            "expanded_history": expanded_history,  # Make available for downstream
             "all_reasoning": all_reasoning_text,
             "iteration_count": iteration_count
         }
@@ -520,7 +503,7 @@ class AgentTide(BaseModel):
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
             else:
                 await self.llm.logger_fn(REASONING_STARTED)
-                reasoning_output = await self.get_identifiers_two_phase(autocomplete, codeIdentifiers, TODAY)
+                reasoning_output = await self.get_identifiers_two_phase(autocomplete, expanded_history, codeIdentifiers, TODAY)
                 await self.llm.logger_fn(REASONING_FINISHED)
                 print(json.dumps(reasoning_output, indent=4))
 
