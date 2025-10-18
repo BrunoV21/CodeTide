@@ -7,7 +7,7 @@ from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    AGENT_TIDE_SYSTEM_PROMPT, ASSESS_HISTORY_RELEVANCE_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, DETERMINE_OPERATION_MODE_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
@@ -26,7 +26,7 @@ except ImportError as e:
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 from typing_extensions import Self
 from functools import partial
 from datetime import date
@@ -65,6 +65,11 @@ class AgentTide(BaseModel):
     _context_identifier_window: Optional[list] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    OPERATIONS :Dict[str, str] = {
+        "PLAN_STEPS": STEPS_SYSTEM_PROMPT,
+        "PATCH_CODE": WRITE_PATCH_SYSTEM_PROMPT
+    }
 
     @model_validator(mode="after")
     def pass_custom_logger_fn(self)->Self:
@@ -319,6 +324,147 @@ class AgentTide(BaseModel):
             "all_reasoning": all_reasoning_text,
             "iteration_count": iteration_count
         }
+    
+    async def expand_history_if_needed(
+        self,
+        sufficient_context: bool,
+        history_count: int,
+    ) -> int:
+        """
+        Iteratively expand history window if initial assessment indicates more context is needed.
+        
+        Args:
+            sufficient_context: Boolean indicating if context is sufficient
+            history_count: Initial history count from operation mode extraction
+        
+        Returns:
+            Final history count to use for processing
+        
+        Raises:
+            ValueError: If extraction fails at any iteration
+        """
+        current_history_count = history_count
+        max_iterations = 10  # Prevent infinite loops
+        iteration = 0
+        
+        # If context is already sufficient, return early
+        if sufficient_context:
+            return current_history_count
+        
+        # Expand history iteratively
+        while iteration < max_iterations and current_history_count < len(self.history):
+            iteration += 1
+            
+            # Calculate window indices
+            start_index = max(0, len(self.history) - current_history_count)
+            end_index = len(self.history)
+            current_window = self.history[start_index:end_index]
+            latest_request = self.history[-1]  # Last interaction is the current request
+            
+            # Assess if current window has enough history
+            response = await self.llm.acomplete(
+                current_window,
+                system_prompt=ASSESS_HISTORY_RELEVANCE_PROMPT.format(
+                    START_INDEX=start_index,
+                    END_INDEX=end_index,
+                    TOTAL_INTERACTIONS=len(self.history),
+                    CURRENT_WINDOW=str(current_window),
+                    LATEST_REQUEST=str(latest_request)
+                )
+            )
+            
+            # Extract HISTORY_SUFFICIENT
+            history_sufficient_match = re.search(
+                r'HISTORY_SUFFICIENT:\s*\[?(TRUE|FALSE)\]?',
+                response
+            )
+            history_sufficient = (
+                history_sufficient_match.group(1).lower() == 'true'
+                if history_sufficient_match else False
+            )
+            
+            # Extract REQUIRES_MORE_MESSAGES
+            requires_more_match = re.search(
+                r'REQUIRES_MORE_MESSAGES:\s*\[?(\d+)\]?',
+                response
+            )
+            requires_more = int(requires_more_match.group(1)) if requires_more_match else 0
+            
+            # Validate extraction
+            if history_sufficient_match is None or requires_more_match is None:
+                raise ValueError(
+                    f"Failed to extract relevance assessment fields at iteration {iteration}:\n{response}"
+                )
+            
+            # If history is sufficient, we're done
+            if history_sufficient:
+                return current_history_count
+            
+            # If more messages are needed, expand the count
+            if requires_more > 0:
+                new_count = current_history_count + requires_more
+                # Prevent exceeding total history
+                if new_count > len(self.history):
+                    new_count = len(self.history)
+                
+                current_history_count = new_count
+            else:
+                # No more messages required but not sufficient - use full history
+                current_history_count = len(self.history)
+        
+        # Return final count (capped at total history length)
+        return min(current_history_count, len(self.history))
+    
+    async def extract_operation_mode(
+        self,
+        cached_identifiers: str
+    ) -> Tuple[str, bool, list]:
+        """
+        Extract operation mode, context sufficiency, and history count from LLM response.
+        
+        Args:
+            llm: Language model instance with acomplete method
+            history: Conversation history
+            cached_identifiers: Code identifiers string
+            system_prompt: System prompt template (DETERMINE_OPERATION_MODE_PROMPT)
+        
+        Returns:
+            Tuple of (operation_mode, sufficient_context, history_count)
+            - operation_mode: str [STANDARD|PLAN_STEPS|PATCH_CODE]
+            - sufficient_context: bool
+            - history_count: int
+        
+        Raises:
+            ValueError: If required fields cannot be extracted from response
+        """
+        response = await self.llm.acomplete(
+            self.history[-3:],
+            system_prompt=DETERMINE_OPERATION_MODE_PROMPT.format(
+                INTERACTION_COUNT=len(self.history),
+                CODE_IDENTIFIERS=cached_identifiers
+            )
+        )
+        
+        # Extract OPERATION_MODE
+        operation_mode_match = re.search(r'OPERATION_MODE:\s*\[?(STANDARD|PLAN_STEPS|PATCH_CODE)\]?', response)
+        operation_mode = operation_mode_match.group(1) if operation_mode_match else None
+        
+        # Extract SUFFICIENT_CONTEXT
+        sufficient_context_match = re.search(r'SUFFICIENT_CONTEXT:\s*\[?(TRUE|FALSE)\]?', response)
+        sufficient_context = sufficient_context_match.group(1).lower() == 'true' if sufficient_context_match else None
+        
+        # Extract HISTORY_COUNT
+        history_count_match = re.search(r'HISTORY_COUNT:\s*\[?(\d+)\]?', response)
+        history_count = int(history_count_match.group(1)) if history_count_match else len(self.history)
+        
+        # Validate extraction
+        if operation_mode is None or sufficient_context is None:
+            raise ValueError(f"Failed to extract required fields from response:\n{response}")
+        
+        final_history_count = await self.expand_history_if_needed(sufficient_context, history_count)
+        expanded_history = self.history[-final_history_count:]
+        
+        return operation_mode, sufficient_context, expanded_history
 
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
@@ -327,22 +473,37 @@ class AgentTide(BaseModel):
         if self._context_identifier_window is None:
             self._context_identifier_window = []
 
+        operation_mode = None
         codeContext = None
         if self._skip_context_retrieval:
             expanded_history = self.history[-1]
             await self.llm.logger_fn(REASONING_FINISHED)
-        else:            
-            await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+        else:
+            cached_identifiers = self._last_code_identifers
             print("Finished check for updates")
             self._clean_history()
             print("Finished clean history")
+            if codeIdentifiers:
+                for identifier in codeIdentifiers:
+                    cached_identifiers.add(identifier)
+
+            tasks = [
+                self.extract_operation_mode(cached_identifiers),
+                self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+            ]
+            operation_context_history_task, _ = await asyncio.gather(*tasks)
+
+            operation_mode, sufficient_context, expanded_history = operation_context_history_task
 
             autocomplete = AutoComplete(self.tide.cached_ids)
-            print(f"{autocomplete=}")
 
             ### TODO super quick prompt here for operation mode
             ### needs more context based on cached identifiers or not
             ### needs more history or not, default is last 5 iteratinos
+            if sufficient_context:
+                codeIdentifiers = list(self._last_code_identifers)
+                await self.llm.logger_fn(REASONING_FINISHED)
+
             if self._direct_mode:
                 self.contextIdentifiers = None
                 # Only extract matches from the last message
@@ -355,8 +516,6 @@ class AgentTide(BaseModel):
                 self._context_identifier_window.append(set(exact_matches))
                 if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
                     self._context_identifier_window.pop(0)
-                expanded_history = self.history[-5:]
-                operation_mode = "STANDARD, PATH_CODE"
                 await self.llm.logger_fn(REASONING_FINISHED)
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
             else:
@@ -367,8 +526,6 @@ class AgentTide(BaseModel):
 
                 codeIdentifiers = reasoning_output.get("context_identifiers", []) + reasoning_output.get("modify_identifiers", [])
                 matches = reasoning_output.get("matches")
-                operation_mode = reasoning_output.get("operation_mode")
-                expanded_history = reasoning_output.get("expanded_history")
 
             # --- End Unified Identifier Retrieval ---
             if codeIdentifiers:
@@ -381,18 +538,20 @@ class AgentTide(BaseModel):
                 readmeFile = self.tide.get(["README.md"] + (matches if 'matches' in locals() else []), as_string_list=True)
                 if readmeFile:
                     codeContext = "\n".join([codeContext, README_CONTEXT_PROMPT.format(README=readmeFile)])
-
         self._last_code_context = codeContext
         await delete_file(self.patch_path)
+
+        system_prompt = [
+            AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
+            CALMNESS_SYSTEM_PROMPT
+        ]
+        if operation_mode in self.OPERATIONS:
+            system_prompt.insert(1, self.OPERATIONS.get(operation_mode))
+
         ### TODO get system prompt based on OEPRATION_MODE
         response = await self.llm.acomplete(
             expanded_history,
-            system_prompt=[
-                AGENT_TIDE_SYSTEM_PROMPT.format(DATE=TODAY),
-                STEPS_SYSTEM_PROMPT.format(DATE=TODAY),
-                WRITE_PATCH_SYSTEM_PROMPT.format(DATE=TODAY),
-                CALMNESS_SYSTEM_PROMPT
-            ],
+            system_prompt=system_prompt,
             prefix_prompt=codeContext
         )
 
