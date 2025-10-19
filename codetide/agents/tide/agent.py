@@ -436,7 +436,7 @@ class AgentTide(BaseModel):
         
         # Extract SUFFICIENT_CONTEXT
         sufficient_context_match = re.search(r'SUFFICIENT_CONTEXT:\s*\[?(TRUE|FALSE)\]?', response)
-        sufficient_context = sufficient_context_match.group(1).lower() == 'true' if sufficient_context_match else None
+        sufficient_context = 'true' in sufficient_context_match.group(1).lower() if sufficient_context_match else None
         
         # Extract HISTORY_COUNT
         history_count_match = re.search(r'HISTORY_COUNT:\s*\[?(\d+)\]?', response)
@@ -489,7 +489,7 @@ class AgentTide(BaseModel):
                 codeIdentifiers = list(self._last_code_identifers)
                 await self.llm.logger_fn(REASONING_FINISHED)
 
-            if self._direct_mode:
+            elif self._direct_mode:
                 self.contextIdentifiers = None
                 # Only extract matches from the last message
                 last_message = self.history[-1] if self.history else ""
@@ -517,7 +517,7 @@ class AgentTide(BaseModel):
                 self._last_code_identifers = set(codeIdentifiers)
                 codeContext = self.tide.get(codeIdentifiers, as_string=True)
 
-            if not codeContext:
+            if not codeContext and not sufficient_context:
                 codeContext = REPO_TREE_CONTEXT_PROMPT.format(REPO_TREE=self.tide.codebase.get_tree_view())
                 # Use matches from the last message for README context
                 readmeFile = self.tide.get(["README.md"] + (matches if 'matches' in locals() else []), as_string_list=True)
