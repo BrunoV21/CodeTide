@@ -353,7 +353,8 @@ class AgentTide(BaseModel):
                     TOTAL_INTERACTIONS=len(self.history),
                     CURRENT_WINDOW=str(current_window),
                     LATEST_REQUEST=str(latest_request)
-                )
+                ),
+                stream=False
             )
             
             # Extract HISTORY_SUFFICIENT
@@ -425,7 +426,8 @@ class AgentTide(BaseModel):
             system_prompt=DETERMINE_OPERATION_MODE_PROMPT.format(
                 INTERACTION_COUNT=len(self.history),
                 CODE_IDENTIFIERS=cached_identifiers
-            )
+            ),
+            stream=False
         )
         
         # Extract OPERATION_MODE
