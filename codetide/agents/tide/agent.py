@@ -456,6 +456,7 @@ class AgentTide(BaseModel):
         operation_mode = None
         codeContext = None
         prefilled_summary = None
+        prefil_context = None
         if self._skip_context_retrieval:
             expanded_history = self.history[-1]
             await self.llm.logger_fn(REASONING_FINISHED)
@@ -535,8 +536,8 @@ class AgentTide(BaseModel):
                 PREFIX_SUMMARY_PROMPT.format(SUMMARY=prefilled_summary),
                 codeContext
             ]
-        else:
-            prefil_context = [codeContext]
+        elif codeContext:
+            codeContext = [codeContext]
 
         ### TODO get system prompt based on OEPRATION_MODE
         response = await self.llm.acomplete(
