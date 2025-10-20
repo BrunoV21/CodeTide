@@ -304,7 +304,7 @@ Incorporate the information from the summary along with the code context to prod
 
 Always prioritize the summary as a high-level guide and use it to clarify ambiguous or incomplete code context:
 
-{summary}
+{SUMMARY}
 """
 
 REPO_TREE_CONTEXT_PROMPT = """

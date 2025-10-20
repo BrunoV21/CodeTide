@@ -7,7 +7,7 @@ from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, ASSESS_HISTORY_RELEVANCE_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, DETERMINE_OPERATION_MODE_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    AGENT_TIDE_SYSTEM_PROMPT, ASSESS_HISTORY_RELEVANCE_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, DETERMINE_OPERATION_MODE_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, PREFIX_SUMMARY_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
@@ -163,7 +163,6 @@ class AgentTide(BaseModel):
         repo_tree = None
         expand_paths = ["./"]
         enough_identifiers = False
-        history_memory = 3
         
         while not enough_identifiers and iteration_count < max_iterations:
             iteration_count += 1
@@ -456,6 +455,7 @@ class AgentTide(BaseModel):
 
         operation_mode = None
         codeContext = None
+        prefilled_summary = None
         if self._skip_context_retrieval:
             expanded_history = self.history[-1]
             await self.llm.logger_fn(REASONING_FINISHED)
@@ -507,6 +507,7 @@ class AgentTide(BaseModel):
 
                 codeIdentifiers = reasoning_output.get("context_identifiers", []) + reasoning_output.get("modify_identifiers", [])
                 matches = reasoning_output.get("matches")
+                prefilled_summary = reasoning_output.get("summary") 
 
             # --- End Unified Identifier Retrieval ---
             if codeIdentifiers:
@@ -528,12 +529,20 @@ class AgentTide(BaseModel):
         ]
         if operation_mode in self.OPERATIONS:
             system_prompt.insert(1, self.OPERATIONS.get(operation_mode))
+        
+        if prefilled_summary is not None:
+            prefil_context = [
+                PREFIX_SUMMARY_PROMPT.format(SUMMARY=prefilled_summary),
+                codeContext
+            ]
+        else:
+            prefil_context = [codeContext]
 
         ### TODO get system prompt based on OEPRATION_MODE
         response = await self.llm.acomplete(
             expanded_history,
             system_prompt=system_prompt,
-            prefix_prompt=codeContext
+            prefix_prompt=prefil_context
         )
 
         await trim_to_patch_section(self.patch_path)
