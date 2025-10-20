@@ -11,7 +11,7 @@ from .prompts import (
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
-from .consts import AGENT_TIDE_ASCII_ART
+from .consts import AGENT_TIDE_ASCII_ART, REASONING_FINISHED, REASONING_STARTED, ROUND_FINISHED
 
 try:
     from aicore.llm import Llm
@@ -35,10 +35,6 @@ from ulid import ulid
 import asyncio
 import pygit2
 import os
-
-ROUND_FINISHED = "<FINISHED-GEN>"
-REASONING_STARTED = "<STARTED-REASONING>"
-REASONING_FINISHED = "<FINISHED-REASONING>"
 
 class AgentTide(BaseModel):
     llm :Llm
