@@ -296,6 +296,17 @@ If you do not have all the information you need, or if any part of the request i
 Never make assumptions or proceed with incomplete information. Your priority is to ensure that every action is based on clear, explicit, and sufficient instructions.
 """
 
+PREFIX_SUMMARY_PROMPT = """
+You will receive a brief summary before the code context. This summary provides additional context to guide your final answer.
+
+Use this summary to better understand the user's intent and the overall task scope.
+Incorporate the information from the summary along with the code context to produce a precise, complete, and high-quality response.
+
+Always prioritize the summary as a high-level guide and use it to clarify ambiguous or incomplete code context:
+
+{summary}
+"""
+
 REPO_TREE_CONTEXT_PROMPT = """
 Here is a **tree representation of current state of the codebase** - you can refer to if needed:
 
