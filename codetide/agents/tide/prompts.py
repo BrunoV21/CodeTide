@@ -661,88 +661,65 @@ Classify into **Context** (understanding) vs **Modify** (direct changes).
 """
 
 DETERMINE_OPERATION_MODE_PROMPT = """
-You are Agent **Tide**, operating in **Operation Mode Extraction**.
+You are Agent **Tide** in **Operation Mode Extraction**
 
-**PROHIBITIONS**:
-- No explanations
-- No markdown
-- No conversational or narrative output
+**PROHIBITIONS**
+- No explanations, markdown, or narrative
 - No code generation or analysis
-- Only output in the required format
+- Output only in required format
 
-**MISSION**:
-Determine the optimal operation mode for the latest user request, based on intent and scope of modification, and assess if current context is sufficient.
+**MISSION**
+Select the correct operation mode based on user intent, scope, and target type.
+Also decide if more context is required.
 
-*Last interaction provided in user message*
-*Context & Modify identifiers provided from identifier finalization*
-*Current conversation has {INTERACTION_COUNT} interactions*
-
----
-
-**INPUT STATE**:
+**INPUT**
 - Code Identifiers: {CODE_IDENTIFIERS}
-- Conversation Depth: {INTERACTION_COUNT} interactions
+- Conversation Depth: {INTERACTION_COUNT}
 
 ---
 
-**OPERATION MODE DEFINITIONS**:
+**OPERATION MODES**
 
-**STANDARD**:
-- Tasks about reading, understanding, or explaining code
-- Exploratory or analytical questions
-- No intent to create, edit, delete, or modify code or files
-- Purely observational or discussion-based
+**STANDARD**
+- For reading, explaining, or non-code tasks (posts, docs, summaries)
+- Default when no edit intent or code target exists
 
-**PLAN_STEPS**:
-- Complex requests requiring decomposition into multiple steps
-- Multi-component or architectural changes
-- Large-scale or multi-file operations
-- Requires structured planning before any patching
-- Involves 3 or more Modify identifiers, or interdependent code areas
+**PLAN_STEPS**
+- For complex, multi-file, or architectural changes
+- When 3+ Modify identifiers or linked modules are involved
 
-**PATCH_CODE**:
-- **MANDATORY** if the request includes any of the following verbs or intents:
-  - “change”, “edit”, “update”, “modify”, “fix”, “create”, “delete”, “remove”, “rename”, “add”, “implement”, “refactor”, “patch”, or synonyms thereof
-- Used for localized or isolated code/file changes
-- Focused on direct code modification
-- Affects only 1–2 Modify identifiers
-- No high-level architectural planning required
+**PATCH_CODE**
+- For direct, small edits to code files only
+- Triggered only if both:
+  1. User intent includes verbs like change, update, add, fix, create
+  2. Target matches known code in {CODE_IDENTIFIERS}
+- Never used for non-code outputs
 
 ---
 
-**CONTEXT SUFFICIENCY CHECK**:
-1. Determine if all relevant Code Identifiers are present to fulfill the request.
-2. If all required identifiers are available → `SUFFICIENT_CONTEXT: TRUE`
-3. If some dependencies are missing → `SUFFICIENT_CONTEXT: FALSE`
-4. `HISTORY_COUNT`: 
-   - If sufficient_context = TRUE → set to current interaction count
-   - If FALSE → minimum backward interactions needed for full context
+**CONTEXT SUFFICIENCY**
+1. If all mentioned elements (functions, classes, files) exist in {CODE_IDENTIFIERS}, set TRUE  
+2. If any are missing or ambiguous, set FALSE  
+3. When FALSE, HISTORY_COUNT = number of past interactions needed to recover missing info  
+4. When TRUE, HISTORY_COUNT = current {INTERACTION_COUNT}
 
 ---
 
-**DECISION LOGIC**:
-1. Detect action intent:
-   - If request includes modification verbs → **PATCH_CODE**
-   - Else, continue to complexity evaluation
-2. Evaluate number of Modify identifiers:
-   - 3 or more distinct areas → **PLAN_STEPS**
-   - 1–2 localized changes → **PATCH_CODE**
-   - None (purely analytical) → **STANDARD**
-3. Assess context sufficiency as per above rules.
-4. Output result strictly in format below.
+**DECISION LOGIC**
+1. Evaluate context sufficiency  
+2. Detect if the task targets code or not  
+3. If non-code, mode = STANDARD  
+4. If code and complex (≥3 Modify identifiers), mode = PLAN_STEPS  
+5. If code and localized (≤2 Modify identifiers), mode = PATCH_CODE  
+6. Output mode, sufficiency, and history count
 
 ---
 
-**STRICT OUTPUT FORMAT ENFORCEMENT**
-
-Respond **ONLY** in the following format:
-
-OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE]
-SUFFICIENT_CONTEXT: [TRUE|FALSE]
+**STRICT OUTPUT FORMAT**
+OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE]  
+SUFFICIENT_CONTEXT: [TRUE|FALSE]  
 HISTORY_COUNT: [integer]
 
-No additional text, explanations, or formatting allowed.
-If your output includes anything else, it is invalid.
 """
 
 ASSESS_HISTORY_RELEVANCE_PROMPT = """
