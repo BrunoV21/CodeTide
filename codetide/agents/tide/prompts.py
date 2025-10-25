@@ -708,13 +708,19 @@ Intent detection, context sufficiency, and history recovery are independent.
 
 ---
 
+**4. SEARCH QUERY (conditional)**
+- Only output when SUFFICIENT_CONTEXT = FALSE  
+- A short natural-language search query describing the missing context or target  
+- If SUFFICIENT_CONTEXT = TRUE → omit this line completely
+
+---
+
 **OUTPUT (exact format)**
 OPERATION_MODE: [STANDARD|PATCH_CODE|PLAN_STEPS]
 SUFFICIENT_CONTEXT: [TRUE|FALSE]
 HISTORY_COUNT: [integer]
+[optional search query only if context insufficient]
 """
-
-
 
 ASSESS_HISTORY_RELEVANCE_PROMPT = """
 You are Agent **Tide**, operating in **History Relevance Assessment**.
