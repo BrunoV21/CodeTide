@@ -591,9 +591,15 @@ Tree: {TREE_STATE} | Accumulated: {ACCUMULATED_CONTEXT} | Iteration: {ITERATION_
 
 ---
 
+**MANDATES**
+Each section below is independent and must always appear, even for a single task.
+If a section has no new content, leave it with an empty line.
+
+---
+
 *** Begin Reasoning
-**Task**: [Brief summary of user request]
-**Rationale**: [Why I explore this area – first person: I focus on this because...]
+**Task**: [Brief summary of user request — always present, even if single]
+**Rationale**: [Why ths area is being explored — in third person: exploring this because...]
 **NEW Candidate Identifiers** (max 3, all novel):
   - [fully.qualified.identifier or path/to/file.ext]
   - [another.identifier.or.path]
@@ -603,20 +609,18 @@ Tree: {TREE_STATE} | Accumulated: {ACCUMULATED_CONTEXT} | Iteration: {ITERATION_
 ---
 
 *** Begin Expand Paths
-[path/to/directory/]
-[another/path/]
+[path/to/directory/] or leave as empty line
 *** End Expand Paths
 
-Expand when directories are collapsed, unexplored, or likely hold key logic or docs (e.g., README, manifest, config).
+Expand paths whenever unexplored or collapsed directories might hold related logic or key files (e.g., README, manifest, config).
 
 ---
 
 *** Begin Assessments
 ENOUGH_IDENTIFIERS: [TRUE|FALSE]
-- TRUE: major areas explored, core logic mapped
-- FALSE: unexplored or hidden structures remain
+- TRUE: core logic and relevant areas covered
+- FALSE: additional unexplored or hidden structures remain
 *** End Assessments
-
 """
 
 FINALIZE_IDENTIFIERS_PROMPT = """
