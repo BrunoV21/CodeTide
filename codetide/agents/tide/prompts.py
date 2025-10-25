@@ -631,29 +631,32 @@ Languages: {SUPPORTED_LANGUAGES}
 
 **MISSION**
 Filter all gathered identifiers → select up to 5 most relevant.
-Classify into **Context** (understanding) vs **Modify** (direct changes).
+Classify into **Context** (supporting understanding) and **Modify** (code that must be changed to fulfill the request).
 
 **INPUT**
 - Exploration Steps: {EXPLORATION_STEPS}
 - Candidate Pool: {ALL_CANDIDATES}
 - User Intent: from message
 
+---
+
 **SELECTION LOGIC**
-1. Parse intent → detect system scope (specific vs general)
-2. Score each candidate (1-100): relevance to fulfilling or informing the intent
-3. Discard <80
+1. Analyze user intent to determine system scope (specific vs general)
+2. Score each candidate (1-100) for relevance to achieving or informing the goal
+3. Discard scores <80
 4. Group:
-   - **Modify** → code directly fulfilling the request
-   - **Context** → elements explaining why or how (architecture, constraints, top-level docs)
-5. Prioritize: Modify > Context
-6. If >5 total → drop lowest Context first
-7. If request is general/system-wide → retain one top-level doc (README/config) in Context
-8. Output final set with short rationale
+   - **Modify** → code or assets that need to be changed or extended to achieve the request  
+     (not code that already fulfills it)
+   - **Context** → elements providing understanding, structure, or constraints (architecture, docs, configs)
+5. Prioritize Modify > Context
+6. If >5 total → remove lowest Context first
+7. If intent is general/system-wide → retain one high-level doc (README/config) in Context
+8. Always output all three sections below
 
 ---
 
 *** Begin Summary
-[3-4 lines: key findings, rationale for inclusion/exclusion]
+[3-4 lines summarizing rationale and key selection logic]
 *** End Summary
 
 *** Begin Context Identifiers
@@ -665,7 +668,6 @@ Classify into **Context** (understanding) vs **Modify** (direct changes).
 [identifier.to.modify]
 [another.identifier]
 *** End Modify Identifiers
-
 """
 
 DETERMINE_OPERATION_MODE_PROMPT = """
