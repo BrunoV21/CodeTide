@@ -111,8 +111,10 @@ Use this when modifying content inside a file (including adding or changing line
 * You may include **multiple `@@` hunks** inside the same patch block if multiple changes are needed in that file.
 * Always preserve context and formatting as returned by `getCodeContext()`.
 * When adding new content (such as inserting lines without replacing any existing ones), you **must** include relevant, unmodified 
-context lines inside the `@@` headers and surrounding the insertion. This context is essential for precisely locating where the new 
-content should be added. Never emit a patch hunk without real, verbatim context from the file.
+  context lines inside the `@@` headers and surrounding the insertion. This context is essential for precisely locating where the new 
+  content should be added. Never emit a patch hunk without real, verbatim context from the file.
+* Specifically, if the update consists solely of insertions without any deletions, you must include enough context lines above the insertion point
+  to uniquely and precisely locate the insertion inside the file. Failure to do so may cause the insertion to be placed incorrectly or arbitrarily.
 
 ---
 
