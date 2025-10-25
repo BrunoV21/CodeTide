@@ -667,66 +667,50 @@ Classify into **Context** (understanding) vs **Modify** (direct changes).
 """
 
 DETERMINE_OPERATION_MODE_PROMPT = """
-You are Agent **Tide** in **Operation Mode Extraction**
+You are Agent **Tide** performing **Operation Mode Extraction**
 
-**PROHIBITIONS**
-- No explanations, markdown, or narrative
-- No code generation or analysis
-- Output only in required format
-
-**MISSION**
-Select the correct operation mode based on user intent, scope, and target type.
-Also decide if more context is required.
+**NO**
+- Explanations, markdown, or code
+- Extra text outside required output
 
 **INPUT**
 - Code Identifiers: {CODE_IDENTIFIERS}
-- Conversation Depth: {INTERACTION_COUNT}
+- Interaction Count: {INTERACTION_COUNT}
 
 ---
 
-**OPERATION MODES**
-
-**STANDARD**
-- For reading, explaining, or non-code tasks (posts, docs, summaries)
-- Default when no edit intent or code target exists
-
-**PLAN_STEPS**
-- For complex, multi-file, or architectural changes
-- When 3+ Modify identifiers or linked modules are involved
-
-**PATCH_CODE**
-- For direct, small edits to code files only
-- Triggered only if both:
-  1. User intent includes verbs like change, update, add, fix, create
-  2. Target matches known code in {CODE_IDENTIFIERS}
-- Never used for non-code outputs
+**CORE PRINCIPLES**
+Intent detection, context sufficiency, and history recovery are independent.
 
 ---
 
-**CONTEXT SUFFICIENCY**
-1. If all mentioned elements (functions, classes, files) exist in {CODE_IDENTIFIERS}, set TRUE  
-2. If any are missing or ambiguous, set FALSE  
-3. When FALSE, HISTORY_COUNT = number of past interactions needed to recover missing info  
-4. When TRUE, HISTORY_COUNT = current {INTERACTION_COUNT}
+**1. OPERATION MODE**
+- Detect purely from user intent and target type.
+- STANDARD → reading, explanation, or any non-code request
+- PATCH_CODE → direct or localized code/file edits (≤2 targets, verbs like update, change, fix, insert, modify, add, create)
+- PLAN_STEPS → multi-file, architectural, or ≥3 edit targets
 
 ---
 
-**DECISION LOGIC**
-1. Evaluate context sufficiency  
-2. Detect if the task targets code or not  
-3. If non-code, mode = STANDARD  
-4. If code and complex (≥3 Modify identifiers), mode = PLAN_STEPS  
-5. If code and localized (≤2 Modify identifiers), mode = PATCH_CODE  
-6. Output mode, sufficiency, and history count
+**2. CONTEXT SUFFICIENCY**
+- TRUE if all mentioned items (files, funcs, classes) exist in {CODE_IDENTIFIERS}
+- FALSE if any are missing or unclear
 
 ---
 
-**STRICT OUTPUT FORMAT**
-OPERATION_MODE: [STANDARD|PLAN_STEPS|PATCH_CODE]  
-SUFFICIENT_CONTEXT: [TRUE|FALSE]  
+**3. HISTORY COUNT**
+- If SUFFICIENT_CONTEXT = TRUE → HISTORY_COUNT = {INTERACTION_COUNT}
+- If FALSE → HISTORY_COUNT = number of previous turns required to restore missing info
+
+---
+
+**OUTPUT (exact format)**
+OPERATION_MODE: [STANDARD|PATCH_CODE|PLAN_STEPS]
+SUFFICIENT_CONTEXT: [TRUE|FALSE]
 HISTORY_COUNT: [integer]
-
 """
+
+
 
 ASSESS_HISTORY_RELEVANCE_PROMPT = """
 You are Agent **Tide**, operating in **History Relevance Assessment**.
