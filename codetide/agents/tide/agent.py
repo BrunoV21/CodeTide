@@ -149,7 +149,7 @@ class AgentTide(BaseModel):
         """
         # Initialize tracking
         last_message = self.history[-1] if self.history else ""
-        matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
+        matches = set(autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"])
         # print(f"{matches=}")
 
         ### TODO replace matches with search based on received search query
@@ -184,7 +184,7 @@ class AgentTide(BaseModel):
                     LAST_SEARCH_QUERY=search_query,
                     ITERATION_COUNT=iteration_count,
                     ACCUMULATED_CONTEXT=set(self._context_identifier_window),
-                    DIRECT_MATCHES=set(matches),
+                    DIRECT_MATCHES=matches,
                     SEARCH_CANDIDATES=identifiers_from_search,
                     REPO_TREE=sub_tree
                 )
@@ -276,7 +276,7 @@ class AgentTide(BaseModel):
                     final_modify.add(ident)
         
         return {
-            "matches": matches,
+            "matches": list(matches),
             "context_identifiers": list(final_context),
             "modify_identifiers": self.tide._as_file_paths(list(final_modify)),
             "summary": summary,
@@ -436,7 +436,7 @@ class AgentTide(BaseModel):
         if operation_mode is None or sufficient_context is None:
             raise ValueError(f"Failed to extract required fields from response:\n{response}")
 
-        final_history_count = await self.expand_history_if_needed(sufficient_context, history_count)
+        final_history_count = await self.expand_history_if_needed(sufficient_context, min(history_count, int(history_count * 0.2)+1))
         expanded_history = self.history[-final_history_count:]
 
         return operation_mode, sufficient_context, expanded_history, search_query
