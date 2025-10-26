@@ -214,20 +214,18 @@ class AgentTide(BaseModel):
                 "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}NEW Candidate Identifiers\*{0,2}|$)",
                 "candidate_identifiers": r"^\s*-\s*(.+?)$"
             }
-            all_reasoning.extend(reasoning_blocks)
-            for reasoning in reasoning_blocks:
-                # Extract candidate identifiers using regex
-                candidate_pattern = patterns["candidate_identifiers"]
-                candidate_matches = re.findall(candidate_pattern, reasoning, re.MULTILINE)
-                # print(f"{candidate_matches}=")
-                
-                for match in candidate_matches:
-                    ident = match.strip()
-                    if ident := self.get_valid_identifier(autocomplete, ident):
-                        # print(f"{ident=}")
-                        candidate_pool.add(ident)
-                # print("exit here")
-            
+            if reasoning_blocks is not None:
+                all_reasoning.extend(reasoning_blocks)
+                for reasoning in reasoning_blocks:
+                    # Extract candidate identifiers using regex
+                    candidate_pattern = patterns["candidate_identifiers"]
+                    candidate_matches = re.findall(candidate_pattern, reasoning, re.MULTILINE)
+                    # print(f"{candidate_matches}=")
+                    
+                    for match in candidate_matches:
+                        ident = match.strip()
+                        if ident := self.get_valid_identifier(autocomplete, ident):
+                            candidate_pool.add(ident)
             # Check if we need to expand more
             if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper() or matches.issubset(candidate_pool):
                 enough_identifiers = True
