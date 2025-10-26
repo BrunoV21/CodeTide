@@ -150,7 +150,7 @@ class AgentTide(BaseModel):
         # Initialize tracking
         last_message = self.history[-1] if self.history else ""
         matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
-        print(f"{matches=}")
+        # print(f"{matches=}")
 
         ### TODO replace matches with search based on received search query
         ### get identifiers 
@@ -164,78 +164,76 @@ class AgentTide(BaseModel):
         iteration_count = 0
         max_iterations = 3
         enough_identifiers = False
+        previous_phase_1_response = None
         
         while not enough_identifiers and iteration_count < max_iterations:
+            # print(f"{iteration_count=}")
             iteration_count += 1
             serch_results = await self._smart_code_search.search_smart(search_query, use_variations=False, top_k=15)
             identifiers_from_search = {result[0] for result in serch_results}
+            # print(f"{identifiers_from_search=}")
 
-            candidates_to_filter_tree = self.tide._as_file_paths(list(identifiers_from_search)[:5])
+            candidates_to_filter_tree = self.tide._as_file_paths(list(identifiers_from_search))
+            # print("got identifiers")
             self.tide.codebase._build_tree_dict(candidates_to_filter_tree, slim=True)
+            # print("got tree")
             sub_tree = self.tide.codebase.get_tree_view()
-            
-            # Phase 1 LLM call
-            phase1_response = await self.llm.acomplete(
-                expanded_history,
-                system_prompt=[GATHER_CANDIDATES_SYSTEM.format(
-                    DATE=TODAY,
-                    SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES
-                )],
-                prefix_prompt=GATHER_CANDIDATES_PREFIX.format(
+            # print(sub_tree)
+            prefix_prompt = [
+                GATHER_CANDIDATES_PREFIX.format(
                     LAST_SEARCH_QUERY=search_query,
                     ITERATION_COUNT=iteration_count,
                     ACCUMULATED_CONTEXT=set(self._context_identifier_window),
                     DIRECT_MATCHES=set(matches),
                     SEARCH_CANDIDATES=identifiers_from_search,
                     REPO_TREE=sub_tree
+                )
+            ]
+            if previous_phase_1_response is not None:
+                prefix_prompt.insert(0, previous_phase_1_response)
+            
+            # Phase 1 LLM call
+            phase1_response = await self.llm.acomplete(
+                expanded_history,
+                system_prompt=GATHER_CANDIDATES_SYSTEM.format(
+                    DATE=TODAY,
+                    SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES
                 ),
+                prefix_prompt=prefix_prompt,
                 stream=True,
                 action_id=f"phase_1.{iteration_count}"
             )
+            previous_phase_1_response = phase1_response
             
             # Parse Phase 1 response
             reasoning_blocks = parse_blocks(phase1_response, block_word="Reasoning", multiple=True)
             search_query = parse_blocks(phase1_response, block_word="Search Query", multiple=False)
-            
-            ### TODO update to use Rationale and New Candidates Indeintifiers and extract based onr egex ffs
-            # Extract and accumulate candidates from reasoning blocks
 
             patterns = {
                 "header": r"\*{0,2}Task\*{0,2}:\s*(.+?)(?=\n\s*\*{0,2}Rationale\*{0,2})",
-                "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}Candidate Identifiers\*{0,2}|$)",
+                "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}NEW Candidate Identifiers\*{0,2}|$)",
                 "candidate_identifiers": r"^\s*-\s*(.+?)$"
             }
+            all_reasoning.extend(reasoning_blocks)
             for reasoning in reasoning_blocks:
-                # Extract header
-                header_match = re.search(patterns["header"], reasoning, re.DOTALL)
-                header = header_match.group(1).strip() if header_match else None
-                
-                # Extract content (rationale)
-                content_match = re.search(patterns["content"], reasoning, re.DOTALL | re.MULTILINE)
-                content = content_match.group(1).strip() if content_match else None
-
-                # Append only header and content to all_reasoning
-                if header and content:
-                    all_reasoning.append(REASONING_TEMPLTAE.format(**{
-                        "header": header,
-                        "content": content
-                    }))
-                
                 # Extract candidate identifiers using regex
                 candidate_pattern = patterns["candidate_identifiers"]
                 candidate_matches = re.findall(candidate_pattern, reasoning, re.MULTILINE)
+                # print(f"{candidate_matches}=")
                 
                 for match in candidate_matches:
                     ident = match.strip()
                     if ident := self.get_valid_identifier(autocomplete, ident):
+                        # print(f"{ident=}")
                         candidate_pool.add(ident)
+                # print("exit here")
             
             # Check if we need to expand more
             if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper():
                 enough_identifiers = True
 
         # ===== PHASE 2: FINAL SELECTION AND CLASSIFICATION =====
-        
+        # print("Here 2")
         # Prepare Phase 2 input
         all_reasoning_text = "\n\n".join(all_reasoning)
         all_candidates_text = "\n".join(sorted(candidate_pool))
