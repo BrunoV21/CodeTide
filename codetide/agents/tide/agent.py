@@ -229,7 +229,7 @@ class AgentTide(BaseModel):
                 # print("exit here")
             
             # Check if we need to expand more
-            if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper():
+            if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper() or matches.issubset(candidate_pool):
                 enough_identifiers = True
 
         # ===== PHASE 2: FINAL SELECTION AND CLASSIFICATION =====
