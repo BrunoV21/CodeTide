@@ -7,7 +7,6 @@ export default function ReasoningStepsCard() {
   const [expanded, setExpanded] = useState(false);
   const [waveOffset, setWaveOffset] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing");
-  const [thinkingTime, setThinkingTime] = useState(0);
 
   const loadingStates = [
     "Diving deep into the code",
@@ -40,17 +39,7 @@ export default function ReasoningStepsCard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isLoadingState) {
-      const timer = setInterval(() => {
-        setThinkingTime((prev) => prev + 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [isLoadingState]);
-
   const getPreviewText = () => {
-    // Mock data for demo
     const reasoning_steps = props.reasoning_steps;
     const summary = props.summary;
 
@@ -65,7 +54,6 @@ export default function ReasoningStepsCard() {
 
   return (
     <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800 transition-all duration-300">
-      {/* Header - Collapsible */}
       <CardHeader className="px-8 py-6 border-b border-slate-700/50">
         <button
           onClick={() => setExpanded(!expanded)}
@@ -99,7 +87,7 @@ export default function ReasoningStepsCard() {
           <div className="flex-1 min-w-0">
             {props?.finished && !expanded && (
               <p className="text-xs text-slate-500 font-medium mb-2 tracking-wide">
-                Thought for {thinkingTime}s
+                Thought for {props.thinkingTime ?? 0}s
               </p>
             )}
             <div className="flex items-start gap-3 justify-between">
@@ -122,15 +110,12 @@ export default function ReasoningStepsCard() {
         </button>
       </CardHeader>
 
-      {/* Content - Expands when clicked */}
       {expanded && (
         <CardContent className="px-8 py-8 space-y-10 animate-in fade-in slide-in-from-top duration-300">
-          {/* Reasoning Steps */}
           {props?.reasoning_steps?.length > 0 && (
             <div className="space-y-2">
               {props.reasoning_steps.map((step, index) => (
                 <div key={index} className="relative flex gap-6">
-                  {/* Timeline Column */}
                   <div className="flex flex-col items-center flex-shrink-0 relative pt-1">
                     <div 
                       className="w-7 h-7 rounded-full bg-slate-950 border border-blue-500/40 flex items-center justify-center relative z-10 flex-shrink-0 shadow-lg"
@@ -139,8 +124,6 @@ export default function ReasoningStepsCard() {
                       <div className="absolute inset-0 rounded-full bg-blue-500/20"></div>
                       <Brain className="w-3.5 h-3.5 text-blue-300 relative z-10" />
                     </div>
-                    
-                    {/* Vertical connector line */}
                     {index < props.reasoning_steps.length - 1 && (
                       <svg 
                         className="absolute top-7 left-1/2 transform -translate-x-1/2 w-0.5 pointer-events-none flex-shrink-0" 
@@ -152,8 +135,6 @@ export default function ReasoningStepsCard() {
                       </svg>
                     )}
                   </div>
-
-                  {/* Step Content */}
                   <div className="flex-1 pt-1 pb-4">
                     <h3 className="text-sm font-semibold text-slate-50 mb-3 tracking-tight">
                       {step.header}
@@ -161,8 +142,6 @@ export default function ReasoningStepsCard() {
                     <p className="text-sm text-slate-400 leading-relaxed mb-4">
                       {step.content}
                     </p>
-
-                    {/* Candidate Identifiers */}
                     {step.candidate_identifiers?.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-2">
                         {step.candidate_identifiers.map((id, idIndex) => (
@@ -181,8 +160,6 @@ export default function ReasoningStepsCard() {
               ))}
             </div>
           )}
-
-          {/* Context + Modify Identifiers */}
           {(props?.context_identifiers?.length > 0 ||
             props?.modify_identifiers?.length > 0) && (
             <div className="pt-10 border-t border-slate-700/30 space-y-8">
@@ -202,7 +179,6 @@ export default function ReasoningStepsCard() {
                   </div>
                 </div>
               )}
-
               {props.modify_identifiers?.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4 pl-0.5" style={{marginTop: "1rem"}}>Modification Identifiers</p>

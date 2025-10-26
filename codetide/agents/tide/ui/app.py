@@ -476,7 +476,8 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
         "summary": "",
         "context_identifiers": [], # amrker
         "modify_identifiers": [],
-        "finished": False
+        "finished": False,
+        "thinkingTime": 0
     })
 
     if not agent_tide_ui.agent_tide._skip_context_retrieval:
@@ -565,6 +566,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
             global_fallback_msg=msg
         )
 
+        reasoning_start_time = time.time()
         loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
         async for chunk in loop:
             ### TODO update this to check FROM AGENT TIDE if reasoning is being ran and if so we need
@@ -582,12 +584,14 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 stream_processor.buffer = ""
                 stream_processor.accumulated_content = ""
                 continue
-            
             elif chunk == REASONING_FINISHED:
+                reasoning_end_time = time.time()
+                thinking_time = int(reasoning_end_time - reasoning_start_time)
                 stream_processor.global_fallback_msg = msg
                 stream_processor.buffer = ""
                 stream_processor.accumulated_content = ""
-                reasoning_element.props["finished"] =True
+                reasoning_element.props["finished"] = True
+                reasoning_element.props["thinkingTime"] = thinking_time
                 await reasoning_element.update()
                 continue
                 
