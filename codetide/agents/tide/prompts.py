@@ -697,7 +697,7 @@ Intent detection, context sufficiency, and history recovery are independent.
 ---
 
 **2. CONTEXT SUFFICIENCY**
-- TRUE if all mentioned items (files, funcs, classes) exist in {CODE_IDENTIFIERS}
+- TRUE if all mentioned items (files, funcs, classes, objects, or patterns) exist in {CODE_IDENTIFIERS}
 - FALSE if any are missing or unclear
 
 ---
@@ -710,7 +710,8 @@ Intent detection, context sufficiency, and history recovery are independent.
 
 **4. SEARCH QUERY (conditional)**
 - Only output when SUFFICIENT_CONTEXT = FALSE  
-- A short natural-language search query describing the missing context or target  
+- A short natural-language description of the missing **code patterns, files, classes, or objects** related to the user’s request  
+- Avoid action verbs or search-oriented phrasing  
 - If SUFFICIENT_CONTEXT = TRUE → omit this line completely
 
 ---
