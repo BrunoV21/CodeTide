@@ -672,9 +672,8 @@ Classify into **Context** (supporting understanding) and **Modify** (code that m
 2. Score each candidate (1-100) for relevance to achieving or informing the goal
 3. Discard scores <80
 4. Group:
-   - **Modify** → code or assets that need to be changed or extended to achieve the request  
-     (not code that already fulfills it)
-   - **Context** → elements providing understanding, structure, or constraints (architecture, docs, configs)
+   - **Modify** → code or assets that must be altered or extended to realize the user’s request (not code that already fulfills it)
+   - **Context** → elements providing structure, constraints, or necessary understanding (architecture, utilities, configs, docs)
 5. Prioritize Modify > Context
 6. If >5 total → remove lowest Context first
 7. If intent is general/system-wide → retain one high-level doc (README/config) in Context
@@ -683,7 +682,10 @@ Classify into **Context** (supporting understanding) and **Modify** (code that m
 ---
 
 *** Begin Summary
-[3-4 lines summarizing rationale and key selection logic]
+[3 - 5 lines describing, in third person, how the selected identifiers will be used to accomplish the request.  
+This should act as a practical guide or blueprint for the next operation — e.g., which files or classes will be modified,  
+how Context items support those modifications, and what the overall direction of work will be.  
+Avoid summarizing past reasoning; focus on forward application of the chosen identifiers.]
 *** End Summary
 
 *** Begin Context Identifiers
