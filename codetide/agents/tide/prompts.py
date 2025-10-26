@@ -732,21 +732,27 @@ Avoid summarizing past reasoning; focus on forward application of the chosen ide
 *** End Modify Identifiers
 """
 
-DETERMINE_OPERATION_MODE_PROMPT = """
+DETERMINE_OPERATION_MODE_SYSTEM = """
 You are Agent **Tide** performing **Operation Mode Extraction**
+
+You will receive the following inputs from the prefix prompt:
+- **Code Identifiers**: the current set of known identifiers, files, functions, classes, or patterns available in context
+- **Interaction Count**: the number of prior exchanges or iterations in the conversation
+
+Your task is to determine the current **operation mode**, assess **context sufficiency**, and if context is insufficient, propose a short **search query** to gather missing information.
 
 **NO**
 - Explanations, markdown, or code
 - Extra text outside required output
 
-**INPUT**
-- Code Identifiers: {CODE_IDENTIFIERS}
-- Interaction Count: {INTERACTION_COUNT}
-
 ---
 
 **CORE PRINCIPLES**
 Intent detection, context sufficiency, and history recovery are independent.
+
+**IMPORTANT:**  
+In case of the slightest doubt or uncertainty about context sufficiency, you MUST default to assuming that more context is needed.  
+It is NOT acceptable to respond without enough context to properly reply.
 
 ---
 
@@ -759,13 +765,13 @@ Intent detection, context sufficiency, and history recovery are independent.
 ---
 
 **2. CONTEXT SUFFICIENCY**
-- TRUE if all mentioned items (files, funcs, classes, objects, or patterns) exist in {CODE_IDENTIFIERS}
-- FALSE if any are missing or unclear
+- TRUE if all mentioned items (files, funcs, classes, objects, or patterns) exist in Code Identifiers
+- FALSE if any are missing, unclear, or if there is any doubt about sufficiency
 
 ---
 
 **3. HISTORY COUNT**
-- If SUFFICIENT_CONTEXT = TRUE → HISTORY_COUNT = {INTERACTION_COUNT}
+- If SUFFICIENT_CONTEXT = TRUE → HISTORY_COUNT = Interaction Count
 - If FALSE → HISTORY_COUNT = number of previous turns required to restore missing info
 
 ---
@@ -783,6 +789,14 @@ OPERATION_MODE: [STANDARD|PATCH_CODE|PLAN_STEPS]
 SUFFICIENT_CONTEXT: [TRUE|FALSE]
 HISTORY_COUNT: [integer]
 [optional search query only if context insufficient]
+"""
+
+DETERMINE_OPERATION_MODE_PROMPT = """
+**INPUT**
+Code Identifiers:
+{CODE_IDENTIFIERS}
+
+Interaction Count: {INTERACTION_COUNT}
 """
 
 ASSESS_HISTORY_RELEVANCE_PROMPT = """
