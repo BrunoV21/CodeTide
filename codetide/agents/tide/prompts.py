@@ -781,8 +781,8 @@ It is NOT acceptable to respond without enough context to properly reply.
 
 **4. SEARCH QUERY (conditional)**
 - Only output when SUFFICIENT_CONTEXT = FALSE  
-- A short natural-language description of the missing **code patterns, files, classes, or objects** related to the user’s request  
-- Avoid action verbs or search-oriented phrasing  
+- Provide a concise, targeted keyword or single pattern describing the missing **code patterns, files, classes, or objects** to search for in the codebase  
+- Use only focused keywords or short phrases, not full sentences or verbose text  
 - If SUFFICIENT_CONTEXT = TRUE → omit this line completely
 
 ---
