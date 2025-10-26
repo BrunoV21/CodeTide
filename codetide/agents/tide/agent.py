@@ -169,6 +169,10 @@ class AgentTide(BaseModel):
             iteration_count += 1
             serch_results = await self._smart_code_search.search_smart(search_query, use_variations=False, top_k=15)
             identifiers_from_search = {result[0] for result in serch_results}
+
+            candidates_to_filter_tree = self.tide._as_file_paths(list(identifiers_from_search)[:5])
+            self.tide.codebase._build_tree_dict(candidates_to_filter_tree, slim=True)
+            sub_tree = self.tide.codebase.get_tree_view()
             
             # Phase 1 LLM call
             phase1_response = await self.llm.acomplete(
@@ -183,6 +187,7 @@ class AgentTide(BaseModel):
                     ACCUMULATED_CONTEXT=set(self._context_identifier_window),
                     DIRECT_MATCHES=set(matches),
                     SEARCH_CANDIDATES=identifiers_from_search,
+                    REPO_TREE=sub_tree
                 ),
                 stream=True,
                 action_id=f"phase_1.{iteration_count}"
@@ -235,10 +240,6 @@ class AgentTide(BaseModel):
         all_reasoning_text = "\n\n".join(all_reasoning)
         all_candidates_text = "\n".join(sorted(candidate_pool))
 
-        candidates_to_filter_tree = self.tide._as_file_paths(list(candidate_pool))
-        self.tide.codebase._build_tree_dict(candidates_to_filter_tree, slim=True)
-        sub_tree = self.tide.codebase.get_tree_view()
-
         # print(sub_tree)
 
         # print(f"{all_candidates_text=}")
@@ -251,7 +252,6 @@ class AgentTide(BaseModel):
                 EXPLORATION_STEPS=all_reasoning_text,
                 ALL_CANDIDATES=all_candidates_text,
             )],
-            prefix_prompt=sub_tree,
             stream=True,
             action_id="phase2.finalize"
         )
