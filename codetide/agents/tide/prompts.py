@@ -724,10 +724,10 @@ Classify into **Context** (supporting understanding) and **Modify** (code that m
 ---
 
 *** Begin Summary
-[3 - 5 lines describing, in third person, how the selected identifiers will be used to accomplish the request.  
-This should act as a practical guide or blueprint for the next operation — e.g., which files or classes will be modified,  
-how Context items support those modifications, and what the overall direction of work will be.  
-Avoid summarizing past reasoning; focus on forward application of the chosen identifiers.]
+[3-5 lines written in third person, describing how the **selected identifiers** — both Context and Modify — relate to each other in fulfilling the user’s intent.  
+Focus on how Context elements support or constrain the planned modifications, and how Modify elements will be adapted or extended.  
+Do **not** mention identifiers that were considered but not selected, and do **not** recap previous reasoning.  
+The summary should read as a concise forward plan linking motivation, relationships, and purpose of the chosen items.]
 *** End Summary
 
 *** Begin Context Identifiers
