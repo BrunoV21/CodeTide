@@ -587,6 +587,7 @@ You will receive the following inputs from the prefix prompt:
 - **Accumulated Context**: identifiers gathered from prior iterations
 - **Direct Matches**: identifiers explicitly present in the user request
 - **Search Candidates**: identifiers or entities found via the last search query
+- **Repo Tree**: tree representation of the repository to be used as context when generating a new Search Query
 
 Use these inputs to assess coverage, propose new candidate identifiers, and if needed, recommend a new query to continue gathering relevant context.
 
@@ -640,7 +641,8 @@ Direct Matches:
 Search Candidates:
 {SEARCH_CANDIDATES}
 
----
+Repo Tree:
+{REPO_TREE}
 """
 
 FINALIZE_IDENTIFIERS_PROMPT = """
