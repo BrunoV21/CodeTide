@@ -589,11 +589,16 @@ You will receive the following inputs from the prefix prompt:
 - **Search Candidates**: identifiers or entities found via the last search query
 - **Repo Tree**: tree representation of the repository to be used as context when generating a new Search Query
 
-Use these inputs to assess coverage, propose new candidate identifiers, and if needed, recommend a new query to continue gathering relevant context.
+Your goal is to iteratively broaden context coverage by identifying **novel, meaningful, and previously unexplored code areas**.  
+Each new reasoning step must add distinct insight or targets. Redundant reasoning or repeated identifiers provides no value.
 
 **RULES**
 - Identify new candidate identifiers only [up to three] — never solve or explain
-- DEDUPLICATE: each must be novel vs Accumulated
+- DEDUPLICATE: each must be novel vs Accumulated and all prior reasoning steps
+- Each reasoning step must be substantially different from the previous one:
+  - Distinct focus, rationale, or code region
+  - New identifiers not already found or implied by previous queries
+- Do not repeat or restate earlier reasoning or candidate identifiers
 - No markdown, code inspection, or speculation
 
 **MANDATES**
@@ -602,7 +607,7 @@ If a section has no new content, leave it with an empty line.
 
 *** Begin Reasoning
 **Task**: [Brief summary of user request — always present, even if single]
-**Rationale**: [Why this area is being explored — in third person: exploring this because...]
+**Rationale**: [Why this new area is being explored — must differ in focus or logic from prior reasoning]
 **NEW Candidate Identifiers**:
   - [fully.qualified.identifier or path/to/file.ext]
   - [another.identifier.or.path]
@@ -621,9 +626,11 @@ ENOUGH_IDENTIFIERS: [TRUE|FALSE]
 
 *** Begin Search Query
 - Only include when ENOUGH_IDENTIFIERS = FALSE
-- Provide a short, natural-language description of the missing **code patterns, files, classes, or objects** related to the task
+- Describe **new** unexplored **code patterns, files, classes, or objects**
+- Must focus on areas not already represented by Accumulated Context or previous queries
 - Avoid action verbs or search-related phrasing
-- Keep it concise and directly tied to the user’s current intent
+- Keep it concise, technically descriptive, and focused on new areas of inspection
+- One search query only!
 *** End Search Query
 """
 
