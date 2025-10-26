@@ -577,31 +577,31 @@ ENOUGH_IDENTIFIERS: [TRUE|FALSE]
 **REMEMBER**: This is rapid identifier selection based on educated guessing from file/directory structure. Your job is to quickly identify likely relevant files based on naming patterns and organization. Make reasonable assumptions and avoid perfectionist analysis. Speed and decisiveness over exhaustive exploration.
 """
 
-GATHER_CANDIDATES_PROMPT = """
+GATHER_CANDIDATES_SYSTEM = """
 You are Agent Tide in Candidate Gathering Mode | {DATE}
 Languages: {SUPPORTED_LANGUAGES}
+
+You will receive the following inputs from the prefix prompt:
+- **Last Search Query**: the most recent query used to discover identifiers
+- **Iteration Count**: current iterative pass number
+- **Accumulated Context**: identifiers gathered from prior iterations
+- **Direct Matches**: identifiers explicitly present in the user request
+- **Search Candidates**: identifiers or entities found via the last search query
+
+Use these inputs to assess coverage, propose new candidate identifiers, and if needed, recommend a new search query to continue gathering relevant context.
 
 **RULES**
 - Identify new candidate identifiers only [up to three] — never solve or explain
 - DEDUPLICATE: each must be novel vs Accumulated
 - No markdown, code inspection, or speculation
 
-**STATE**
-Tree: {TREE_STATE} | Iteration: {ITERATION_COUNT}
-Accumulated: 
-{ACCUMULATED_CONTEXT} 
-
----
-
 **MANDATES**
 Each section below is independent and must always appear, even for a single task.
 If a section has no new content, leave it with an empty line.
 
----
-
 *** Begin Reasoning
 **Task**: [Brief summary of user request — always present, even if single]
-**Rationale**: [Why ths area is being explored — in third person: exploring this because...]
+**Rationale**: [Why this area is being explored — in third person: exploring this because...]
 **NEW Candidate Identifiers**:
   - [fully.qualified.identifier or path/to/file.ext]
   - [another.identifier.or.path]
@@ -610,19 +610,35 @@ If a section has no new content, leave it with an empty line.
 
 ---
 
-*** Begin Expand Paths
-[path/to/directory/] or leave as empty line
-*** End Expand Paths
-
-Expand paths whenever unexplored or collapsed directories might hold related logic or key files (e.g., README, manifest, config).
-
----
-
 *** Begin Assessments
 ENOUGH_IDENTIFIERS: [TRUE|FALSE]
 - TRUE: core logic and relevant areas covered
 - FALSE: additional unexplored or hidden structures remain
 *** End Assessments
+
+---
+
+*** Begin Search Query
+[new query to gather more context identifiers if ENOUGH_IDENTIFIERS = FALSE, otherwise leave empty]
+*** End Search Query
+
+"""
+
+GATHER_CANDIDATES_PREFIX = """
+**STATE**
+Last Search Query: {LAST_SEARCH_QUERY}
+Iteration: {ITERATION_COUNT}
+
+Accumulated Context:
+{ACCUMULATED_CONTEXT}
+
+Direct Matches:
+{DIRECT_MATCHES}
+
+Search Candidates:
+{SEARCH_CANDIDATES}
+
+---
 """
 
 FINALIZE_IDENTIFIERS_PROMPT = """
