@@ -2,12 +2,13 @@ import json
 import re
 from codetide import CodeTide
 from ...mcp.tools.patch_code import file_exists, open_file, process_patch, remove_file, write_file, parse_patch_blocks
+from ...search.code_search import SmartCodeSearch
 from ...core.defaults import DEFAULT_STORAGE_PATH
 from ...parsers import SUPPORTED_LANGUAGES
 from ...autocomplete import AutoComplete
 from .models import Steps
 from .prompts import (
-    AGENT_TIDE_SYSTEM_PROMPT, ASSESS_HISTORY_RELEVANCE_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, DETERMINE_OPERATION_MODE_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PROMPT, GET_CODE_IDENTIFIERS_UNIFIED_PROMPT, PREFIX_SUMMARY_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
+    AGENT_TIDE_SYSTEM_PROMPT, ASSESS_HISTORY_RELEVANCE_PROMPT, CALMNESS_SYSTEM_PROMPT, CMD_BRAINSTORM_PROMPT, CMD_CODE_REVIEW_PROMPT, CMD_TRIGGER_PLANNING_STEPS, CMD_WRITE_TESTS_PROMPT, DETERMINE_OPERATION_MODE_PROMPT, FINALIZE_IDENTIFIERS_PROMPT, GATHER_CANDIDATES_PREFIX, GATHER_CANDIDATES_SYSTEM, PREFIX_SUMMARY_PROMPT, README_CONTEXT_PROMPT, REASONING_TEMPLTAE, REJECT_PATCH_FEEDBACK_TEMPLATE,
     REPO_TREE_CONTEXT_PROMPT, STAGED_DIFFS_TEMPLATE, STEPS_SYSTEM_PROMPT, WRITE_PATCH_SYSTEM_PROMPT
 )
 from .utils import delete_file, parse_blocks, parse_steps_markdown, trim_to_patch_section
@@ -26,7 +27,7 @@ except ImportError as e:
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit import PromptSession
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from typing_extensions import Self
 from functools import partial
 from datetime import date
@@ -35,6 +36,11 @@ from ulid import ulid
 import asyncio
 import pygit2
 import os
+
+FILE_TEMPLATE = """{FILENAME}
+
+{CONTENT}
+"""
 
 class AgentTide(BaseModel):
     llm :Llm
@@ -54,6 +60,7 @@ class AgentTide(BaseModel):
     _last_code_context :Optional[str] = None
     _has_patch :bool=False
     _direct_mode :bool=False
+    _smart_code_search :Optional[Any]=None
 
     # Number of previous interactions to remember for context identifiers
     CONTEXT_WINDOW_SIZE: int = 3
@@ -134,7 +141,7 @@ class AgentTide(BaseModel):
             if isinstance(message, dict):
                 self.history[i] = message.get("content" ,"")
     
-    async def get_identifiers_two_phase(self, autocomplete :AutoComplete, expanded_history :list, codeIdentifiers=None, TODAY :str=None):
+    async def get_identifiers_two_phase(self, search_query :Optional[str], autocomplete :AutoComplete, expanded_history :list, codeIdentifiers=None, TODAY :str=None):
         """
         Two-phase identifier resolution:
         Phase 1: Gather candidates through iterative tree expansion
@@ -143,61 +150,47 @@ class AgentTide(BaseModel):
         # Initialize tracking
         last_message = self.history[-1] if self.history else ""
         matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
-        
-        self._context_identifier_window.append(set(matches))
-        if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
-            self._context_identifier_window.pop(0)
-        
-        window_identifiers = set()
-        for s in self._context_identifier_window:
-            window_identifiers.update(s)
-        
-        initial_identifiers = set(codeIdentifiers) if codeIdentifiers else set()
-        initial_identifiers.update(window_identifiers)
+        print(f"{matches=}")
+
+        ### TODO replace matches with search based on received search query
+        ### get identifiers 
+        ### search for identifers and ask llm to return only related ones -> if not enough then generate search query and keep cycling instead of expanding paths
+        if search_query is None:
+            search_query = expanded_history[-1]
         
         # ===== PHASE 1: CANDIDATE GATHERING =====
         candidate_pool = set()
         all_reasoning = []
         iteration_count = 0
         max_iterations = 3
-        repo_tree = None
-        expand_paths = ["./"]
         enough_identifiers = False
         
         while not enough_identifiers and iteration_count < max_iterations:
             iteration_count += 1
+            serch_results = await self._smart_code_search.search_smart(search_query, use_variations=False, top_k=15)
+            identifiers_from_search = {result[0] for result in serch_results}
             
-            # Get current repo tree state
-            if repo_tree is None or iteration_count > 1:
-                repo_tree = await self.get_repo_tree_from_user_prompt(
-                    expanded_history,
-                    include_modules=bool(iteration_count > 1),
-                    expand_paths=expand_paths
-                )
-            
-            # Prepare accumulated context
-            accumulated_context = "\n".join(sorted(candidate_pool)) if candidate_pool else "None yet"
-            
-            view_type = "`Current view`" if iteration_count == 1 else "`Expanded view`"
             # Phase 1 LLM call
             phase1_response = await self.llm.acomplete(
                 expanded_history,
-                system_prompt=[GATHER_CANDIDATES_PROMPT.format(
+                system_prompt=[GATHER_CANDIDATES_SYSTEM.format(
                     DATE=TODAY,
-                    SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES,
-                    TREE_STATE=view_type,
-                    ACCUMULATED_CONTEXT=accumulated_context,
-                    ITERATION_COUNT=iteration_count
+                    SUPPORTED_LANGUAGES=SUPPORTED_LANGUAGES
                 )],
-                prefix_prompt=rf"# {view_type}\n\n{repo_tree}",
-                stream=True
+                prefix_prompt=GATHER_CANDIDATES_PREFIX.format(
+                    LAST_SEARCH_QUERY=search_query,
+                    ITERATION_COUNT=iteration_count,
+                    ACCUMULATED_CONTEXT=set(self._context_identifier_window),
+                    DIRECT_MATCHES=set(matches),
+                    SEARCH_CANDIDATES=identifiers_from_search,
+                ),
+                stream=True,
+                action_id=f"phase_1.{iteration_count}"
             )
-            
-            # print(f"Phase 1 Iteration {iteration_count}: {phase1_response}")
             
             # Parse Phase 1 response
             reasoning_blocks = parse_blocks(phase1_response, block_word="Reasoning", multiple=True)
-            expand_paths_block = parse_blocks(phase1_response, block_word="Expand Paths", multiple=False)
+            search_query = parse_blocks(phase1_response, block_word="Search Query", multiple=False)
             
             ### TODO update to use Rationale and New Candidates Indeintifiers and extract based onr egex ffs
             # Extract and accumulate candidates from reasoning blocks
@@ -207,7 +200,6 @@ class AgentTide(BaseModel):
                 "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}Candidate Identifiers\*{0,2}|$)",
                 "candidate_identifiers": r"^\s*-\s*(.+?)$"
             }
-
             for reasoning in reasoning_blocks:
                 # Extract header
                 header_match = re.search(patterns["header"], reasoning, re.DOTALL)
@@ -216,7 +208,7 @@ class AgentTide(BaseModel):
                 # Extract content (rationale)
                 content_match = re.search(patterns["content"], reasoning, re.DOTALL | re.MULTILINE)
                 content = content_match.group(1).strip() if content_match else None
-                
+
                 # Append only header and content to all_reasoning
                 if header and content:
                     all_reasoning.append(REASONING_TEMPLTAE.format(**{
@@ -236,17 +228,7 @@ class AgentTide(BaseModel):
             # Check if we need to expand more
             if "ENOUGH_IDENTIFIERS: TRUE" in phase1_response.upper():
                 enough_identifiers = True
-            
-            # Parse expansion paths for next iteration
-            if expand_paths_block and not enough_identifiers:
-                expand_paths = [
-                    path.strip() for path in expand_paths_block.strip().split('\n')
-                    if path.strip() and self.get_valid_identifier(autocomplete, path.strip())
-                ]
-            else:
-                expand_paths = []
-            ## TODO shoudla append previous reasoning as input / prefix
-        
+
         # ===== PHASE 2: FINAL SELECTION AND CLASSIFICATION =====
         
         # Prepare Phase 2 input
@@ -270,7 +252,8 @@ class AgentTide(BaseModel):
                 ALL_CANDIDATES=all_candidates_text,
             )],
             prefix_prompt=sub_tree,
-            stream=True
+            stream=True,
+            action_id="phase2.finalize"
         )
         
         # print(f"Phase 2 Final Selection: {phase2_response}")
@@ -424,27 +407,51 @@ class AgentTide(BaseModel):
             ),
             stream=False
         )
-        
-        # Extract OPERATION_MODE
-        operation_mode_match = re.search(r'OPERATION_MODE:\s*\[?(STANDARD|PLAN_STEPS|PATCH_CODE)\]?', response)
+
+        response_text = response.strip()
+        # Extract and remove OPERATION_MODE
+        operation_mode_match = re.search(r'OPERATION_MODE:\s*\[?(STANDARD|PLAN_STEPS|PATCH_CODE)\]?', response_text)
         operation_mode = operation_mode_match.group(1) if operation_mode_match else None
-        
-        # Extract SUFFICIENT_CONTEXT
-        sufficient_context_match = re.search(r'SUFFICIENT_CONTEXT:\s*\[?(TRUE|FALSE)\]?', response)
-        sufficient_context = 'true' in sufficient_context_match.group(1).lower() if sufficient_context_match else None
-        
-        # Extract HISTORY_COUNT
-        history_count_match = re.search(r'HISTORY_COUNT:\s*\[?(\d+)\]?', response)
+        if operation_mode_match:
+            response_text = response_text.replace(operation_mode_match.group(0), '')
+
+        # Extract and remove SUFFICIENT_CONTEXT
+        sufficient_context_match = re.search(r'SUFFICIENT_CONTEXT:\s*\[?(TRUE|FALSE)\]?', response_text)
+        sufficient_context = (
+            sufficient_context_match.group(1).strip().upper() == "TRUE"
+            if sufficient_context_match else None
+        )
+        if sufficient_context_match:
+            response_text = response_text.replace(sufficient_context_match.group(0), '')
+
+        # Extract and remove HISTORY_COUNT
+        history_count_match = re.search(r'HISTORY_COUNT:\s*\[?(\d+)\]?', response_text)
         history_count = int(history_count_match.group(1)) if history_count_match else len(self.history)
-        
+        if history_count_match:
+            response_text = response_text.replace(history_count_match.group(0), '')
+
+        # Whatever remains (if anything) is the search query
+        search_query = response_text.strip() or None
+
         # Validate extraction
         if operation_mode is None or sufficient_context is None:
             raise ValueError(f"Failed to extract required fields from response:\n{response}")
-        
+
         final_history_count = await self.expand_history_if_needed(sufficient_context, history_count)
         expanded_history = self.history[-final_history_count:]
-        
-        return operation_mode, sufficient_context, expanded_history
+
+        return operation_mode, sufficient_context, expanded_history, search_query
+
+    async def prepare_loop(self):
+        await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+        ### TODO this whole process neds to be integrated and updated from coetide directly for efficiency
+        self._smart_code_search = SmartCodeSearch(
+            documents={
+                codefile.file_path: FILE_TEMPLATE.format(CONTENT=codefile.raw, FILENAME=codefile.file_path)
+                for codefile in self.tide.codebase.root
+            }
+        )
+        await self._smart_code_search.initialize_async()
 
     async def agent_loop(self, codeIdentifiers :Optional[List[str]]=None):
         TODAY = date.today()
@@ -471,11 +478,12 @@ class AgentTide(BaseModel):
 
             tasks = [
                 self.extract_operation_mode(cached_identifiers),
-                self.tide.check_for_updates(serialize=True, include_cached_ids=True)
+                self.prepare_loop()
             ]
             operation_context_history_task, _ = await asyncio.gather(*tasks)
 
-            operation_mode, sufficient_context, expanded_history = operation_context_history_task
+            operation_mode, sufficient_context, expanded_history, search_query = operation_context_history_task
+            print(f"{search_query=}")
 
             autocomplete = AutoComplete(self.tide.cached_ids)
 
@@ -502,7 +510,7 @@ class AgentTide(BaseModel):
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
             else:
                 await self.llm.logger_fn(REASONING_STARTED)
-                reasoning_output = await self.get_identifiers_two_phase(autocomplete, expanded_history, codeIdentifiers, TODAY)
+                reasoning_output = await self.get_identifiers_two_phase(search_query, autocomplete, expanded_history, codeIdentifiers, TODAY)
                 await self.llm.logger_fn(REASONING_FINISHED)
                 print(json.dumps(reasoning_output, indent=4))
 
