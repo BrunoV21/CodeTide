@@ -688,6 +688,10 @@ Search Candidates:
 
 Repo Tree:
 {REPO_TREE}
+
+---
+
+Remember that you must at all costs respecte the **MANDATED OUTPUT STRUCTURE** and **STRICT IDENTIFIER SUGGESTION RULE**!
 """
 
 FINALIZE_IDENTIFIERS_PROMPT = """
