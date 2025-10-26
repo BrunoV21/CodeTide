@@ -588,7 +588,7 @@ You will receive the following inputs from the prefix prompt:
 - **Direct Matches**: identifiers explicitly present in the user request
 - **Search Candidates**: identifiers or entities found via the last search query
 
-Use these inputs to assess coverage, propose new candidate identifiers, and if needed, recommend a new search query to continue gathering relevant context.
+Use these inputs to assess coverage, propose new candidate identifiers, and if needed, recommend a new query to continue gathering relevant context.
 
 **RULES**
 - Identify new candidate identifiers only [up to three] — never solve or explain
@@ -619,9 +619,11 @@ ENOUGH_IDENTIFIERS: [TRUE|FALSE]
 ---
 
 *** Begin Search Query
-[new query to gather more context identifiers if ENOUGH_IDENTIFIERS = FALSE, otherwise leave empty]
+- Only include when ENOUGH_IDENTIFIERS = FALSE
+- Provide a short, natural-language description of the missing **code patterns, files, classes, or objects** related to the task
+- Avoid action verbs or search-related phrasing
+- Keep it concise and directly tied to the user’s current intent
 *** End Search Query
-
 """
 
 GATHER_CANDIDATES_PREFIX = """
