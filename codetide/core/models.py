@@ -947,9 +947,9 @@ class CodeBase(BaseModel):
             display_name = name
             if include_types:
                 if data.get("_type") == "file":
-                    display_name = f"📄 {name}"
+                    display_name = f"{name}"
                 else:
-                    display_name = f"📁 {name}"
+                    display_name = f"{name}/"
             
             lines.append(f"{prefix}{current_prefix}{display_name}")
             
