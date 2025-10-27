@@ -1,5 +1,6 @@
 from typing import List
 import difflib
+import asyncio
 import os
 import re
 
@@ -7,8 +8,20 @@ class AutoComplete:
     def __init__(self, word_list: List[str]) -> None:
         """Initialize with a list of strings to search from"""
         self.words = word_list
+        self._sorted = False
         # Sort words for better organization (optional)
-        self.words.sort()
+
+    def sort(self):
+        if not self._sorted:
+            self._sorted = True
+            self.words.sort()
+
+    async def async_sort(self):
+        if not self._sorted:
+            self._sorted = True
+            loop = asyncio.get_running_loop()
+            # Offload sorting to a background thread
+            self.words = await loop.run_in_executor(None, sorted, self.words)
     
     def get_suggestions(self, prefix: str, max_suggestions: int = 10, case_sensitive: bool = False) -> List[str]:
         """
@@ -206,6 +219,8 @@ class AutoComplete:
                 'substring_matches': [],
                 'all_found_words': []
             }
+        
+        self.sort()
 
         # Extract words from text - handle dotted identifiers
         if preserve_dotted_identifiers:
@@ -452,3 +467,259 @@ class AutoComplete:
             'all_found_words': sorted(list(all_found_words))
         }
 
+    async def async_extract_words_from_text(
+        self,
+        text: str,
+        similarity_threshold: float = 0.6,
+        case_sensitive: bool = False,
+        max_matches_per_word: int = None,
+        preserve_dotted_identifiers: bool = True
+    ) -> dict:
+        """
+        Async non-blocking version of extract_words_from_text.
+        Extract words from the word list that are present in the given text, including similar words (potential typos)
+        and substring/subpath matches.
+        Optionally limit the number of matches returned per word found in the text.
+
+        Args:
+            text (str): The input text to analyze
+            similarity_threshold (float): Minimum similarity score for fuzzy matching (0.0 to 1.0)
+            case_sensitive (bool): Whether matching should be case sensitive
+            max_matches_per_word (int, optional): Maximum number of matches to return per word in the text.
+                If None, all matches are returned. If 1, only the top match per word is returned.
+            preserve_dotted_identifiers (bool): If True, treats dot-separated strings as single tokens
+                (e.g., "module.submodule.function" stays as one word)
+
+        Returns:
+            dict: Dictionary containing:
+                - 'exact_matches': List of words found exactly in the text
+                - 'fuzzy_matches': List of tuples (word_from_list, similar_word_in_text, similarity_score)
+                - 'substring_matches': List of tuples (word_from_list, matched_text_word, match_type)
+                - 'all_found_words': Combined list of all matched words from the word list
+        """
+        if not text:
+            return {
+                'exact_matches': [],
+                'fuzzy_matches': [],
+                'substring_matches': [],
+                'all_found_words': []
+            }
+        
+        await self.async_sort()
+
+        if preserve_dotted_identifiers:
+            text_words = re.findall(r'\b[\w./]+\b', text)
+        else:
+            text_words = re.findall(r'\b\w+\b', text)
+        
+        if not text_words:
+            return {
+                'exact_matches': [],
+                'fuzzy_matches': [],
+                'substring_matches': [],
+                'all_found_words': []
+            }
+
+        exact_matches = []
+        fuzzy_candidates = []
+        substring_matches = []
+        all_found_words = set()
+        matched_text_words = set()
+
+        if case_sensitive:
+            text_words_set = set(text_words)
+            text_words_search = text_words
+        else:
+            text_words_set = set(word.lower() for word in text_words)
+            text_words_search = [word.lower() for word in text_words]
+
+        chunk_size = max(1, len(self.words) // 100)
+        for i in range(0, len(self.words), chunk_size):
+            chunk = self.words[i:i + chunk_size]
+            
+            for word_from_list in chunk:
+                if word_from_list in all_found_words:
+                    continue
+                    
+                search_word = word_from_list if case_sensitive else word_from_list.lower()
+                
+                if search_word in text_words_set:
+                    exact_matches.append(word_from_list)
+                    all_found_words.add(word_from_list)
+                    for tw in text_words:
+                        tw_search = tw if case_sensitive else tw.lower()
+                        if tw_search == search_word:
+                            matched_text_words.add(tw)
+            
+            await asyncio.sleep(0)
+
+        remaining_words = [word for word in self.words if word not in all_found_words]
+        
+        def is_valid_path_substring(longer_path, shorter_path):
+            if not ('/' in longer_path and '/' in shorter_path):
+                return False
+                
+            if len(shorter_path) < 3:
+                return False
+                
+            longer_parts = longer_path.split('/')
+            shorter_parts = shorter_path.split('/')
+            
+            if any(len(part) <= 1 for part in shorter_parts):
+                return False
+            
+            if len(shorter_parts) > len(longer_parts):
+                return False
+                
+            for start_idx in range(len(longer_parts) - len(shorter_parts) + 1):
+                if longer_parts[start_idx:start_idx + len(shorter_parts)] == shorter_parts:
+                    return True
+            return False
+        
+        def is_valid_substring(longer_str, shorter_str):
+            if len(shorter_str) < 4:
+                return False
+            if len(shorter_str) / len(longer_str) < 0.3:
+                return False
+            return shorter_str in longer_str
+        
+        substring_candidates = []
+        
+        chunk_size = max(1, len(remaining_words) // 100)
+        for i in range(0, len(remaining_words), chunk_size):
+            chunk = remaining_words[i:i + chunk_size]
+            
+            for word_from_list in chunk:
+                search_word = word_from_list if case_sensitive else word_from_list.lower()
+                
+                for idx, text_word in enumerate(text_words_search):
+                    original_text_word = text_words[idx]
+                    
+                    if original_text_word in matched_text_words:
+                        continue
+                        
+                    if len(text_word) <= 2:
+                        continue
+                    
+                    if text_word in search_word and text_word != search_word:
+                        if '/' in search_word and '/' in text_word:
+                            if is_valid_path_substring(search_word, text_word):
+                                score = len(text_word) / len(search_word)
+                                substring_candidates.append((word_from_list, original_text_word, 'subpath', score))
+                        elif is_valid_substring(search_word, text_word):
+                            score = len(text_word) / len(search_word)
+                            substring_candidates.append((word_from_list, original_text_word, 'substring', score))
+                    
+                    elif search_word in text_word and search_word != text_word:
+                        if '/' in search_word and '/' in text_word:
+                            if is_valid_path_substring(text_word, search_word):
+                                score = len(search_word) / len(text_word)
+                                substring_candidates.append((word_from_list, original_text_word, 'reverse_subpath', score))
+                        elif is_valid_substring(text_word, search_word):
+                            score = len(search_word) / len(text_word)
+                            substring_candidates.append((word_from_list, original_text_word, 'reverse_substring', score))
+            
+            await asyncio.sleep(0)
+
+        substring_candidates.sort(key=lambda x: x[3], reverse=True)
+        
+        for word_from_list, original_text_word, match_type, score in substring_candidates:
+            if original_text_word not in matched_text_words and word_from_list not in all_found_words:
+                substring_matches.append((word_from_list, original_text_word, match_type))
+                all_found_words.add(word_from_list)
+                matched_text_words.add(original_text_word)
+
+        remaining_words = [word for word in self.words if word not in all_found_words]
+        
+        chunk_size = max(1, len(remaining_words) // 100)
+        for i in range(0, len(remaining_words), chunk_size):
+            chunk = remaining_words[i:i + chunk_size]
+            
+            for word_from_list in chunk:
+                search_word = word_from_list if case_sensitive else word_from_list.lower()
+                
+                for idx, text_word in enumerate(text_words_search):
+                    original_text_word = text_words[idx]
+                    
+                    if original_text_word in matched_text_words:
+                        continue
+                        
+                    similarity = difflib.SequenceMatcher(None, search_word, text_word).ratio()
+                    if similarity >= similarity_threshold:
+                        original_text_word = text_words[idx] if case_sensitive else next(
+                            (orig for orig in text_words if orig.lower() == text_word), text_word
+                        )
+                        fuzzy_candidates.append((word_from_list, original_text_word, similarity))
+            
+            await asyncio.sleep(0)
+
+        best_fuzzy_matches = {}
+        used_text_words = set()
+        
+        fuzzy_candidates.sort(key=lambda x: x[2], reverse=True)
+        
+        for word_from_list, text_word, score in fuzzy_candidates:
+            if (word_from_list not in best_fuzzy_matches and 
+                text_word not in used_text_words and 
+                text_word not in matched_text_words):
+                best_fuzzy_matches[word_from_list] = (word_from_list, text_word, score)
+                used_text_words.add(text_word)
+        
+        fuzzy_matches = list(best_fuzzy_matches.values())
+        fuzzy_matches.sort(key=lambda x: x[2], reverse=True)
+        
+        for word_from_list, _, _ in fuzzy_matches:
+            all_found_words.add(word_from_list)
+
+        if max_matches_per_word is not None:
+            final_exact_matches = []
+            final_substring_matches = []
+            final_fuzzy_matches = []
+            final_all_found_words = set()
+            
+            all_matched_words = set(exact_matches) | set(word for word, _, _ in substring_matches) | set(word for word, _, _ in fuzzy_matches)
+            
+            for word_from_list in all_matched_words:
+                word_matches = []
+                
+                if word_from_list in exact_matches:
+                    word_matches.append((word_from_list, 'exact', 1.0, 0))
+                
+                for w, text_word, match_type in substring_matches:
+                    if w == word_from_list:
+                        score = 0.9 if match_type in ['subpath', 'substring'] else 0.85
+                        word_matches.append((w, 'substring', score, 1, text_word, match_type))
+                
+                for w, text_word, score in fuzzy_matches:
+                    if w == word_from_list:
+                        word_matches.append((w, 'fuzzy', score, 2, text_word))
+                
+                word_matches.sort(key=lambda x: (x[3], -x[2]))
+                
+                top_word_matches = word_matches[:max_matches_per_word]
+                
+                for match in top_word_matches:
+                    final_all_found_words.add(match[0])
+                    
+                    if match[1] == 'exact':
+                        final_exact_matches.append(match[0])
+                    elif match[1] == 'substring':
+                        final_substring_matches.append((match[0], match[4], match[5]))
+                    elif match[1] == 'fuzzy':
+                        final_fuzzy_matches.append((match[0], match[4], match[2]))
+            
+            exact_matches = final_exact_matches
+            substring_matches = final_substring_matches
+            fuzzy_matches = final_fuzzy_matches
+            all_found_words = final_all_found_words
+
+        exact_matches.sort()
+        substring_matches.sort(key=lambda x: x[0])
+        fuzzy_matches.sort(key=lambda x: x[2], reverse=True)
+
+        return {
+            'exact_matches': exact_matches,
+            'fuzzy_matches': fuzzy_matches,
+            'substring_matches': substring_matches,
+            'all_found_words': sorted(list(all_found_words))
+        }
