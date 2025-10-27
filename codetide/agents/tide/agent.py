@@ -489,8 +489,6 @@ class AgentTide(BaseModel):
             direct_matches = autocomplete_matches["all_found_words"]
             print(f"{search_query=}")
 
-            autocomplete = AutoComplete(self.tide.cached_ids)
-
             ### TODO super quick prompt here for operation mode
             ### needs more context based on cached identifiers or not
             ### needs more history or not, default is last 5 iteratinos
