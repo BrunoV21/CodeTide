@@ -141,16 +141,14 @@ class AgentTide(BaseModel):
             if isinstance(message, dict):
                 self.history[i] = message.get("content" ,"")
     
-    async def get_identifiers_two_phase(self, search_query :Optional[str], autocomplete :AutoComplete, expanded_history :list, codeIdentifiers=None, TODAY :str=None):
+    async def get_identifiers_two_phase(self, search_query :Optional[str], direct_matches :List[str], autocomplete :AutoComplete, expanded_history :list, codeIdentifiers=None, TODAY :str=None):
         """
         Two-phase identifier resolution:
         Phase 1: Gather candidates through iterative tree expansion
         Phase 2: Classify and finalize identifiers with operation mode
         """
         # Initialize tracking
-        last_message = self.history[-1] if self.history else ""
-        matches = set(autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"])
-        # print(f"{matches=}")
+        matches = set(direct_matches)
 
         ### TODO replace matches with search based on received search query
         ### get identifiers 
@@ -171,7 +169,11 @@ class AgentTide(BaseModel):
             iteration_count += 1
             serch_results = await self._smart_code_search.search_smart(search_query, use_variations=False, top_k=15)
             identifiers_from_search = {result[0] for result in serch_results}
-            # print(f"{identifiers_from_search=}")
+
+            if matches.issubset(identifiers_from_search):
+                candidate_pool = matches
+                print("All matches found in indeintiferis from search")
+                break
 
             candidates_to_filter_tree = self.tide._as_file_paths(list(identifiers_from_search))
             # print("got identifiers")
@@ -471,20 +473,20 @@ class AgentTide(BaseModel):
             await self.llm.logger_fn(REASONING_FINISHED)
         else:
             cached_identifiers = self._last_code_identifers
-            print("Finished check for updates")
-            self._clean_history()
-            print("Finished clean history")
             if codeIdentifiers:
                 for identifier in codeIdentifiers:
                     cached_identifiers.add(identifier)
-
+            
+            autocomplete = AutoComplete(self.tide.cached_ids)
             tasks = [
                 self.extract_operation_mode(cached_identifiers),
+                autocomplete.async_extract_words_from_text(self.history[-1] if self.history else "", max_matches_per_word=1),
                 self.prepare_loop()
             ]
-            operation_context_history_task, _ = await asyncio.gather(*tasks)
+            operation_context_history_task, autocomplete_matches, _ = await asyncio.gather(*tasks)
 
             operation_mode, sufficient_context, expanded_history, search_query = operation_context_history_task
+            direct_matches = autocomplete_matches["all_found_words"]
             print(f"{search_query=}")
 
             autocomplete = AutoComplete(self.tide.cached_ids)
@@ -492,7 +494,7 @@ class AgentTide(BaseModel):
             ### TODO super quick prompt here for operation mode
             ### needs more context based on cached identifiers or not
             ### needs more history or not, default is last 5 iteratinos
-            if sufficient_context:
+            if sufficient_context or set(direct_matches).issubset(cached_identifiers):
                 codeIdentifiers = list(self._last_code_identifers)
                 await self.llm.logger_fn(REASONING_FINISHED)
 
@@ -512,7 +514,7 @@ class AgentTide(BaseModel):
                 ### TODO create lightweight version to skip tree expansion and infer operationan_mode and expanded_history
             else:
                 await self.llm.logger_fn(REASONING_STARTED)
-                reasoning_output = await self.get_identifiers_two_phase(search_query, autocomplete, expanded_history, codeIdentifiers, TODAY)
+                reasoning_output = await self.get_identifiers_two_phase(search_query, direct_matches, autocomplete, expanded_history, codeIdentifiers, TODAY)
                 await self.llm.logger_fn(REASONING_FINISHED)
                 print(json.dumps(reasoning_output, indent=4))
 
