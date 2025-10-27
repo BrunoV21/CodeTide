@@ -7,6 +7,7 @@ export default function ReasoningStepsCard() {
   const [expanded, setExpanded] = useState(false);
   const [waveOffset, setWaveOffset] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing");
+  const canExpand = props.reasoning_steps?.length > 0;
 
   const loadingStates = [
     "Diving deep into the code",
@@ -56,8 +57,8 @@ export default function ReasoningStepsCard() {
     <Card className="w-full bg-gradient-to-b from-slate-900 to-slate-950 border-slate-800 transition-all duration-300">
       <CardHeader className="px-8 py-6 border-b border-slate-700/50">
         <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-start gap-4 hover:opacity-80 transition text-left group"
+          onClick={() => canExpand && setExpanded(!expanded)}
+          className={`w-full flex items-start gap-4 transition text-left group ${canExpand ? 'hover:opacity-80 cursor-pointer' : 'cursor-default'}`}
         >
           {isLoadingState && (
             <svg
@@ -98,13 +99,15 @@ export default function ReasoningStepsCard() {
               }`}>
                 {previewText}
               </p>
-              <div className="flex-shrink-0">
-                {expanded ? (
-                  <ChevronDown className="h-5 w-5 text-slate-400 group-hover:text-slate-300 transition" />
-                ) : (
-                  <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-300 transition" />
-                )}
-              </div>
+              {canExpand && (
+                <div className="flex-shrink-0">
+                  {expanded ? (
+                    <ChevronDown className="h-5 w-5 text-slate-400 group-hover:text-slate-300 transition" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-slate-400 group-hover:text-slate-300 transition" />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </button>
