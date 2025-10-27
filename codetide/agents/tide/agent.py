@@ -189,7 +189,7 @@ class AgentTide(BaseModel):
                     REPO_TREE=sub_tree
                 )
             ]
-            if previous_phase_1_response is not None:
+            if previous_phase_1_response:
                 prefix_prompt.insert(0, previous_phase_1_response)
             
             # Phase 1 LLM call
@@ -303,6 +303,9 @@ class AgentTide(BaseModel):
         current_history_count = history_count
         max_iterations = 10  # Prevent infinite loops
         iteration = 0
+
+        if not current_history_count:
+            current_history_count += 1
         
         # If context is already sufficient, return early
         if sufficient_context:
@@ -328,7 +331,8 @@ class AgentTide(BaseModel):
                     CURRENT_WINDOW=str(current_window),
                     LATEST_REQUEST=str(latest_request)
                 ),
-                stream=False
+               stream=False,
+               action_id=f"expand_history.iteration_{iteration}"
             )
             
             # Extract HISTORY_SUFFICIENT
@@ -402,7 +406,8 @@ class AgentTide(BaseModel):
                 INTERACTION_COUNT=len(self.history),
                 CODE_IDENTIFIERS=cached_identifiers
             ),
-            stream=False
+           stream=False,
+           action_id="extract_operation_mode"
         )
 
         response_text = response.strip()
@@ -542,13 +547,14 @@ class AgentTide(BaseModel):
                 codeContext
             ]
         elif codeContext:
-            codeContext = [codeContext]
+            prefil_context = [codeContext]
 
         ### TODO get system prompt based on OEPRATION_MODE
         response = await self.llm.acomplete(
             expanded_history,
             system_prompt=system_prompt,
-            prefix_prompt=prefil_context
+           prefix_prompt=prefil_context,
+           action_id="agent_loop.main"
         )
 
         await trim_to_patch_section(self.patch_path)
