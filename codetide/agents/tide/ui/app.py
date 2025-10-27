@@ -73,8 +73,11 @@ async def validate_llm_config(agent_tide_ui: AgentTideUi):
     exception = True
     while exception:
         try:
-            agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
-            exception = None
+            if hasattr(agent_tide_ui.agent_tide.llm.provider.config, "access_token"):
+                exception = None
+            else:
+                agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
+                exception = None
 
         except (AuthenticationError, ModelError) as e:
             exception = e
@@ -469,7 +472,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 message.content = "\n\n---\n\n".join([command_prompt, message.content])
 
         chat_history.append({"role": "user", "content": message.content})
-        await agent_tide_ui.add_to_history(message.content)
+        await agent_tide_ui.add_to_history(message.content, is_input=True)
 
     reasoning_element = cl.CustomElement(name="ReasoningExplorer", props={
         "reasoning_steps": [],
