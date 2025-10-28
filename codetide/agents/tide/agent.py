@@ -541,17 +541,17 @@ class AgentTide(BaseModel):
         if operation_mode in self.OPERATIONS:
             system_prompt.insert(1, self.OPERATIONS.get(operation_mode))
         
+        prefil_context = None
         if prefilled_summary is not None:
             prefil_context = [
-                PREFIX_SUMMARY_PROMPT.format(SUMMARY=prefilled_summary),
-                codeContext
+                PREFIX_SUMMARY_PROMPT.format(SUMMARY=prefilled_summary)
             ]
-        elif codeContext:
-            prefil_context = [codeContext]
+        # elif codeContext:
+        #     prefil_context = [codeContext]
 
         ### TODO get system prompt based on OEPRATION_MODE
         response = await self.llm.acomplete(
-            expanded_history,
+            expanded_history + [codeContext] if codeContext else expanded_history,
             system_prompt=system_prompt,
             prefix_prompt=prefil_context,
             action_id="agent_loop.main"
