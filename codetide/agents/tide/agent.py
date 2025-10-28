@@ -553,8 +553,8 @@ class AgentTide(BaseModel):
         response = await self.llm.acomplete(
             expanded_history,
             system_prompt=system_prompt,
-           prefix_prompt=prefil_context,
-           action_id="agent_loop.main"
+            prefix_prompt=prefil_context,
+            action_id="agent_loop.main"
         )
 
         await trim_to_patch_section(self.patch_path)
