@@ -3,6 +3,7 @@ import difflib
 import asyncio
 import os
 import re
+import time
 
 class AutoComplete:
     def __init__(self, word_list: List[str]) -> None:
@@ -473,7 +474,8 @@ class AutoComplete:
         similarity_threshold: float = 0.6,
         case_sensitive: bool = False,
         max_matches_per_word: int = None,
-        preserve_dotted_identifiers: bool = True
+        preserve_dotted_identifiers: bool = True,
+        timeout: float = None
     ) -> dict:
         """
         Async non-blocking version of extract_words_from_text.
@@ -489,6 +491,8 @@ class AutoComplete:
                 If None, all matches are returned. If 1, only the top match per word is returned.
             preserve_dotted_identifiers (bool): If True, treats dot-separated strings as single tokens
                 (e.g., "module.submodule.function" stays as one word)
+            timeout (float, optional): Maximum time in seconds to spend searching for matches.
+                If None, no timeout is applied. If exceeded, returns matches found so far.
 
         Returns:
             dict: Dictionary containing:
@@ -504,6 +508,8 @@ class AutoComplete:
                 'substring_matches': [],
                 'all_found_words': []
             }
+         
+        start_time = time.time() if timeout is not None else None
         
         await self.async_sort()
 
@@ -535,6 +541,9 @@ class AutoComplete:
 
         chunk_size = max(1, len(self.words) // 100)
         for i in range(0, len(self.words), chunk_size):
+            if start_time is not None and (time.time() - start_time) >= timeout:
+                break
+ 
             chunk = self.words[i:i + chunk_size]
             
             for word_from_list in chunk:
@@ -587,6 +596,12 @@ class AutoComplete:
         
         chunk_size = max(1, len(remaining_words) // 100)
         for i in range(0, len(remaining_words), chunk_size):
+            if start_time is not None and (time.time() - start_time) >= timeout:
+                break
+
+            if start_time is not None and (time.time() - start_time) >= timeout:
+                break
+ 
             chunk = remaining_words[i:i + chunk_size]
             
             for word_from_list in chunk:

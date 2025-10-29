@@ -480,7 +480,11 @@ class AgentTide(BaseModel):
             autocomplete = AutoComplete(self.tide.cached_ids)
             tasks = [
                 self.extract_operation_mode(cached_identifiers),
-                autocomplete.async_extract_words_from_text(self.history[-1] if self.history else "", max_matches_per_word=1),
+                autocomplete.async_extract_words_from_text(
+                    self.history[-1] if self.history else "",
+                    max_matches_per_word=1,
+                    timeout=30
+                ),
                 self.prepare_loop()
             ]
             operation_context_history_task, autocomplete_matches, _ = await asyncio.gather(*tasks)
