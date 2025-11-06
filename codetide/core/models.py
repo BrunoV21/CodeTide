@@ -811,51 +811,51 @@ class CodeBase(BaseModel):
                     
                     if file_dir in all_relevant_directories:
                         sibling_files.append(code_file)
-            
-            # Build tree structure from relevant files (with full content)
-            for code_file in relevant_files:
-                if not code_file.file_path:
-                    continue
-                    
-                # Split the file path into parts
-                path_parts = code_file.file_path.replace("\\", "/").split("/")
+        
+        # Build tree structure from relevant files (with full content)
+        for code_file in relevant_files:
+            if not code_file.file_path:
+                continue
                 
-                # Navigate/create the nested dictionary structure
-                current_level = tree
-                for i, part in enumerate(path_parts):
-                    if i == len(path_parts) - 1:  # This is the file
+            # Split the file path into parts
+            path_parts = code_file.file_path.replace("\\", "/").split("/")
+            
+            # Navigate/create the nested dictionary structure
+            current_level = tree
+            for i, part in enumerate(path_parts):
+                if i == len(path_parts) - 1:  # This is the file
+                    current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
+                else:  # This is a directory
+                    if part not in current_level:
+                        current_level[part] = {"_type": "directory"}
+                    current_level = current_level[part]
+        
+        # Add sibling files and directory contents (show content for all when filtering for broader context)
+        for code_file in sibling_files:
+            if not code_file.file_path:
+                continue
+                
+            # Split the file path into parts
+            path_parts = code_file.file_path.replace("\\", "/").split("/")
+            
+            # Navigate/create the nested dictionary structure
+            current_level = tree
+            for i, part in enumerate(path_parts):
+                if i == len(path_parts) - 1:  # This is the file
+                    # Check if file already exists (might have been added as relevant_files)
+                    if part not in current_level:
+                        # Show content for all files to provide broader context
                         current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
-                    else:  # This is a directory
-                        if part not in current_level:
-                            current_level[part] = {"_type": "directory"}
-                        current_level = current_level[part]
-            
-            # Add sibling files and directory contents (show content for all when filtering for broader context)
-            for code_file in sibling_files:
-                if not code_file.file_path:
-                    continue
-                    
-                # Split the file path into parts
-                path_parts = code_file.file_path.replace("\\", "/").split("/")
-                
-                # Navigate/create the nested dictionary structure
-                current_level = tree
-                for i, part in enumerate(path_parts):
-                    if i == len(path_parts) - 1:  # This is the file
-                        # Check if file already exists (might have been added as relevant_files)
-                        if part not in current_level:
-                            # Show content for all files to provide broader context
-                            current_level[part] = {"_type": "file", "_data": code_file, "_show_content": True}
-                    else:  # This is a directory
-                        if part not in current_level:
-                            current_level[part] = {"_type": "directory"}
-                        current_level = current_level[part]
-            
-            # Add placeholder for omitted content when filtering is applied and not in slim mode
-            if filter_paths is not None and not slim:
-                tree = self._add_omitted_placeholders(tree, filter_paths)
-            
-            self._tree_dict = tree
+                else:  # This is a directory
+                    if part not in current_level:
+                        current_level[part] = {"_type": "directory"}
+                    current_level = current_level[part]
+        
+        # Add placeholder for omitted content when filtering is applied and not in slim mode
+        if filter_paths is not None and not slim:
+            tree = self._add_omitted_placeholders(tree, filter_paths)
+        
+        self._tree_dict = tree
 
     def _add_omitted_placeholders(self, tree: dict, filter_paths: list) -> dict:
         """Adds '...' placeholders for directories that contain omitted files."""
