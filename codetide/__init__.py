@@ -99,6 +99,13 @@ class CodeTide(BaseModel):
         ]
     
     @property
+    def filenames_mapped(self)->Dict[str, str]:
+        return {
+            filepath.name: str(filepath.relative_to(self.rootpath)).replace("\\", "/")
+            for filepath in self.files
+        }
+    
+    @property
     def cached_ids(self)->List[str]:
         return self.codebase.non_import_unique_ids+self.relative_filepaths
     
