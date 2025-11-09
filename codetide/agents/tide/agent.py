@@ -477,7 +477,7 @@ class AgentTide(BaseModel):
                 for identifier in codeIdentifiers:
                     cached_identifiers.add(identifier)
             
-            autocomplete = AutoComplete(self.tide.cached_ids)
+            autocomplete = AutoComplete(self.tide.cached_ids, mapped_words=self.tide.filenames_mapped)
             tasks = [
                 self.extract_operation_mode(cached_identifiers),
                 autocomplete.async_extract_words_from_text(
@@ -504,7 +504,7 @@ class AgentTide(BaseModel):
                 self.contextIdentifiers = None
                 # Only extract matches from the last message
                 last_message = self.history[-1] if self.history else ""
-                exact_matches = autocomplete.extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
+                exact_matches = await autocomplete.async_extract_words_from_text(last_message, max_matches_per_word=1)["all_found_words"]
                 self.modifyIdentifiers = self.tide._as_file_paths(exact_matches)
                 codeIdentifiers = self.modifyIdentifiers
                 self._direct_mode = False

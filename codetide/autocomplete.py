@@ -1,16 +1,16 @@
-from typing import List
+from typing import Dict, List, Optional
 import difflib
 import asyncio
+import time
 import os
 import re
-import time
 
 class AutoComplete:
-    def __init__(self, word_list: List[str]) -> None:
+    def __init__(self, word_list: List[str], mapped_words: Optional[Dict[str, str]]=None) -> None:
         """Initialize with a list of strings to search from"""
         self.words = word_list
         self._sorted = False
-        # Sort words for better organization (optional)
+        self.mapped_words = mapped_words
 
     def sort(self):
         if not self._sorted:
@@ -255,13 +255,18 @@ class AutoComplete:
             text_words_search = [word.lower() for word in text_words]
 
         # Find exact matches first
-        for word_from_list in self.words:
+        exact_matche_search_space = self.words + (list(self.mapped_words.keys()) or [])
+        print(f"{exact_matche_search_space=}")
+        for word_from_list in exact_matche_search_space:
+            print(f"{word_from_list=}")
             if word_from_list in all_found_words:
                 continue
                 
             search_word = word_from_list if case_sensitive else word_from_list.lower()
             
             if search_word in text_words_set:
+                if self.mapped_words is not None and word_from_list in self.mapped_words:
+                    word_from_list = self.mapped_words.get(word_from_list)
                 exact_matches.append(word_from_list)
                 all_found_words.add(word_from_list)
                 # Mark all instances of this text word as matched
@@ -539,12 +544,14 @@ class AutoComplete:
             text_words_set = set(word.lower() for word in text_words)
             text_words_search = [word.lower() for word in text_words]
 
-        chunk_size = max(1, len(self.words) // 100)
-        for i in range(0, len(self.words), chunk_size):
+        exact_matche_search_space = self.words + (list(self.mapped_words.keys()) or [])
+
+        chunk_size = max(1, len(exact_matche_search_space) // 100)
+        for i in range(0, len(exact_matche_search_space), chunk_size):
             if start_time is not None and (time.time() - start_time) >= timeout:
                 break
  
-            chunk = self.words[i:i + chunk_size]
+            chunk = exact_matche_search_space[i:i + chunk_size]
             
             for word_from_list in chunk:
                 if word_from_list in all_found_words:
@@ -553,6 +560,9 @@ class AutoComplete:
                 search_word = word_from_list if case_sensitive else word_from_list.lower()
                 
                 if search_word in text_words_set:
+                    if self.mapped_words is not None and word_from_list in self.mapped_words:
+                        word_from_list = self.mapped_words.get(word_from_list)
+                
                     exact_matches.append(word_from_list)
                     all_found_words.add(word_from_list)
                     for tw in text_words:
