@@ -4,10 +4,14 @@ import { ChevronDown, ChevronRight, Brain } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function ReasoningStepsCard() {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(props.expanded ?? false);
   const [waveOffset, setWaveOffset] = useState(0);
   const [loadingText, setLoadingText] = useState("Analyzing");
   const canExpand = props.reasoning_steps?.length > 0;
+ 
+   if (props.hidden) {
+     return <div />;
+   }
 
   const loadingStates = [
     "Diving deep into the code",
@@ -47,7 +51,7 @@ export default function ReasoningStepsCard() {
     if (summary) return summary.split("\n")[0];
     if (reasoning_steps?.length > 0)
       return reasoning_steps.at(-1).content.split("\n")[0];
-    if (props?.finished) return "Finished";
+    if (props?.finished) return "";
     return `${loadingText}...`;
   };
 
