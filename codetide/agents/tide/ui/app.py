@@ -259,11 +259,11 @@ async def on_inspect_context(action :cl.Action):
         elements= [
             cl.Text(
                 name="CodeTIde Retrieved Identifiers",
-                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
+                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifiers), indent=4)}\n```"""
             )
         ]
     )    
-    agent_tide_ui.agent_tide._last_code_identifers = None
+    agent_tide_ui.agent_tide._last_code_identifiers = None
 
     if agent_tide_ui.agent_tide._last_code_context:
         inspect_msg.elements.append(
@@ -494,7 +494,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 )
             ]
 
-        if agent_tide_ui.agent_tide._last_code_identifers:
+        if agent_tide_ui.agent_tide._last_code_identifiers:
             msg.actions.append(
                 cl.Action(
                     name="inspect_code_context",
