@@ -748,13 +748,13 @@ The summary should read as a concise forward plan linking motivation, relationsh
 """
 
 DETERMINE_OPERATION_MODE_SYSTEM = """
-You are Agent **Tide** performing **Operation Mode Extraction**
+You are Agent **Tide** performing **Operation Mode Extraction**.
 
 You will receive the following inputs from the prefix prompt:
-- **Code Identifiers**: the current set of known identifiers, files, functions, classes, or patterns available in context
+- **Code Identifiers**: the current set of known identifiers, files, functions, classes, or patterns available in the codebase context
 - **Interaction Count**: the number of prior exchanges or iterations in the conversation
 
-Your task is to determine the current **operation mode**, assess **context sufficiency**, and if context is insufficient, propose a short **search query** to gather missing information.
+Your task is to determine the current **operation mode**, assess **context sufficiency**, detect **new conversation topics**, and if context is insufficient, propose a short **search query** to gather missing information from the codebase.
 
 **NO**
 - Explanations, markdown, or code
@@ -763,7 +763,7 @@ Your task is to determine the current **operation mode**, assess **context suffi
 ---
 
 **CORE PRINCIPLES**
-Intent detection, context sufficiency, and history recovery are independent.
+Intent detection, context sufficiency, history recovery, and topic detection are independent.
 
 **IMPORTANT:**  
 In case of the slightest doubt or uncertainty about context sufficiency, you MUST default to assuming that more context is needed.  
@@ -773,29 +773,36 @@ It is NOT acceptable to respond without enough context to properly reply.
 
 **1. OPERATION MODE**
 - Detect purely from user intent and target type.
-- STANDARD → reading, explanation, or any non-code request
-- PATCH_CODE → direct or localized code/file edits (≤2 targets, verbs like update, change, fix, insert, modify, add, create)
-- PLAN_STEPS → multi-file, architectural, or ≥3 edit targets
+- STANDARD → reading, explanation, documentation, or any non-code request
+- PATCH_CODE → direct or localized code/file edits (≤2 targets, verbs like update, change, fix, insert, modify, add, create, refactor)
+- PLAN_STEPS → multi-file, architectural changes, feature additions, or ≥3 edit targets
 
 ---
 
 **2. CONTEXT SUFFICIENCY**
-- TRUE if all mentioned items (files, funcs, classes, objects, or patterns) exist in Code Identifiers
-- FALSE if any are missing, unclear, or if there is any doubt about sufficiency
+- TRUE if all mentioned items (files, funcs, classes, objects, modules, or patterns) exist in Code Identifiers
+- FALSE if any are missing, unclear, ambiguous, or if there is any doubt about sufficiency
 
 ---
 
 **3. HISTORY COUNT**
 - If SUFFICIENT_CONTEXT = TRUE → HISTORY_COUNT = Interaction Count
-- If FALSE → HISTORY_COUNT = number of previous turns required to restore missing info
+- If FALSE → HISTORY_COUNT = number of previous turns required to restore missing info from conversation history
 
 ---
 
-**4. SEARCH QUERY (conditional)**
-- Only output when SUFFICIENT_CONTEXT = FALSE  
-- Provide a concise, targeted keyword or single pattern describing the missing **code patterns, files, classes, or objects** to search for in the codebase  
+**4. NEW TOPIC DETECTION**
+- IS_NEW_TOPIC → TRUE if message indicates a new conversation topic or task, FALSE otherwise
+- TOPIC_TITLE → 2-3 word title capturing the new topic (only if IS_NEW_TOPIC = TRUE, otherwise null)
+
+---
+
+**5. SEARCH QUERY**
+- Default value is "NO"
+- Only provide a search query when SUFFICIENT_CONTEXT = FALSE  
+- Provide a concise, targeted keyword or single pattern describing the missing **code patterns, files, classes, functions, or modules** to search for in the codebase  
 - Use only focused keywords or short phrases, not full sentences or verbose text  
-- If SUFFICIENT_CONTEXT = TRUE → omit this line completely
+- If SUFFICIENT_CONTEXT = TRUE → must output "NO"
 
 ---
 
@@ -803,7 +810,9 @@ It is NOT acceptable to respond without enough context to properly reply.
 OPERATION_MODE: [STANDARD|PATCH_CODE|PLAN_STEPS]
 SUFFICIENT_CONTEXT: [TRUE|FALSE]
 HISTORY_COUNT: [integer]
-[optional search query only if context insufficient]
+IS_NEW_TOPIC: [TRUE|FALSE]
+TOPIC_TITLE: [2-3 word title or null]
+SEARCH_QUERY: [search query or NO]
 """
 
 DETERMINE_OPERATION_MODE_PROMPT = """

@@ -91,6 +91,8 @@ class OperationModeResult(BaseModel):
     sufficient_context: bool
     expanded_history: list
     search_query: Optional[str]
+    is_new_topic: Optional[bool]=None
+    topic_title: Optional[str]=None
 
 
 # ============================================================================
@@ -664,6 +666,9 @@ class AgentTide(BaseModel):
         operation_mode = self._extract_field(response, "OPERATION_MODE")
         sufficient_context = self._extract_field(response, "SUFFICIENT_CONTEXT")
         history_count = self._extract_field(response, "HISTORY_COUNT")
+        is_new_topic = self._extract_field(response, "IS_NEW_TOPIC")
+        topic_title = self._extract_field(response, "TOPIC_TITLE")
+        search_query = self._extract_field(response, "SEARCH_QUERY")
         
         # Validate extraction
         if operation_mode is None or sufficient_context is None:
@@ -673,9 +678,9 @@ class AgentTide(BaseModel):
         operation_mode = operation_mode.strip()
         sufficient_context = sufficient_context.strip().upper() == "TRUE"
         history_count = int(history_count) if history_count else len(self.history)
-        
-        # Extract search query (remaining text after removing known fields)
-        search_query = self._extract_search_query(response)
+        is_new_topic = is_new_topic.strip().upper() == "TRUE" if is_new_topic else False
+        topic_title = topic_title.strip() if topic_title and topic_title.strip().lower() != "null" else None
+        search_query = search_query.strip() if search_query and search_query.strip().upper() != "NO" else None
         
         # Expand history if needed
         final_history_count = await self._history_manager.expand_history_if_needed(
@@ -689,7 +694,9 @@ class AgentTide(BaseModel):
             operation_mode=operation_mode,
             sufficient_context=sufficient_context,
             expanded_history=expanded_history,
-            search_query=search_query
+            search_query=search_query,
+            is_new_topic=is_new_topic,
+            topic_title=topic_title
         )
     
     @staticmethod
