@@ -257,10 +257,10 @@ class IdentifierResolver:
             identifiers_from_search = {result[0] for result in search_results}
             
             # Early exit if all direct matches found
-            if direct_matches.issubset(identifiers_from_search):
-                candidate_pool = direct_matches
-                print("All matches found in identifiers from search")
-                break
+            # if identifiers_from_search.issubset(direct_matches):
+            #     candidate_pool = identifiers_from_search
+            #     print("All matches found in identifiers from search")
+            #     break
             
             # Build filtered tree view
             candidates_to_filter = self.tide._as_file_paths(list(identifiers_from_search))
