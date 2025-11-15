@@ -156,7 +156,7 @@ CodeTide provides the following tools for agents:
 2. **`getRepoTree`**: Explore the repository structure.
 
 #### Example: Initializing an LLM with CodeTide
-Here’s a snippet from `agent_tide.py` demonstrating how to initialize an LLM with CodeTide as an MCP server:
+Here's a snippet from `agent_tide.py` demonstrating how to initialize an LLM with CodeTide as an MCP server:
 
 ```python
 from aicore.llm import Llm, LlmConfig
@@ -176,7 +176,7 @@ def init_llm() -> Llm:
     return llm
 ```
 
-This setup allows the LLM to leverage CodeTide’s tools for codebase interactions.
+This setup allows the LLM to leverage CodeTide's tools for codebase interactions.
 
 CodeTide can now be used as an MCP Server! This allows seamless integration with AI tools and workflows. Below are the tools available:
 The available tools are:
@@ -517,7 +517,7 @@ if __name__ == "__main__":
 
 ## 🧠 Philosophy
 
-CodeTide is about giving developers structure-aware tools that are **fast, predictable, and private**. Your code is parsed, navigated, and queried as a symbolic graph - not treated as a black box of tokens. Whether you’re building, refactoring, or feeding context into an LLM - **you stay in control**.
+CodeTide is about giving developers structure-aware tools that are **fast, predictable, and private**. Your code is parsed, navigated, and queried as a symbolic graph - not treated as a black box of tokens. Whether you're building, refactoring, or feeding context into an LLM - **you stay in control**.
 
 > Like a tide, your codebase evolves - and CodeTide helps you move with it, intelligently.
 
@@ -539,7 +539,7 @@ Instead, it uses:
 
 ## 🗺️ Roadmap
 
-Here’s what’s next for CodeTide:
+Here's what's next for CodeTide:
 
 - 🧩 **Support more languages** already integrated with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/)  
   → **TypeScript** is the top priority. **Now available in Beta**
@@ -558,7 +558,7 @@ Here’s what’s next for CodeTide:
 
 CodeTide now includes an `agents` module, featuring **AgentTide**—a precision-driven software engineering agent that connects directly to your codebase and executes your requests with full code context.
 
-**AgentTide** leverages CodeTide’s symbolic code understanding to:
+**AgentTide** leverages CodeTide's symbolic code understanding to:
 - Retrieve and reason about relevant code context for any request
 - Generate atomic, high-precision patches using strict protocols
 - Apply changes directly to your codebase, with robust validation
@@ -568,7 +568,7 @@ CodeTide now includes an `agents` module, featuring **AgentTide**—a precision-
 
 ### What It Does
 AgentTide acts as an autonomous agent that:
-- Connects to your codebase using CodeTide’s parsing and context tools
+- Connects to your codebase using CodeTide's parsing and context tools
 - Interacts with users via a conversational interface
 - Identifies relevant files, classes, and functions for any request
 - Generates and applies diff-style patches, ensuring code quality and requirements fidelity
