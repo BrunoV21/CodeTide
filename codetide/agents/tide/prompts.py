@@ -311,18 +311,22 @@ You are operating in a command line interface. Be concise, direct, and to the po
 """
 
 PREFIX_SUMMARY_PROMPT = """
-You will receive a brief quickstart summary before the code context. 
-This summary is only a high-level guide to help you quickly understand the user's intent and the overall task scope.
-
-Use the summary together with the code context to produce a precise, complete, and high-quality answer.
-
-Important:
-- You must always provide a meaningful and complete response to the user's message.
-- Empty, generic, or evasive responses are not valid.
-- Treat the summary as orientation only; rely on the code context for specific details.
-
-Quickstart Summary:
+**Quickstart Summary:**
 {SUMMARY}
+
+---
+
+**Instructions:**
+The above summary provides a high-level overview of the user's intent and task scope. The code context has already been provided to you.
+
+Use both the summary and the code context together to produce a precise, complete, and high-quality response.
+
+**Critical Requirements:**
+- You must provide a meaningful and complete response to the user's message
+- Empty, generic, or evasive responses are not acceptable
+- Treat the summary as orientation; rely on the code context for specific implementation details
+- Be concise and direct in your response (CLI environment)
+- Answer the user's question now based on all provided context
 """
 
 REPO_TREE_CONTEXT_PROMPT = """

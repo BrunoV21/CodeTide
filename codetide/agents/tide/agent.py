@@ -756,6 +756,8 @@ class AgentTide(BaseModel):
     ) -> Optional[str]:
         """Build code context from identifiers, falling back to tree view if needed."""
         if code_identifiers:
+            ### TODO prefix this into:
+            #  As you answer the user's questions, you can use the following context:
             return self.tide.get(code_identifiers, as_string=True)
         
         # Fallback to tree view and README
@@ -943,7 +945,7 @@ class AgentTide(BaseModel):
         
         # Generate response
         history_with_context = (
-            expanded_history + [code_context] if code_context else expanded_history
+            expanded_history[:-1] + [code_context] + expanded_history[-1:] if code_context else expanded_history
         )
         
         response = await self.llm.acomplete(
