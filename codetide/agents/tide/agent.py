@@ -663,9 +663,9 @@ class AgentTide(BaseModel):
         )
         
         # Extract fields from response
-        operation_mode = self._extract_field(response, "OPERATION_MODE")
-        sufficient_context = self._extract_field(response, "SUFFICIENT_CONTEXT")
-        history_count = self._extract_field(response, "HISTORY_COUNT")
+        operation_mode = self._extract_field(response, "OPERATION_MODE", "STANDARD")
+        sufficient_context = self._extract_field(response, "SUFFICIENT_CONTEXT", "FALSE")
+        history_count = self._extract_field(response, "HISTORY_COUNT", "2")
         is_new_topic = self._extract_field(response, "IS_NEW_TOPIC")
         topic_title = self._extract_field(response, "TOPIC_TITLE")
         search_query = self._extract_field(response, "SEARCH_QUERY")
@@ -700,11 +700,11 @@ class AgentTide(BaseModel):
         )
     
     @staticmethod
-    def _extract_field(text: str, field_name: str) -> Optional[str]:
+    def _extract_field(text: str, field_name: str, default :Optional[str]=None) -> Optional[str]:
         """Extract a field value from response text."""
         pattern = rf'{field_name}:\s*\[?([^\]]+?)\]?(?:\n|$)'
         match = re.search(pattern, text)
-        return match.group(1) if match else None
+        return match.group(1) if match else default
     
     @staticmethod
     def _extract_search_query(response: str) -> Optional[str]:
