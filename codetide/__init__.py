@@ -14,6 +14,7 @@ from codetide import parsers
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional, List, Tuple, Union, Dict
 from datetime import datetime, timezone
+from collections import defaultdict
 from pathlib import Path
 import traceback
 import asyncio
@@ -419,6 +420,7 @@ class CodeTide(BaseModel):
         """
         file_deletion_detected = False
         files = self._find_code_files()  # Dict[Path, datetime]
+        print("found code files")
         
         changed_files = []
         
@@ -535,6 +537,97 @@ class CodeTide(BaseModel):
 
         return True
 
+    @staticmethod
+    def _is_subdirectory(identifier: str) -> bool:
+        """
+        Check if an identifier represents a module/subdirectory.
+        
+        Args:
+            identifier: A string or Path object to check
+            
+        Returns:
+            True if the identifier ends with '/' (indicating a module), False otherwise
+        """
+        if isinstance(identifier, Path):
+            return False
+        elif identifier.endswith("/"):
+            return True
+        else:
+            return False
+
+    def get_module_identifiers(self, module_ids: List[str]) -> Dict[str, List[str]]:
+        """
+        Get all file identifiers that belong to specified modules.
+        
+        Args:
+            module_ids: List of module identifier strings (directories)
+            
+        Returns:
+            Dictionary mapping module names to lists of relative file paths within each module
+        """
+        module_paths = {
+            self.rootpath / module_id
+            for module_id in module_ids
+        }
+        modules_identifiers = defaultdict(list)
+        for filepath in self.files:
+            for module_path in module_paths:
+                if filepath.is_relative_to(module_path):
+                    modules_identifiers[module_path.name].append(
+                        str(filepath.relative_to(self.rootpath))
+                    )
+                    break
+
+        # Log the results
+        logger.info(f"Found {len(modules_identifiers)} modules")
+        for module_name, identifiers in modules_identifiers.items():
+            logger.info(f"Module '{module_name}' contains {len(identifiers)} identifiers")
+
+        return modules_identifiers
+
+    def inject_identifiers_from_modules(self, unique_ids: List[str]) -> List[str]:
+        """
+        Expand module identifiers into their constituent file identifiers.
+        
+        Takes a list of identifiers that may include module directories, finds all files
+        within those modules, and replaces the module identifiers with individual file paths.
+        
+        Args:
+            unique_ids: List of identifiers, may include both files and modules (ending with '/')
+            
+        Returns:
+            Expanded list with module identifiers replaced by their constituent file identifiers
+        """
+        modules_identifiers = [
+            unique_id for unique_id in unique_ids if self._is_subdirectory(unique_id)
+        ]
+        identifiers_per_module = self.get_module_identifiers(module_ids=modules_identifiers)
+        
+        unique_ids = [
+            unique_id for unique_id in unique_ids
+            if unique_id not in modules_identifiers
+        ]
+        for identifiers in identifiers_per_module.values():
+            unique_ids.extend(identifiers)
+        
+        return unique_ids
+
+    def precheck(self, unique_ids: List[str]) -> Dict[Path, str]:
+        """
+        Preprocess and validate identifiers before further operations.
+        
+        Expands any module identifiers into their constituent files and validates
+        that all identifiers correspond to actual files.
+        
+        Args:
+            unique_ids: List of file or module identifiers to precheck
+            
+        Returns:
+            Dictionary mapping validated file paths to their identifier strings
+        """
+        unique_ids = self.inject_identifiers_from_modules(unique_ids)
+        return self._precheck_id_is_file(unique_ids)
+
     def _precheck_id_is_file(self, unique_ids : List[str])->Dict[Path, str]:
         """
         Preload file contents for the given IDs if they correspond to known files.
@@ -587,7 +680,7 @@ class CodeTide(BaseModel):
             f"Formats: string={as_string}, list={as_string_list}"
         )
 
-        requested_files = self._precheck_id_is_file(code_identifiers)
+        requested_files = self.precheck(code_identifiers)
         return self.codebase.get(
             unique_id=code_identifiers,
             degree=context_depth,
