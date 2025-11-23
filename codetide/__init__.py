@@ -98,7 +98,17 @@ class CodeTide(BaseModel):
         return [
             str(filepath.relative_to(self.rootpath)).replace("\\", "/") for filepath in self.files
         ]
-    
+
+    @property
+    def relative_directories(self) -> List[str]:
+        dirs = set()
+        for filepath in self.files:
+            p = filepath.resolve().parent
+            while p != self.rootpath:
+                dirs.add(p.relative_to(self.rootpath).as_posix())
+                p = p.parent
+        return sorted(dirs)
+
     @property
     def filenames_mapped(self)->Dict[str, str]:
         return {
@@ -108,7 +118,7 @@ class CodeTide(BaseModel):
     
     @property
     def cached_ids(self)->List[str]:
-        return self.codebase.non_import_unique_ids+self.relative_filepaths
+        return self.codebase.non_import_unique_ids + self.relative_filepaths + self.relative_directories
     
     @property
     def repo(self)->Optional[pygit2.Repository]:
