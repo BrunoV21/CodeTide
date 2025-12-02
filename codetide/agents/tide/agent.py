@@ -522,7 +522,7 @@ class HistoryManager:
 # ============================================================================
 
 class AgentTide(BaseModel):
-    """Main agent for autonomous code editing and task execution."""
+    """Main agent for autonomous code editing following Claude Code best practices."""
     
     llm: Llm
     tide: CodeTide
@@ -547,9 +547,10 @@ class AgentTide(BaseModel):
     _git_operations: Optional[GitOperations] = None
     _history_manager: Optional[HistoryManager] = None
     
-    # Configuration
+    # Configuration following Claude Code patterns
     CONTEXT_WINDOW_SIZE: int = DEFAULT_CONTEXT_WINDOW_SIZE
     
+    # Operation modes aligned with Claude Code
     OPERATIONS: Dict[str, str] = {
         OPERATION_MODE_PLAN_STEPS: STEPS_SYSTEM_PROMPT,
         OPERATION_MODE_PATCH_CODE: WRITE_PATCH_SYSTEM_PROMPT
@@ -559,7 +560,7 @@ class AgentTide(BaseModel):
     
     @model_validator(mode="after")
     def initialize_components(self) -> Self:
-        """Initialize helper components and configure logging."""
+        """Initialize helper components with optimized logging."""
         self.llm.logger_fn = partial(
             custom_logger_fn,
             session_id=self.session_id,
@@ -571,17 +572,17 @@ class AgentTide(BaseModel):
     
     @property
     def patch_path(self) -> Path:
-        """Get the path for storing patches."""
+        """Get storage path for patches (Claude Code style)."""
         storage_dir = self.tide.rootpath / DEFAULT_STORAGE_PATH
         storage_dir.mkdir(exist_ok=True)
         return storage_dir / f"{self.session_id}.bash"
     
     # ========================================================================
-    # Patch Management
+    # Patch Management (Preserving existing logic)
     # ========================================================================
     
     def approve(self):
-        """Approve and apply the current patch."""
+        """Approve and apply current patch."""
         self._has_patch = False
         if not os.path.exists(self.patch_path):
             return
@@ -595,17 +596,15 @@ class AgentTide(BaseModel):
             root_path=self.tide.rootpath
         )
         self.changed_paths.extend(changed_paths)
-        
-        # Clean up patch blocks from history
         self._remove_patch_blocks_from_history()
     
     def reject(self, feedback: str):
-        """Reject the current patch with feedback."""
+        """Reject current patch with feedback."""
         self._has_patch = False
         self.history.append(REJECT_PATCH_FEEDBACK_TEMPLATE.format(FEEDBACK=feedback))
     
     def _remove_patch_blocks_from_history(self):
-        """Remove patch blocks from the last response in history."""
+        """Clean patch blocks from last response."""
         if not self.history:
             return
         
@@ -621,24 +620,24 @@ class AgentTide(BaseModel):
             self.history[-1] = previous_response
     
     # ========================================================================
-    # History Management
+    # History Management (Claude Code pattern)
     # ========================================================================
     
     def _clean_history(self):
-        """Convert history messages to plain strings."""
+        """Convert history to plain strings for processing."""
         for i, message in enumerate(self.history):
             if isinstance(message, dict):
                 self.history[i] = message.get("content", "")
     
     def _filter_command_prompts_from_history(self, history: list) -> str:
-        """Remove command prompts from history string."""
+        """Remove command prompts from history - Claude Code approach."""
         history_str = "\n\n".join(history)
         for cmd_prompt in COMMAND_PROMPTS:
             history_str = history_str.replace(cmd_prompt, "")
         return history_str
     
     # ========================================================================
-    # Operation Mode and Context Extraction
+    # Operation Mode and Context (Following Claude Code)
     # ========================================================================
     
     async def extract_operation_mode(
@@ -646,11 +645,13 @@ class AgentTide(BaseModel):
         cached_identifiers: Set[str]
     ) -> OperationModeResult:
         """
-        Extract operation mode, context sufficiency, and relevant history.
+        Extract operation mode, context sufficiency, and history.
+        Claude Code pattern: Uses lightweight LLM for classification.
         
         Returns:
-            OperationModeResult with all extracted information
+            OperationModeResult with extracted information
         """
+        # Use last 3 messages for efficiency (Claude Code uses recent context)
         response = await self.llm.acomplete(
             self.history[-3:],
             system_prompt=DETERMINE_OPERATION_MODE_SYSTEM,
@@ -662,7 +663,7 @@ class AgentTide(BaseModel):
             action_id="extract_operation_mode"
         )
         
-        # Extract fields from response
+        # Parse response fields
         operation_mode = self._extract_field(response, "OPERATION_MODE", "STANDARD")
         sufficient_context = self._extract_field(response, "SUFFICIENT_CONTEXT", "FALSE")
         history_count = self._extract_field(response, "HISTORY_COUNT", "2")
@@ -670,11 +671,10 @@ class AgentTide(BaseModel):
         topic_title = self._extract_field(response, "TOPIC_TITLE")
         search_query = self._extract_field(response, "SEARCH_QUERY")
         
-        # Validate extraction
         if operation_mode is None or sufficient_context is None:
-            raise ValueError(f"Failed to extract required fields from response:\n{response}")
+            raise ValueError(f"Failed to extract required fields from:\n{response}")
         
-        # Parse values
+        # Normalize values
         operation_mode = operation_mode.strip()
         sufficient_context = sufficient_context.strip().upper() == "TRUE"
         history_count = int(history_count) if history_count else len(self.history)
@@ -682,7 +682,7 @@ class AgentTide(BaseModel):
         topic_title = topic_title.strip() if topic_title and topic_title.strip().lower() != "null" else None
         search_query = search_query.strip() if search_query and search_query.strip().upper() != "NO" else None
         
-        # Expand history if needed
+        # Expand history if needed (Claude Code includes full context when needed)
         final_history_count = await self._history_manager.expand_history_if_needed(
             self.history,
             sufficient_context,
@@ -700,27 +700,18 @@ class AgentTide(BaseModel):
         )
     
     @staticmethod
-    def _extract_field(text: str, field_name: str, default :Optional[str]=None) -> Optional[str]:
-        """Extract a field value from response text."""
+    def _extract_field(text: str, field_name: str, default: Optional[str] = None) -> Optional[str]:
+        """Extract field value from structured response."""
         pattern = rf'{field_name}:\s*\[?([^\]]+?)\]?(?:\n|$)'
         match = re.search(pattern, text)
         return match.group(1) if match else default
     
-    @staticmethod
-    def _extract_search_query(response: str) -> Optional[str]:
-        """Extract search query by removing known fields from response."""
-        cleaned = response
-        for field in ["OPERATION_MODE", "SUFFICIENT_CONTEXT", "HISTORY_COUNT"]:
-            cleaned = re.sub(rf'{field}:\s*\[?[^\]]+?\]?', '', cleaned)
-        search_query = cleaned.strip()
-        return search_query if search_query else None
-    
     # ========================================================================
-    # Context Building
+    # Context Building (Claude Code <context> pattern)
     # ========================================================================
     
     async def prepare_search_infrastructure(self):
-        """Initialize search components and update codebase."""
+        """Initialize search (Claude Code pattern: GlobTool, GrepTool equivalent)."""
         await self.tide.check_for_updates(serialize=True, include_cached_ids=True)
         
         self._smart_code_search = SmartCodeSearch(
@@ -740,7 +731,7 @@ class AgentTide(BaseModel):
         include_modules: bool = False,
         expand_paths: Optional[List[str]] = None
     ) -> str:
-        """Get a tree view of the repository based on user prompt context."""
+        """Get repo tree (Claude Code: directoryStructure context)."""
         self._filter_command_prompts_from_history(history)
         self.tide.codebase._build_tree_dict(expand_paths)
         
@@ -754,13 +745,17 @@ class AgentTide(BaseModel):
         code_identifiers: Optional[List[str]],
         matches: Optional[List[str]] = None
     ) -> Optional[str]:
-        """Build code context from identifiers, falling back to tree view if needed."""
+        """
+        Build code context using Claude Code pattern.
+        Uses <context> tags for structure.
+        """
         if code_identifiers:
-            ### TODO prefix this into:
-            #  As you answer the user's questions, you can use the following context:
-            return self.tide.get(code_identifiers, as_string=True)
+            # Return structured context (Claude Code: "As you answer...")
+            context = self.tide.get(code_identifiers, as_string=True)
+            if context:
+                return f"<context name=\"codeContext\">\n{context}\n</context>"
         
-        # Fallback to tree view and README
+        # Fallback: tree view + README (Claude Code approach)
         tree_view = REPO_TREE_CONTEXT_PROMPT.format(
             REPO_TREE=self.tide.codebase.get_tree_view()
         )
@@ -779,7 +774,7 @@ class AgentTide(BaseModel):
         return tree_view
     
     # ========================================================================
-    # Identifier Resolution
+    # Identifier Resolution (Optimized for efficiency)
     # ========================================================================
     
     async def resolve_identifiers_for_request(
@@ -789,12 +784,12 @@ class AgentTide(BaseModel):
         today: str
     ) -> Tuple[Optional[List[str]], Optional[str], Optional[str]]:
         """
-        Resolve code identifiers based on operation mode and context.
+        Resolve identifiers following Claude Code efficiency patterns.
+        Uses BatchTool-like parallel resolution when needed.
         
         Returns:
-            Tuple of (code_identifiers, code_context, prefilled_summary)
+            (code_identifiers, code_context, prefilled_summary)
         """
-        # Initialize context window if needed
         if self._context_identifier_window is None:
             self._context_identifier_window = []
         
@@ -802,7 +797,7 @@ class AgentTide(BaseModel):
         sufficient_context = operation_result.sufficient_context
         search_query = operation_result.search_query
         
-        # Extract direct matches from last message
+        # Extract direct matches (Claude Code: fast autocomplete)
         autocomplete_result = await autocomplete.async_extract_words_from_text(
             self.history[-1] if self.history else "",
             max_matches_per_word=1,
@@ -815,14 +810,14 @@ class AgentTide(BaseModel):
         print(f"search_query={search_query}")
         print(f"sufficient_context={sufficient_context}")
         
-        # Case 1: Sufficient context with cached identifiers
+        # Case 1: Sufficient cached context (Claude Code: reuse when possible)
         if sufficient_context or (
             direct_matches and set(direct_matches).issubset(self._last_code_identifiers)
         ):
             await self.llm.logger_fn(REASONING_FINISHED)
             return list(self._last_code_identifiers), None, None
         
-        # Case 2: Direct mode - use only exact matches
+        # Case 2: Direct mode - exact matches only (Claude Code: efficiency)
         if self._direct_mode:
             self.context_identifiers = None
             self.modify_identifiers = self.tide._as_file_paths(direct_matches)
@@ -831,8 +826,8 @@ class AgentTide(BaseModel):
             await self.llm.logger_fn(REASONING_FINISHED)
             return self.modify_identifiers, None, None
         
-        # Case 3: Full two-phase identifier resolution
-        print("Entering two-phase identifier resolution")
+        # Case 3: Full resolution (Claude Code: dispatch_agent pattern)
+        print("Two-phase identifier resolution")
         await self.llm.logger_fn(REASONING_STARTED)
         
         resolver = IdentifierResolver(
@@ -842,6 +837,7 @@ class AgentTide(BaseModel):
             autocomplete
         )
         
+        # Build context window (Claude Code: maintains recent context)
         context_window = set()
         if self._context_identifier_window:
             context_window = set().union(*self._context_identifier_window)
@@ -866,33 +862,35 @@ class AgentTide(BaseModel):
         return code_identifiers, None, resolution_result.summary
     
     def _update_context_window(self, new_identifiers: List[str]):
-        """Update the rolling window of context identifiers."""
+        """Update rolling context window (Claude Code: maintains state)."""
         self._context_identifier_window.append(set(new_identifiers))
         if len(self._context_identifier_window) > self.CONTEXT_WINDOW_SIZE:
             self._context_identifier_window.pop(0)
     
     # ========================================================================
-    # Main Agent Loop
+    # Main Agent Loop (Optimized flow)
     # ========================================================================
     
     async def agent_loop(self, code_identifiers: Optional[List[str]] = None):
         """
-        Main agent execution loop.
-        
-        Args:
-            code_identifiers: Optional list of code identifiers to use directly
+        Main execution loop following Claude Code patterns:
+        1. Determine mode + context sufficiency
+        2. Parallel prep (search infrastructure)
+        3. Resolve identifiers if needed
+        4. Build structured context
+        5. Generate response with appropriate system prompt
         """
         today = date.today()
         operation_mode = None
         code_context = None
         prefilled_summary = None
         
-        # Skip context retrieval if flagged
+        # Skip context retrieval if flagged (e.g., for commits)
         if self._skip_context_retrieval:
             expanded_history = [self.history[-1]]
             await self.llm.logger_fn(REASONING_FINISHED)
         else:
-            # Prepare autocomplete and search infrastructure
+            # Build autocomplete cache
             cached_identifiers = self._last_code_identifiers.copy()
             if code_identifiers:
                 cached_identifiers.update(code_identifiers)
@@ -902,7 +900,7 @@ class AgentTide(BaseModel):
                 mapped_words=self.tide.filenames_mapped
             )
             
-            # Run preparation and mode extraction in parallel
+            # Parallel execution (Claude Code: BatchTool pattern)
             operation_result, _ = await asyncio.gather(
                 self.extract_operation_mode(cached_identifiers),
                 self.prepare_search_infrastructure()
@@ -911,26 +909,26 @@ class AgentTide(BaseModel):
             operation_mode = operation_result.operation_mode
             expanded_history = operation_result.expanded_history
             
-            # Resolve identifiers and build context
+            # Resolve identifiers
             code_identifiers, _, prefilled_summary = await self.resolve_identifiers_for_request(
                 operation_result,
                 autocomplete,
                 str(today)
             )
             
-            # Build code context
+            # Build structured context
             if code_identifiers:
                 self._last_code_identifiers = set(code_identifiers)
-                code_context = self.tide.get(code_identifiers, as_string=True)
+                code_context = self._build_code_context(code_identifiers)
             
             if not code_context and not operation_result.sufficient_context:
                 code_context = self._build_code_context(code_identifiers)
         
-        # Store context for potential reuse
+        # Cache context for reuse
         self._last_code_context = code_context
         await delete_file(self.patch_path)
         
-        # Build system prompt
+        # Build system prompt (Claude Code: modular system prompts)
         system_prompt = [
             AGENT_TIDE_SYSTEM_PROMPT.format(DATE=today),
             CALMNESS_SYSTEM_PROMPT
@@ -938,14 +936,16 @@ class AgentTide(BaseModel):
         if operation_mode in self.OPERATIONS:
             system_prompt.insert(1, self.OPERATIONS[operation_mode])
         
-        # Build prefix prompt
+        # Build prefix (Claude Code: summary pattern)
         prefix_prompt = None
         if prefilled_summary:
             prefix_prompt = [PREFIX_SUMMARY_PROMPT.format(SUMMARY=prefilled_summary)]
         
-        # Generate response
+        # Generate response with context injection
         history_with_context = (
-            expanded_history[:-1] + [code_context] + expanded_history[-1:] if code_context else expanded_history
+            expanded_history[:-1] + [code_context] + expanded_history[-1:] 
+            if code_context 
+            else expanded_history
         )
         
         response = await self.llm.acomplete(
@@ -962,10 +962,10 @@ class AgentTide(BaseModel):
         await self.llm.logger_fn(ROUND_FINISHED)
     
     async def _process_agent_response(self, response: str):
-        """Process the agent's response for patches, commits, and steps."""
+        """Process response: patches, commits, steps."""
         await trim_to_patch_section(self.patch_path)
         
-        # Handle patches
+        # Handle patches (preserve existing APPLY_PATCH logic)
         if not self.request_human_confirmation:
             self.approve()
         
@@ -979,13 +979,13 @@ class AgentTide(BaseModel):
         if steps:
             self.steps = Steps.from_steps(steps)
         
-        # Track patches for human confirmation
+        # Track patches for confirmation
         diff_patches = parse_patch_blocks(response, multiple=True)
         if diff_patches:
             if self.request_human_confirmation:
                 self._has_patch = True
             else:
-                # Remove patch blocks from response to keep history clean
+                # Clean patches from response (keep history readable)
                 for patch in diff_patches:
                     response = response.replace(
                         f"*** Begin Patch\n{patch}*** End Patch",
@@ -993,7 +993,7 @@ class AgentTide(BaseModel):
                     )
     
     # ========================================================================
-    # Git Operations
+    # Git Operations (Preserved logic)
     # ========================================================================
     
     async def prepare_commit(self) -> str:
@@ -1004,7 +1004,7 @@ class AgentTide(BaseModel):
         return STAGED_DIFFS_TEMPLATE.format(diffs=staged_diff)
     
     def commit(self, message: str):
-        """Commit staged changes with the given message."""
+        """Commit staged changes."""
         try:
             self._git_operations.commit(message)
         finally:
@@ -1015,15 +1015,7 @@ class AgentTide(BaseModel):
     # ========================================================================
     
     async def _handle_commands(self, command: str) -> str:
-        """
-        Handle special commands.
-        
-        Args:
-            command: Command to execute
-        
-        Returns:
-            Context string resulting from command execution
-        """
+        """Handle special commands."""
         if command == "commit":
             return await self.prepare_commit()
         elif command == "direct_mode":
@@ -1032,26 +1024,22 @@ class AgentTide(BaseModel):
         return ""
     
     # ========================================================================
-    # Interactive Loop
+    # Interactive Loop (CLI interface)
     # ========================================================================
     
     async def run(self, max_tokens: int = 48000):
         """
-        Run the interactive agent loop.
-        
-        Args:
-            max_tokens: Maximum tokens to keep in history
+        Run interactive agent (Claude Code CLI style).
         """
         if self.history is None:
             self.history = []
         
-        # Set up key bindings
+        # Key bindings
         bindings = KeyBindings()
         
         @bindings.add('escape')
         def exit_handler(event):
-            """Exit on Escape key."""
-            _logger.logger.warning("Escape key pressed — exiting...")
+            _logger.logger.warning("Escape pressed — exiting...")
             event.app.exit()
         
         session = PromptSession(key_bindings=bindings)
@@ -1087,4 +1075,4 @@ class AgentTide(BaseModel):
         except asyncio.CancelledError:
             pass
         finally:
-            _logger.logger.info("Exited by user. Goodbye!")
+            _logger.logger.info("Goodbye!")
