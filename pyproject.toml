@@ -37,8 +37,10 @@ dependencies = [
 
 [project.optional-dependencies]
 agents = [
+    "aiofiles==23.2.1",
     "core-for-ai>=0.1.98",
     "prompt_toolkit==3.0.50",
+    "portalocker==3.2.0"
     # Required for the agent-tide CLI entry point 
 ]
 visualization = [
@@ -47,12 +49,15 @@ visualization = [
     "plotly==5.24.1",
 ]
 agents-ui = [
+    "aiofiles==23.2.1",
     "core-for-ai>=0.1.98",
     "prompt_toolkit==3.0.50",
+    "portalocker==3.2.0",
     # Required for the agent-tide CLI entry point
     "chainlit==2.6.3",
-    "aiosqlite==0.21.0",
-    "SQLAlchemy==2.0.36"
+    "SQLAlchemy==2.0.36",
+    "asyncpg==0.30.0",
+    "docker==7.1.0"
 ]
 
 [project.scripts]
