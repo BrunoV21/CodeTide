@@ -723,8 +723,11 @@ class CodeTide(BaseModel):
         unique_paths = []
         
         for path in path_list:
-            # Normalize the path to use OS-appropriate separators
-            normalized = os.path.normpath(path)
+            if isinstance(path, str) and path.endswith("/"):
+                normalized = path
+            else:
+                # Normalize the path to use OS-appropriate separators
+                normalized = os.path.normpath(path)
             
             # Only add if we haven't seen this normalized path before
             if normalized not in seen:
