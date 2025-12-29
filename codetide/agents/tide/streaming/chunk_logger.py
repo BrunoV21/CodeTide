@@ -1,3 +1,4 @@
+from ..consts import AGENT_TIDE_SPECIAL_TOKENS
 from ....core.defaults import DEFAULT_ENCODING
 from aicore.logger import SPECIAL_TOKENS
 
@@ -7,6 +8,8 @@ from pathlib import Path
 import portalocker
 import asyncio
 import time
+
+IGNORED_TOKENS = set(SPECIAL_TOKENS + AGENT_TIDE_SPECIAL_TOKENS)
 
 class ChunkLogger:
     def __init__(self, buffer_size: int = 1024, flush_interval: float = 0.1):
@@ -21,7 +24,7 @@ class ChunkLogger:
         
     async def log_chunk(self, message: str, session_id: str, filepath: str):
         """Optimized chunk logging with batched file writes and direct streaming"""
-        if message not in SPECIAL_TOKENS:
+        if message not in IGNORED_TOKENS:
             # Add to file buffer for batched writing
             self._file_buffers[filepath].append(message)
             current_time = time.time()

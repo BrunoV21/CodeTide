@@ -81,11 +81,11 @@ class AgentTideUi(object):
                 self.agent_tide.steps = None
                 return True
 
-    async def add_to_history(self, message):
+    async def add_to_history(self, message, is_input :bool=False):
         self.history.append(message)
         if not self.agent_tide:
             await self.load()
-        else:
+        if is_input:
             self.agent_tide.history.append(message)
 
     def settings(self):

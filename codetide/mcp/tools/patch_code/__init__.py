@@ -110,8 +110,9 @@ def text_to_patch(text: str, orig: Dict[str, str], rootpath: Optional[pathlib.Pa
         elif (line.startswith("---") and len(line) == 3) or not line.startswith(("+", "-", " ")):
             lines[i] = f" {line}"
 
-        elif line.startswith(("+", "-")) and 1 < i + 1 < len(lines) and lines[i+1].startswith(" ") and not lines[i-1].startswith(("+", "-")) and lines[i+1].strip():
-            lines[i] = f" {line}"
+        ### TODO test wuthout final check that breaks for isolated addtions
+        # elif line.startswith(("+", "-")) and 1 < i + 1 < len(lines) and lines[i+1].startswith(" ") and not lines[i-1].startswith(("+", "-")) and lines[i+1].strip():
+        #     lines[i] = f" {line}"
     
     # Debug output
     # writeFile("\n".join(lines), "lines_processed.txt")

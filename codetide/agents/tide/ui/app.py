@@ -9,7 +9,7 @@ try:
     from aicore.config import Config
     from aicore.llm import Llm, LlmConfig
     from aicore.models import AuthenticationError, ModelError
-    from aicore.const import STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
+    from aicore.const import SPECIAL_TOKENS # STREAM_END_TOKEN, STREAM_START_TOKEN#, REASONING_START_TOKEN, REASONING_STOP_TOKEN
     from codetide.agents.tide.ui.utils import process_thread, send_reasoning_msg
     from codetide.agents.tide.ui.persistance import check_docker, launch_postgres
     from codetide.agents.tide.ui.stream_processor import StreamProcessor, MarkerConfig
@@ -29,6 +29,8 @@ except ImportError as e:
         "Install it with: pip install codetide[agents-ui]"
     ) from e
 
+from codetide.agents.tide.agent import REASONING_FINISHED, REASONING_STARTED, ROUND_FINISHED
+from codetide.agents.tide.ui.stream_processor import CustomElementStep, FieldExtractor
 from codetide.agents.tide.ui.defaults import AICORE_CONFIG_EXAMPLE, EXCEPTION_MESSAGE, MISSING_CONFIG_MESSAGE
 from codetide.agents.tide.defaults import DEFAULT_AGENT_TIDE_LLM_CONFIG_PATH
 from codetide.core.defaults import DEFAULT_ENCODING
@@ -71,8 +73,11 @@ async def validate_llm_config(agent_tide_ui: AgentTideUi):
     exception = True
     while exception:
         try:
-            agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
-            exception = None
+            if hasattr(agent_tide_ui.agent_tide.llm.provider.config, "access_token"):
+                exception = None
+            else:
+                agent_tide_ui.agent_tide.llm.provider.validate_config(force_check_against_provider=True)
+                exception = None
 
         except (AuthenticationError, ModelError) as e:
             exception = e
@@ -254,11 +259,11 @@ async def on_inspect_context(action :cl.Action):
         elements= [
             cl.Text(
                 name="CodeTIde Retrieved Identifiers",
-                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifers), indent=4)}\n```"""
+                content=f"""```json\n{json.dumps(list(agent_tide_ui.agent_tide._last_code_identifiers), indent=4)}\n```"""
             )
         ]
     )    
-    agent_tide_ui.agent_tide._last_code_identifers = None
+    agent_tide_ui.agent_tide._last_code_identifiers = None
 
     if agent_tide_ui.agent_tide._last_code_context:
         inspect_msg.elements.append(
@@ -306,19 +311,19 @@ async def on_reject_patch(action :cl.Action):
 @cl.on_message
 async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Optional[list] = None, agent_tide_ui :Optional[AgentTideUi]=None):
 
-    loading_msg = await cl.Message(
-        content="",
-        elements=[
-            cl.CustomElement(
-                name="LoadingMessage",
-                props={
-                    "messages": ["Working", "Syncing CodeTide", "Thinking", "Looking for context"],
-                    "interval": 1500,  # 1.5 seconds between messages
-                    "showIcon": True
-                }
-            )
-        ]
-    ).send()
+    # loading_msg = await cl.Message(
+    #     content="",
+    #     elements=[
+    #         cl.CustomElement(
+    #             name="LoadingMessage",
+    #             props={
+    #                 "messages": ["Working", "Syncing CodeTide", "Thinking", "Looking for context"],
+    #                 "interval": 1500,  # 1.5 seconds between messages
+    #                 "showIcon": True
+    #             }
+    #         )
+    #     ]
+    # ).send()
 
     if agent_tide_ui is None:
         agent_tide_ui = await loadAgentTideUi()
@@ -332,10 +337,37 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 message.content = "\n\n---\n\n".join([command_prompt, message.content])
 
         chat_history.append({"role": "user", "content": message.content})
-        await agent_tide_ui.add_to_history(message.content)
-    
-    context_msg = cl.Message(content="", author="AgentTide")
+        await agent_tide_ui.add_to_history(message.content, is_input=True)
+
+    reasoning_element = cl.CustomElement(name="ReasoningExplorer", props={
+        "reasoning_steps": [],
+        "summary": "",
+        "context_identifiers": [], # amrker
+        "modify_identifiers": [],
+        "finished": False,
+        "thinkingTime": 0
+        # "expanded": False
+    })
+
+    if not agent_tide_ui.agent_tide._skip_context_retrieval:
+        reasoning_mg = cl.Message(content="", author="AgentTide", elements=[reasoning_element])
+        _ = await reasoning_mg.send()
+    ### TODO this needs to receive the message as well to call update
+    reasoning_step = CustomElementStep(
+        element=reasoning_element,
+        props_schema = {
+            "reasoning_steps": list,  # Will accumulate reasoning blocks as list
+            "summary": str,
+            "context_identifiers": list,
+            "modify_identifiers": list
+        }
+    )
+
+
     msg = cl.Message(content="", author="Agent Tide")
+
+    # ReasoningCustomElementStep = CustomElementStep()
+
     async with cl.Step("ApplyPatch", type="tool") as diff_step:
         await diff_step.remove()
 
@@ -363,23 +395,81 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                     end_wrapper="\n```\n",
                     target_step=msg
                 ), 
+                MarkerConfig(
+                    marker_id="reasoning_steps",
+                    begin_marker="*** Begin Reasoning",
+                    end_marker="*** End Reasoning",
+                    target_step=reasoning_step,
+                    stream_mode="full",
+                    field_extractor=FieldExtractor({
+                        "header": r"\*{0,2}Task\*{0,2}:\s*(.+?)(?=\n\s*\*{0,2}Rationale\*{0,2})",
+                        "content": r"\*{0,2}Rationale\*{0,2}:\s*(.+?)(?=\s*\*{0,2}Candidate Identifiers\*{0,2}|$)",
+                        "candidate_identifiers": {"pattern": r"^\s*-\s*(.+?)$", "schema": list}
+                    })
+                ),
+                MarkerConfig(
+                    marker_id="summary",
+                    begin_marker="*** Begin Summary",
+                    end_marker="*** End Summary",
+                    target_step=reasoning_step,
+                    stream_mode="full"
+                    ### TODO update marker_config so that default field_extractor returns marker_id: contents as string
+                    ### or list or whatever is specified
+                    ### format should be {markerd_id, no_regex + type if None set to str}
+                ),
+                MarkerConfig(
+                    marker_id="context_identifiers",
+                    begin_marker="*** Begin Context Identifiers",
+                    end_marker="*** End Context Identifiers",
+                    target_step=reasoning_step,
+                    stream_mode="full"
+                ),
+                MarkerConfig(
+                    marker_id="modify_identifiers",
+                    begin_marker="*** Begin Modify Identifiers",
+                    end_marker="*** End Modify Identifiers",
+                    target_step=reasoning_step,
+                    stream_mode="full"
+                )
             ],
             global_fallback_msg=msg
         )
 
-        st = time.time()
-        is_reasonig_sent = False
+        reasoning_start_time = time.time()
         loop = run_concurrent_tasks(agent_tide_ui, codeIdentifiers)
         async for chunk in loop:
-            if chunk == STREAM_START_TOKEN:
-                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+            ### TODO update this to check FROM AGENT TIDE if reasoning is being ran and if so we need
+            ### to send is finished true to custom element when the next STREAM_START_TOKEN_arrives
+
+            if chunk in SPECIAL_TOKENS:
                 continue
+            #     is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+            #     continue
 
-            elif not is_reasonig_sent:
-                is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
-
-            elif chunk == STREAM_END_TOKEN:
+            # elif not is_reasonig_sent:
+            #     is_reasonig_sent = await send_reasoning_msg(loading_msg, context_msg, agent_tide_ui, st)
+            elif chunk == REASONING_STARTED:
+                stream_processor.global_fallback_msg = None
+                stream_processor.buffer = ""
+                stream_processor.accumulated_content = ""
+                # reasoning_element.props["expanded"] = True
+                await reasoning_element.update()
+                continue
+            elif chunk == REASONING_FINISHED:
+                reasoning_end_time = time.time()
+                thinking_time = int(reasoning_end_time - reasoning_start_time)
+                stream_processor.global_fallback_msg = msg
+                stream_processor.buffer = ""
+                stream_processor.accumulated_content = ""
+                reasoning_element.props["finished"] = True
+                reasoning_element.props["thinkingTime"] = thinking_time
+                await reasoning_element.update()
+                continue
+                
+            elif chunk == ROUND_FINISHED:
                 #  Handle any remaining content
+                # reasoning_element.props["expanded"] = False
+                # await reasoning_element.update()
                 await stream_processor.finalize()
                 await asyncio.sleep(0.5)
                 await cancel_gen(loop)
@@ -404,7 +494,7 @@ async def agent_loop(message: Optional[cl.Message]=None, codeIdentifiers: Option
                 )
             ]
 
-        if agent_tide_ui.agent_tide._last_code_identifers:
+        if agent_tide_ui.agent_tide._last_code_identifiers:
             msg.actions.append(
                 cl.Action(
                     name="inspect_code_context",

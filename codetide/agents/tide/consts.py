@@ -6,3 +6,13 @@ AGENT_TIDE_ASCII_ART = """
 \033[1;38;5;51m██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║          ██║   ██║██████╔╝███████╗\033[0m
 \033[1;38;5;255m╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝          ╚═╝   ╚═╝╚═════╝ ╚══════╝\033[0m
 """
+
+ROUND_FINISHED = "<FINISHED-GEN>"
+REASONING_STARTED = "<STARTED-REASONING>"
+REASONING_FINISHED = "<FINISHED-REASONING>"
+
+AGENT_TIDE_SPECIAL_TOKENS = [
+    ROUND_FINISHED,
+    REASONING_STARTED,
+    REASONING_FINISHED
+]

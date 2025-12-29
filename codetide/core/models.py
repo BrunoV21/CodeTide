@@ -644,14 +644,23 @@ class CodeBase(BaseModel):
         
         return "\n".join(lines)
 
-    def _build_tree_dict(self, filter_paths: list = None):
+    def _build_tree_dict(self, filter_paths: list = None, slim: bool = False):
         """Creates nested dictionary representing codebase directory structure with optional filtering.
         
-        When filtering is applied, includes:
+        Args:
+            filter_paths: List of file paths to filter on
+            slim: When True, returns only contents of subdirectories at filter_paths level.
+                When False (default), preserves current behavior with siblings and context.
+        
+        When filtering with slim=False:
         1. Filtered files (with full content)
         2. Sibling files in same directories as filtered files
         3. Sibling directories at the same level as directories containing filtered files
         4. Contents of sibling directories (files and subdirectories)
+        
+        When filtering with slim=True:
+        - Returns ONLY the directory structure at the level of filter_paths
+        - No siblings, no parent context, just the immediate subdirs/files
         """
 
         tree = {}
@@ -676,105 +685,132 @@ class CodeBase(BaseModel):
                     dir_path = "/".join(path_parts[:-1])
                     filter_directories.add(dir_path)
                     
-                    # Extract parent directory to find sibling directories
-                    parent_parts = path_parts[:-2]  # Remove filename and immediate directory
-                    if parent_parts:
-                        parent_dir = "/".join(parent_parts)
-                        parent_directories.add(parent_dir)
-                    else:
-                        # The filtered file's directory is at root level
-                        parent_directories.add("")
+                    if not slim:
+                        # Extract parent directory to find sibling directories (slim=False only)
+                        parent_parts = path_parts[:-2]  # Remove filename and immediate directory
+                        if parent_parts:
+                            parent_dir = "/".join(parent_parts)
+                            parent_directories.add(parent_dir)
+                        else:
+                            # The filtered file's directory is at root level
+                            parent_directories.add("")
                 else:
                     # File is at root level
                     filter_directories.add("")
             
-            # Find all directories that are siblings to directories containing filtered files
-            # AND all their subdirectories (to peek below)
-            sibling_directories = set()
-            for code_file in self.root:
-                if not code_file.file_path:
-                    continue
-                    
-                normalized_file_path = code_file.file_path.replace("\\", "/")
-                file_parts = normalized_file_path.split("/")
+            if slim:
+                # SLIM MODE: Only include files in the filter directories
+                relevant_files = []
+                sibling_files = []
                 
-                if len(file_parts) > 1:
-                    file_dir = "/".join(file_parts[:-1])
+                for code_file in self.root:
+                    if not code_file.file_path:
+                        continue
                     
-                    # Check if this file's directory is a sibling to any filter directory
-                    file_dir_parts = file_dir.split("/")
-                    if len(file_dir_parts) > 1:
-                        file_parent_dir = "/".join(file_dir_parts[:-1])
-                        if file_parent_dir in parent_directories:
-                            sibling_directories.add(file_dir)
+                    normalized_file_path = code_file.file_path.replace("\\", "/")
+                    
+                    # Check if this is a filtered file
+                    if normalized_file_path in normalized_filter_paths:
+                        relevant_files.append(code_file)
                     else:
-                        # File's directory is at root level
-                        if "" in parent_directories:
-                            sibling_directories.add(file_dir)
-                            
-                    # Also check if this directory is a subdirectory of any sibling directory
-                    # This allows peeking into subdirectories
-                    for parent_dir in parent_directories:
-                        if parent_dir == "":
-                            # Root level parent - include all top-level directories and their subdirs
-                            if len(file_dir_parts) >= 1:
+                        # Check if this file is in any filter directory
+                        file_parts = normalized_file_path.split("/")
+                        if len(file_parts) > 1:
+                            file_dir = "/".join(file_parts[:-1])
+                        else:
+                            file_dir = ""
+                        
+                        if file_dir in filter_directories:
+                            sibling_files.append(code_file)
+            else:
+                # STANDARD MODE: Original behavior with siblings and context
+                # Find all directories that are siblings to directories containing filtered files
+                # AND all their subdirectories (to peek below)
+                sibling_directories = set()
+                for code_file in self.root:
+                    if not code_file.file_path:
+                        continue
+                        
+                    normalized_file_path = code_file.file_path.replace("\\", "/")
+                    file_parts = normalized_file_path.split("/")
+                    
+                    if len(file_parts) > 1:
+                        file_dir = "/".join(file_parts[:-1])
+                        
+                        # Check if this file's directory is a sibling to any filter directory
+                        file_dir_parts = file_dir.split("/")
+                        if len(file_dir_parts) > 1:
+                            file_parent_dir = "/".join(file_dir_parts[:-1])
+                            if file_parent_dir in parent_directories:
                                 sibling_directories.add(file_dir)
                         else:
-                            # Check if file_dir starts with any parent directory path
-                            if file_dir.startswith(parent_dir + "/") or file_dir == parent_dir:
+                            # File's directory is at root level
+                            if "" in parent_directories:
                                 sibling_directories.add(file_dir)
-                else:
-                    # File is at root level, check if root is a parent directory
-                    if "" in parent_directories:
-                        sibling_directories.add("")
-            
-            # Also add subdirectories of filter directories themselves
-            subdirectories = set()
-            for code_file in self.root:
-                if not code_file.file_path:
-                    continue
+                                
+                        # Also check if this directory is a subdirectory of any sibling directory
+                        # This allows peeking into subdirectories
+                        for parent_dir in parent_directories:
+                            if parent_dir == "":
+                                # Root level parent - include all top-level directories and their subdirs
+                                if len(file_dir_parts) >= 1:
+                                    sibling_directories.add(file_dir)
+                            else:
+                                # Check if file_dir starts with any parent directory path
+                                if file_dir.startswith(parent_dir + "/") or file_dir == parent_dir:
+                                    sibling_directories.add(file_dir)
+                    else:
+                        # File is at root level, check if root is a parent directory
+                        if "" in parent_directories:
+                            sibling_directories.add("")
+                
+                # Also add subdirectories of filter directories themselves
+                subdirectories = set()
+                for code_file in self.root:
+                    if not code_file.file_path:
+                        continue
+                        
+                    normalized_file_path = code_file.file_path.replace("\\", "/")
+                    file_parts = normalized_file_path.split("/")
                     
-                normalized_file_path = code_file.file_path.replace("\\", "/")
-                file_parts = normalized_file_path.split("/")
+                    if len(file_parts) > 1:
+                        file_dir = "/".join(file_parts[:-1])
+                        
+                        # Check if this directory is a subdirectory of any filter directory
+                        for filter_dir in filter_directories:
+                            if filter_dir == "":
+                                # Root level filter - include everything
+                                subdirectories.add(file_dir)
+                            elif file_dir.startswith(filter_dir + "/") or file_dir == filter_dir:
+                                subdirectories.add(file_dir)
                 
-                if len(file_parts) > 1:
-                    file_dir = "/".join(file_parts[:-1])
+                # Combine all relevant directories
+                all_relevant_directories = filter_directories.union(sibling_directories).union(subdirectories)
+                
+                # Find all files that should be included
+                relevant_files = []  # Files that should show full content (filtered files)
+                sibling_files = []   # Files that should show as context (siblings and directory contents)
+                
+                for code_file in self.root:
+                    if not code_file.file_path:
+                        continue
+                        
+                    normalized_file_path = code_file.file_path.replace("\\", "/")
                     
-                    # Check if this directory is a subdirectory of any filter directory
-                    for filter_dir in filter_directories:
-                        if filter_dir == "":
-                            # Root level filter - include everything
-                            subdirectories.add(file_dir)
-                        elif file_dir.startswith(filter_dir + "/") or file_dir == filter_dir:
-                            subdirectories.add(file_dir)
-            
-            # Combine all relevant directories
-            all_relevant_directories = filter_directories.union(sibling_directories).union(subdirectories)
-            
-            # Find all files that should be included
-            relevant_files = []  # Files that should show full content (filtered files)
-            sibling_files = []   # Files that should show as context (siblings and directory contents)
-            
-            for code_file in self.root:
-                if not code_file.file_path:
-                    continue
+                    # Check if this is a filtered file (should show full content)
+                    if normalized_file_path in normalized_filter_paths:
+                        relevant_files.append(code_file)
+                        continue
                     
-                normalized_file_path = code_file.file_path.replace("\\", "/")
-                
-                # Check if this is a filtered file (should show full content)
-                if normalized_file_path in normalized_filter_paths:
-                    relevant_files.append(code_file)
-                    continue
-                
-                # Check if this file is in any of the relevant directories
-                file_parts = normalized_file_path.split("/")
-                if len(file_parts) > 1:
-                    file_dir = "/".join(file_parts[:-1])
-                else:
-                    file_dir = ""
-                
-                if file_dir in all_relevant_directories:
-                    sibling_files.append(code_file)
+                    # Check if this file is in any of the relevant directories
+                    file_parts = normalized_file_path.split("/")
+                    if len(file_parts) > 1:
+                        file_dir = "/".join(file_parts[:-1])
+                    else:
+                        file_dir = ""
+                    
+                    if file_dir in all_relevant_directories:
+                        sibling_files.append(code_file)
         
         # Build tree structure from relevant files (with full content)
         for code_file in relevant_files:
@@ -815,8 +851,8 @@ class CodeBase(BaseModel):
                         current_level[part] = {"_type": "directory"}
                     current_level = current_level[part]
         
-        # Add placeholder for omitted content when filtering is applied
-        if filter_paths is not None:
+        # Add placeholder for omitted content when filtering is applied and not in slim mode
+        if filter_paths is not None and not slim:
             tree = self._add_omitted_placeholders(tree, filter_paths)
         
         self._tree_dict = tree
@@ -911,9 +947,9 @@ class CodeBase(BaseModel):
             display_name = name
             if include_types:
                 if data.get("_type") == "file":
-                    display_name = f"📄 {name}"
+                    display_name = f"{name}"
                 else:
-                    display_name = f"📁 {name}"
+                    display_name = f"{name}/"
             
             lines.append(f"{prefix}{current_prefix}{display_name}")
             

@@ -42,9 +42,9 @@ uvx --from codetide codetide-cli --help
 ```
 ## AgentTide
 
-AgentTide consists of a demo, showing how CodeTide can integrate with LLMs and augment code generation and condebase related workflows. If you ask Tide to describe himself, he will say something like this: I'm the next-generation, precision-driven software engineering agent built on top of CodeTide. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
+AgentTide is a next-generation, precision-driven software engineering agent built on top of CodeTide. It is ready to help you dig deep into your codebase, automate code changes, and provide intelligent, context-aware assistance. You can use it via the command-line interface (CLI) or a beautiful interactive UI.
 
-> **Demo available:** Try AgentTide live on Hugging Face Spaces: [https://mclovinittt-agenttidedemo.hf.space/](https://mclovinittt-agenttidedemo.hf.space/)
+> **Try AgentTide live:** [https://mclovinittt-agenttidedemo.hf.space/](https://mclovinittt-agenttidedemo.hf.space/)
 
 ---
 
@@ -57,35 +57,33 @@ AgentTide consists of a demo, showing how CodeTide can integrate with LLMs and a
 
 **AgentTide CLI**
 
-To use the AgentTide conversational CLI, you must install the `[agents]` extra and launch via:
+To use the AgentTide conversational CLI, install the `[agents]` extra and launch via:
 
 ```sh
 uvx --from codetide[agents] agent-tide
 ```
 
-This will start an interactive terminal session with AgentTide.
-
-You can also pass the `--project_path` argument to start AgentTide on a specific path:
+This starts an interactive terminal session with AgentTide. You can specify a project path:
 
 ```sh
 uvx --from codetide[agents] agent-tide --project_path /path/to/your/project
 ```
 
-If you do not provide the `--project_path` argument, AgentTide will start in the current directory by default.
+If `--project_path` is not provided, AgentTide starts in the current directory.
 
 **AgentTide UI**
 
-To use the AgentTide web UI, you must install the `[agents-ui]` extra and launch via:
+To use the AgentTide web UI, install the `[agents-ui]` extra and launch:
 
 ```sh
 uvx --from codetide[agents-ui] agent-tide-ui
 ```
 
-This will start a web server for the AgentTide UI. Follow the on-screen instructions to interact with the agent in your browser at [http://localhost:9753](http://localhost:9753) (or the port you specified)
+This starts a web server for the AgentTide UI. Interact with the agent in your browser at [http://localhost:9753](http://localhost:9753) (or your specified port).
 
-### Why Try AgentTide? ([Full Guide & Tips Here](codetide/agents/tide/ui/chainlit.md))
+### Why Use AgentTide? ([Full Guide & Tips Here](codetide/agents/tide/ui/chainlit.md))
 
-**Local-First & Private:** All code analysis and patching is performed locally. Your code never leaves your machine.
+- **Local-First & Private:** All code analysis and patching is performed locally. Your code never leaves your machine.
 - **Transparent & Stepwise:** See every plan and patch before it's applied. Edit, reorder, or approve steps—you're always in control.
 - **Context-Aware:** AgentTide loads only the relevant code identifiers and dependencies for your request, making it fast and precise.
 - **Human-in-the-Loop:** After each step, review the patch, provide feedback, or continue—no black-box agent behavior.
@@ -93,10 +91,10 @@ This will start a web server for the AgentTide UI. Follow the on-screen instruct
 
 **Usage Tips:**  
 - If you know the exact code context, specify identifiers directly in your request (e.g., `module.submodule.file_withoutextension.object`).  
-- You can use the `plan` command to generate a step-by-step implementation plan for your request, review and edit the plan, and then proceed step-by-step.
-- The `commit` command allows you to review and finalize changes before they are applied.
+- Use the `plan` command to generate a step-by-step implementation plan for your request, review and edit the plan, and then proceed step-by-step.
+- Use the `commit` command to review and finalize changes before they are applied.
 
- See the [chainlit.md](codetide/agents/tide/ui/chainlit.md) for full details and advanced workflows, including the latest specifications for these commands!
+See [chainlit.md](codetide/agents/tide/ui/chainlit.md) for full details and advanced workflows, including the latest specifications for these commands!
 
 ---
 
@@ -156,7 +154,7 @@ CodeTide provides the following tools for agents:
 2. **`getRepoTree`**: Explore the repository structure.
 
 #### Example: Initializing an LLM with CodeTide
-Here’s a snippet from `agent_tide.py` demonstrating how to initialize an LLM with CodeTide as an MCP server:
+Here's a snippet from `agent_tide.py` demonstrating how to initialize an LLM with CodeTide as an MCP server:
 
 ```python
 from aicore.llm import Llm, LlmConfig
@@ -176,7 +174,7 @@ def init_llm() -> Llm:
     return llm
 ```
 
-This setup allows the LLM to leverage CodeTide’s tools for codebase interactions.
+This setup allows the LLM to leverage CodeTide's tools for codebase interactions.
 
 CodeTide can now be used as an MCP Server! This allows seamless integration with AI tools and workflows. Below are the tools available:
 The available tools are:
@@ -517,7 +515,7 @@ if __name__ == "__main__":
 
 ## 🧠 Philosophy
 
-CodeTide is about giving developers structure-aware tools that are **fast, predictable, and private**. Your code is parsed, navigated, and queried as a symbolic graph - not treated as a black box of tokens. Whether you’re building, refactoring, or feeding context into an LLM - **you stay in control**.
+CodeTide is about giving developers structure-aware tools that are **fast, predictable, and private**. Your code is parsed, navigated, and queried as a symbolic graph - not treated as a black box of tokens. Whether you're building, refactoring, or feeding context into an LLM - **you stay in control**.
 
 > Like a tide, your codebase evolves - and CodeTide helps you move with it, intelligently.
 
@@ -539,7 +537,7 @@ Instead, it uses:
 
 ## 🗺️ Roadmap
 
-Here’s what’s next for CodeTide:
+Here's what's next for CodeTide:
 
 - 🧩 **Support more languages** already integrated with [Tree-sitter](https://tree-sitter.github.io/tree-sitter/)  
   → **TypeScript** is the top priority. **Now available in Beta**
@@ -554,11 +552,11 @@ Here’s what’s next for CodeTide:
 
 ## 🤖 Agents Module: AgentTide
 
-> **Demo available:** Try AgentTide live on Hugging Face Spaces: [https://mclovinittt-agenttidedemo.hf.space/](https://mclovinittt-agenttidedemo.hf.space/)
+> **Try AgentTide live:** [https://mclovinittt-agenttidedemo.hf.space/](https://mclovinittt-agenttidedemo.hf.space/)
 
-CodeTide now includes an `agents` module, featuring **AgentTide**—a precision-driven software engineering agent that connects directly to your codebase and executes your requests with full code context.
+CodeTide now includes an `agents` module, featuring **AgentTide**—a production-ready, precision-driven software engineering agent that connects directly to your codebase and executes your requests with full code context.
 
-**AgentTide** leverages CodeTide’s symbolic code understanding to:
+**AgentTide** leverages CodeTide's symbolic code understanding to:
 - Retrieve and reason about relevant code context for any request
 - Generate atomic, high-precision patches using strict protocols
 - Apply changes directly to your codebase, with robust validation
@@ -567,14 +565,15 @@ CodeTide now includes an `agents` module, featuring **AgentTide**—a precision-
 - Source: [`codetide/agents/tide/agent.py`](codetide/agents/tide/agent.py)
 
 ### What It Does
-AgentTide acts as an autonomous agent that:
-- Connects to your codebase using CodeTide’s parsing and context tools
-- Interacts with users via a conversational interface
-- Identifies relevant files, classes, and functions for any request
-- Generates and applies diff-style patches, ensuring code quality and requirements fidelity
+AgentTide is an autonomous, precision-driven software engineering agent that:
+- Connects to your codebase using CodeTide's parsing and context tools
+- Interacts with users via a conversational interface (CLI or UI)
+- Identifies relevant files, classes, and functions for any request using advanced identifier resolution and code search
+- Generates and applies atomic, diff-style patches using a strict protocol, ensuring code quality and requirements fidelity
+- Supports stepwise planning, patch review, and human-in-the-loop approval for every change
 
 ### Example Usage
-To use AgentTide, ensure you have the `aicore` package installed (`pip install codetide[agents]`), then instantiate and run the agent:
+To use AgentTide programmatically, ensure you have the `aicore` package installed (`pip install codetide[agents]`), then instantiate and run the agent:
 
 ```python
 from codetide import CodeTide
@@ -599,10 +598,10 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-AgentTide will prompt you for requests, retrieve the relevant code context, and generate precise patches to fulfill your requirements.
+AgentTide will prompt you for requests, retrieve the relevant code context, and generate precise, atomic patches to fulfill your requirements. All changes are patch-based and require explicit approval before being applied.
 
-**Disclaimer:**
-AgentTide is designed for focused, context-aware code editing, not for generating entire applications from vague ideas. While CodeTide as a platform can support larger workflows, the current version of AgentTide is optimized for making precise, well-scoped changes. For best results, provide one clear request at a time. AgentTide does not yet have access to your terminal or the ability to execute commands, but support for test-based validation is planned in future updates.
+**Note:**  
+AgentTide is designed for focused, context-aware code editing, not for generating entire applications from vague ideas. For best results, provide one clear request at a time. AgentTide does not execute code or shell commands, but support for test-based validation is planned in future updates.
 
 For more details, see the [agents module source code](codetide/agents/tide/agent.py).
 
